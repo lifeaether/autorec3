@@ -2,7 +2,7 @@
 """autorec Web UI - Python 標準ライブラリのみの軽量HTTPサーバー"""
 import os
 import sys
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 # autorec ディレクトリをパスに追加
@@ -42,6 +42,13 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             if parsed.path == "/":
                 self.path = "/index.html"
             super().do_GET()
+
+    def end_headers(self):
+        """静的ファイルに Cache-Control ヘッダを追加"""
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/"):
+            self.send_header("Cache-Control", "max-age=300")
+        super().end_headers()
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -111,7 +118,7 @@ def main():
         except ValueError:
             pass
 
-    server = HTTPServer(("0.0.0.0", port), AutorecHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), AutorecHandler)
     print(f"[web] autorec Web UI 起動: http://0.0.0.0:{port}")
     print(f"[web] 静的ファイル: {STATIC_DIR}")
     print(f"[web] EPG DB: {api.EPG_DB}")

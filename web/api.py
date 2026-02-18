@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+import threading
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs
 
@@ -26,11 +27,26 @@ if os.path.exists(_conf_path):
                 AUTOREC_DB = val
 
 
+_local = threading.local()
+
+
 def _get_db(db_path):
-    """SQLite 接続を取得"""
-    conn = sqlite3.connect(db_path)
+    """SQLite 接続を取得 (スレッドローカルでキャッシュ)"""
+    cache = getattr(_local, 'connections', None)
+    if cache is None:
+        cache = {}
+        _local.connections = cache
+    conn = cache.get(db_path)
+    if conn is not None:
+        return conn
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    if db_path == EPG_DB:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_programme_start_channel ON programme(start_time, channel)"
+        )
+    cache[db_path] = conn
     return conn
 
 
@@ -79,22 +95,17 @@ def get_programmes(params):
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     conn = _get_db(EPG_DB)
-    try:
-        rows = conn.execute(
-            f"SELECT * FROM programme {where} ORDER BY start_time, channel LIMIT ? OFFSET ?",
-            args + [limit, offset],
-        ).fetchall()
-        total = conn.execute(
-            f"SELECT COUNT(*) FROM programme {where}", args
-        ).fetchone()[0]
-        return _json_response({
-            "programmes": [dict(r) for r in rows],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
-    finally:
-        conn.close()
+    rows = conn.execute(
+        f"SELECT event_id, channel, title, start_time, end_time, category FROM programme {where} ORDER BY start_time, channel LIMIT ? OFFSET ?",
+        args + [limit, offset],
+    ).fetchall()
+    programmes = [dict(r) for r in rows]
+    return _json_response({
+        "programmes": programmes,
+        "total": len(programmes),
+        "limit": limit,
+        "offset": offset,
+    })
 
 
 def search_programmes(params):
@@ -129,43 +140,37 @@ def search_programmes(params):
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     conn = _get_db(EPG_DB)
-    try:
-        rows = conn.execute(
-            f"SELECT * FROM programme {where} ORDER BY start_time DESC LIMIT ? OFFSET ?",
-            args + [limit, offset],
-        ).fetchall()
-        total = conn.execute(
-            f"SELECT COUNT(*) FROM programme {where}", args
-        ).fetchone()[0]
-        return _json_response({
-            "programmes": [dict(r) for r in rows],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
-    finally:
-        conn.close()
+    rows = conn.execute(
+        f"SELECT * FROM programme {where} ORDER BY start_time DESC LIMIT ? OFFSET ?",
+        args + [limit, offset],
+    ).fetchall()
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM programme {where}", args
+    ).fetchone()[0]
+    return _json_response({
+        "programmes": [dict(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    })
 
 
 def get_programme_stats(_params):
     """GET /api/programmes/stats - 番組統計"""
     conn = _get_db(EPG_DB)
-    try:
-        total = conn.execute("SELECT COUNT(*) FROM programme").fetchone()[0]
-        by_channel = conn.execute(
-            "SELECT channel, COUNT(*) as count FROM programme GROUP BY channel ORDER BY count DESC"
-        ).fetchall()
-        date_range = conn.execute(
-            "SELECT MIN(start_time) as earliest, MAX(start_time) as latest FROM programme"
-        ).fetchone()
-        return _json_response({
-            "total_programmes": total,
-            "by_channel": [dict(r) for r in by_channel],
-            "earliest": date_range["earliest"],
-            "latest": date_range["latest"],
-        })
-    finally:
-        conn.close()
+    total = conn.execute("SELECT COUNT(*) FROM programme").fetchone()[0]
+    by_channel = conn.execute(
+        "SELECT channel, COUNT(*) as count FROM programme GROUP BY channel ORDER BY count DESC"
+    ).fetchall()
+    date_range = conn.execute(
+        "SELECT MIN(start_time) as earliest, MAX(start_time) as latest FROM programme"
+    ).fetchone()
+    return _json_response({
+        "total_programmes": total,
+        "by_channel": [dict(r) for r in by_channel],
+        "earliest": date_range["earliest"],
+        "latest": date_range["latest"],
+    })
 
 
 # --- 録画ルール API ---
@@ -173,11 +178,8 @@ def get_programme_stats(_params):
 def get_rules(_params):
     """GET /api/rules - 録画ルール一覧"""
     conn = _get_db(AUTOREC_DB)
-    try:
-        rows = conn.execute("SELECT * FROM rule ORDER BY priority DESC, id").fetchall()
-        return _json_response({"rules": [dict(r) for r in rows]})
-    finally:
-        conn.close()
+    rows = conn.execute("SELECT * FROM rule ORDER BY priority DESC, id").fetchall()
+    return _json_response({"rules": [dict(r) for r in rows]})
 
 
 def create_rule(body):
@@ -189,28 +191,25 @@ def create_rule(body):
         return _error("name is required")
 
     conn = _get_db(AUTOREC_DB)
-    try:
-        cursor = conn.execute(
-            """INSERT INTO rule (name, keyword, channel, category, time_from, time_to, weekdays, enabled, priority)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                data["name"],
-                data.get("keyword"),
-                data.get("channel"),
-                data.get("category"),
-                data.get("time_from"),
-                data.get("time_to"),
-                data.get("weekdays"),
-                data.get("enabled", 1),
-                data.get("priority", 0),
-            ),
-        )
-        conn.commit()
-        rule_id = cursor.lastrowid
-        row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
-        return _json_response({"rule": dict(row)}, 201)
-    finally:
-        conn.close()
+    cursor = conn.execute(
+        """INSERT INTO rule (name, keyword, channel, category, time_from, time_to, weekdays, enabled, priority)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            data["name"],
+            data.get("keyword"),
+            data.get("channel"),
+            data.get("category"),
+            data.get("time_from"),
+            data.get("time_to"),
+            data.get("weekdays"),
+            data.get("enabled", 1),
+            data.get("priority", 0),
+        ),
+    )
+    conn.commit()
+    rule_id = cursor.lastrowid
+    row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
+    return _json_response({"rule": dict(row)}, 201)
 
 
 def update_rule(rule_id, body):
@@ -220,43 +219,37 @@ def update_rule(rule_id, body):
         return _error("Invalid JSON body")
 
     conn = _get_db(AUTOREC_DB)
-    try:
-        existing = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
-        if not existing:
-            return _error("Rule not found", 404)
+    existing = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
+    if not existing:
+        return _error("Rule not found", 404)
 
-        fields = ["name", "keyword", "channel", "category", "time_from", "time_to", "weekdays", "enabled", "priority"]
-        updates = []
-        args = []
-        for f in fields:
-            if f in data:
-                updates.append(f"{f} = ?")
-                args.append(data[f])
+    fields = ["name", "keyword", "channel", "category", "time_from", "time_to", "weekdays", "enabled", "priority"]
+    updates = []
+    args = []
+    for f in fields:
+        if f in data:
+            updates.append(f"{f} = ?")
+            args.append(data[f])
 
-        if not updates:
-            return _error("No fields to update")
+    if not updates:
+        return _error("No fields to update")
 
-        args.append(rule_id)
-        conn.execute(f"UPDATE rule SET {', '.join(updates)} WHERE id = ?", args)
-        conn.commit()
-        row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
-        return _json_response({"rule": dict(row)})
-    finally:
-        conn.close()
+    args.append(rule_id)
+    conn.execute(f"UPDATE rule SET {', '.join(updates)} WHERE id = ?", args)
+    conn.commit()
+    row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
+    return _json_response({"rule": dict(row)})
 
 
 def delete_rule(rule_id):
     """DELETE /api/rules/:id - ルール削除"""
     conn = _get_db(AUTOREC_DB)
-    try:
-        existing = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
-        if not existing:
-            return _error("Rule not found", 404)
-        conn.execute("DELETE FROM rule WHERE id = ?", (rule_id,))
-        conn.commit()
-        return _json_response({"deleted": rule_id})
-    finally:
-        conn.close()
+    existing = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
+    if not existing:
+        return _error("Rule not found", 404)
+    conn.execute("DELETE FROM rule WHERE id = ?", (rule_id,))
+    conn.commit()
+    return _json_response({"deleted": rule_id})
 
 
 # --- スケジュール API ---
@@ -276,27 +269,24 @@ def get_schedules(params):
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     conn = _get_db(AUTOREC_DB)
-    try:
-        rows = conn.execute(
-            f"""SELECT s.*, r.name as rule_name
-                FROM schedule s
-                LEFT JOIN rule r ON s.rule_id = r.id
-                {where}
-                ORDER BY s.start_time DESC
-                LIMIT ? OFFSET ?""",
-            args + [limit, offset],
-        ).fetchall()
-        total = conn.execute(
-            f"SELECT COUNT(*) FROM schedule s {where}", args
-        ).fetchone()[0]
-        return _json_response({
-            "schedules": [dict(r) for r in rows],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
-    finally:
-        conn.close()
+    rows = conn.execute(
+        f"""SELECT s.*, r.name as rule_name
+            FROM schedule s
+            LEFT JOIN rule r ON s.rule_id = r.id
+            {where}
+            ORDER BY s.start_time DESC
+            LIMIT ? OFFSET ?""",
+        args + [limit, offset],
+    ).fetchall()
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM schedule s {where}", args
+    ).fetchone()[0]
+    return _json_response({
+        "schedules": [dict(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    })
 
 
 # --- ログ API ---
@@ -320,27 +310,24 @@ def get_logs(params):
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     conn = _get_db(AUTOREC_DB)
-    try:
-        rows = conn.execute(
-            f"""SELECT l.*, s.title as schedule_title, s.channel as schedule_channel
-                FROM log l
-                LEFT JOIN schedule s ON l.schedule_id = s.id
-                {where}
-                ORDER BY l.timestamp DESC
-                LIMIT ? OFFSET ?""",
-            args + [limit, offset],
-        ).fetchall()
-        total = conn.execute(
-            f"SELECT COUNT(*) FROM log l {where}", args
-        ).fetchone()[0]
-        return _json_response({
-            "logs": [dict(r) for r in rows],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
-    finally:
-        conn.close()
+    rows = conn.execute(
+        f"""SELECT l.*, s.title as schedule_title, s.channel as schedule_channel
+            FROM log l
+            LEFT JOIN schedule s ON l.schedule_id = s.id
+            {where}
+            ORDER BY l.timestamp DESC
+            LIMIT ? OFFSET ?""",
+        args + [limit, offset],
+    ).fetchall()
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM log l {where}", args
+    ).fetchone()[0]
+    return _json_response({
+        "logs": [dict(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    })
 
 
 # --- チャンネル一覧 API ---

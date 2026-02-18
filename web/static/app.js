@@ -89,6 +89,9 @@ function switchSection(name) {
 
 /* --- 番組表 (メイン) --- */
 
+// 番組データをグローバルに保持 (onclick軽量化)
+window._programmes = [];
+
 async function loadEPG() {
     const date = document.getElementById('epg-date').value || todayStr();
     const channel = document.getElementById('epg-channel').value;
@@ -107,32 +110,28 @@ function renderEPGTable(programmes, date) {
         return;
     }
 
-    // チャンネルごとにグループ化
+    // 番組データをグローバル配列に格納
+    window._programmes = programmes;
+
+    // チャンネルごとにグループ化 (インデックスも記録)
     const byChannel = {};
     const channelOrder = [];
-    programmes.forEach(p => {
+    programmes.forEach((p, idx) => {
         if (!byChannel[p.channel]) {
             byChannel[p.channel] = [];
             channelOrder.push(p.channel);
         }
-        byChannel[p.channel].push(p);
+        byChannel[p.channel].push({ prog: p, idx });
     });
 
-    // タブ生成
-    let html = '<div class="epg-tabs">';
-    html += '<button class="epg-tab active" data-ch="">全チャンネル</button>';
-    channelOrder.forEach(ch => {
-        html += `<button class="epg-tab" data-ch="${escapeHtml(ch)}">${escapeHtml(ch)}</button>`;
-    });
-    html += '</div>';
-
-    // 全チャンネル・個別チャンネルのセクションを生成
-    const renderChannelTable = (ch, progs) => {
+    // renderChannelTable: ch が空文字なら全チャンネル表示
+    const renderChannelTable = (ch, items) => {
         let t = `<table><thead><tr><th style="width:6em">開始</th><th style="width:6em">終了</th>`;
         if (!ch) t += `<th style="width:8em">チャンネル</th>`;
         t += `<th>番組名</th></tr></thead><tbody>`;
-        progs.forEach(p => {
-            t += `<tr class="epg-cell" onclick="showProgrammeDetail(this, ${escapeHtml(JSON.stringify(JSON.stringify(p)))})" title="${escapeHtml(p.description || '')}">`;
+        items.forEach(item => {
+            const p = item.prog;
+            t += `<tr class="epg-cell" onclick="showProgrammeDetail(this, ${item.idx})">`;
             t += `<td class="time">${formatTime(p.start_time)}</td>`;
             t += `<td class="time">${formatTime(p.end_time)}</td>`;
             if (!ch) t += `<td>${escapeHtml(p.channel)}</td>`;
@@ -143,19 +142,30 @@ function renderEPGTable(programmes, date) {
         return t;
     };
 
-    // 全チャンネル (時間順)
-    html += '<div class="epg-tab-content active" data-ch="">';
-    html += renderChannelTable('', programmes);
+    // タブ生成
+    let html = '<div class="epg-tabs">';
+    html += '<button class="epg-tab active" data-ch="">全チャンネル</button>';
+    channelOrder.forEach(ch => {
+        html += `<button class="epg-tab" data-ch="${escapeHtml(ch)}">${escapeHtml(ch)}</button>`;
+    });
     html += '</div>';
 
-    // 個別チャンネル
+    // 全チャンネルタブ (時間順) — 初回のみ描画
+    const allItems = programmes.map((prog, idx) => ({ prog, idx }));
+    html += '<div class="epg-tab-content active" data-ch="">';
+    html += renderChannelTable('', allItems);
+    html += '</div>';
+
+    // 個別チャンネルタブ — プレースホルダのみ (遅延レンダリング)
     channelOrder.forEach(ch => {
-        html += `<div class="epg-tab-content" data-ch="${escapeHtml(ch)}">`;
-        html += renderChannelTable(ch, byChannel[ch]);
-        html += '</div>';
+        html += `<div class="epg-tab-content" data-ch="${escapeHtml(ch)}"></div>`;
     });
 
     container.innerHTML = html;
+
+    // byChannel をコンテナに保持 (遅延レンダリング用)
+    container._byChannel = byChannel;
+    container._renderChannelTable = renderChannelTable;
 
     // タブ切り替えイベント
     container.querySelectorAll('.epg-tab').forEach(tab => {
@@ -164,14 +174,19 @@ function renderEPGTable(programmes, date) {
             container.querySelectorAll('.epg-tab-content').forEach(c => c.classList.remove('active'));
             tab.classList.add('active');
             const ch = tab.dataset.ch;
-            container.querySelector(`.epg-tab-content[data-ch="${ch}"]`).classList.add('active');
+            const content = container.querySelector(`.epg-tab-content[data-ch="${ch}"]`);
+            // 遅延レンダリング: 未描画なら描画
+            if (ch && content && !content.innerHTML) {
+                content.innerHTML = container._renderChannelTable(ch, container._byChannel[ch]);
+            }
+            content.classList.add('active');
         });
     });
 }
 
 /* 番組詳細表示 */
-function showProgrammeDetail(el, jsonStr) {
-    const p = JSON.parse(jsonStr);
+function showProgrammeDetail(el, idx) {
+    const p = window._programmes[idx];
     const detail = document.getElementById('programme-detail');
     detail.innerHTML = `
         <h4>${escapeHtml(p.title)}</h4>
@@ -179,7 +194,7 @@ function showProgrammeDetail(el, jsonStr) {
             ${escapeHtml(p.channel)} | ${formatDateTime(p.start_time)} - ${formatTime(p.end_time)}
             ${p.category ? ' | ' + escapeHtml(p.category) : ''}
         </div>
-        <div class="desc">${escapeHtml(p.description || '詳細情報なし')}</div>
+        <div class="desc">${escapeHtml(p.description || '')}</div>
         <div style="margin-top:0.5rem">
             <button class="btn btn-primary btn-sm" onclick="quickAddRule('${escapeHtml(p.title)}', '${escapeHtml(p.channel)}')">
                 このキーワードでルール作成
@@ -347,8 +362,19 @@ async function loadLogs() {
 /* --- 初期化 --- */
 
 async function init() {
-    // チャンネル一覧取得
-    const chData = await API.get('/api/channels');
+    // 日付を今日に設定 (API呼び出し前に設定)
+    const epgDate = document.getElementById('epg-date');
+    if (epgDate && !epgDate.value) {
+        epgDate.value = todayStr();
+    }
+
+    // チャンネル一覧と番組表を並列取得
+    const date = epgDate ? epgDate.value : todayStr();
+    const [chData, epgData] = await Promise.all([
+        API.get('/api/channels'),
+        API.get(`/api/programmes?date=${date}&limit=1000`),
+    ]);
+
     channels = chData.channels || [];
 
     // チャンネルセレクトボックスを生成
@@ -363,12 +389,6 @@ async function init() {
         sel.value = current;
     });
 
-    // 日付を今日に設定
-    const epgDate = document.getElementById('epg-date');
-    if (epgDate && !epgDate.value) {
-        epgDate.value = todayStr();
-    }
-
     // ナビゲーションイベント
     document.querySelectorAll('nav a[data-section]').forEach(a => {
         a.addEventListener('click', (e) => {
@@ -377,8 +397,14 @@ async function init() {
         });
     });
 
-    // 初期セクション表示
-    switchSection('epg');
+    // 初期セクション表示 (既にデータがあるので直接レンダリング)
+    document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
+    const section = document.getElementById('section-epg');
+    const link = document.querySelector('nav a[data-section="epg"]');
+    if (section) section.classList.add('active');
+    if (link) link.classList.add('active');
+    renderEPGTable(epgData.programmes, date);
 }
 
 document.addEventListener('DOMContentLoaded', init);
