@@ -93,7 +93,7 @@ async function loadEPG() {
     const date = document.getElementById('epg-date').value || todayStr();
     const channel = document.getElementById('epg-channel').value;
 
-    let url = `/api/programmes?date=${date}&limit=500`;
+    let url = `/api/programmes?date=${date}&limit=1000`;
     if (channel) url += `&channel=${encodeURIComponent(channel)}`;
 
     const data = await API.get(url);
@@ -118,46 +118,55 @@ function renderEPGTable(programmes, date) {
         byChannel[p.channel].push(p);
     });
 
-    // テーブル生成
-    let html = '<table><thead><tr><th>時間</th>';
+    // タブ生成
+    let html = '<div class="epg-tabs">';
+    html += '<button class="epg-tab active" data-ch="">全チャンネル</button>';
     channelOrder.forEach(ch => {
-        html += `<th>${escapeHtml(ch)}</th>`;
+        html += `<button class="epg-tab" data-ch="${escapeHtml(ch)}">${escapeHtml(ch)}</button>`;
     });
-    html += '</tr></thead><tbody>';
+    html += '</div>';
 
-    // 時間帯スロットを生成 (30分刻み)
-    const slots = [];
-    for (let h = 4; h < 28; h++) {
-        const hh = h % 24;
-        slots.push(`${String(hh).padStart(2, '0')}:00`);
-        slots.push(`${String(hh).padStart(2, '0')}:30`);
-    }
-
-    slots.forEach(slot => {
-        html += `<tr><td class="time">${slot}</td>`;
-        channelOrder.forEach(ch => {
-            const progs = byChannel[ch] || [];
-            const matching = progs.filter(p => {
-                const t = formatTime(p.start_time);
-                const slotMin = parseInt(slot.split(':')[0]) * 60 + parseInt(slot.split(':')[1]);
-                const progMin = parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
-                return progMin >= slotMin && progMin < slotMin + 30;
-            });
-            if (matching.length > 0) {
-                const p = matching[0];
-                html += `<td class="epg-cell" onclick="showProgrammeDetail(this, ${escapeHtml(JSON.stringify(JSON.stringify(p)))})" title="${escapeHtml(p.title)}">`;
-                html += `<span class="time">${formatTime(p.start_time)}</span> `;
-                html += `<span class="title">${escapeHtml(p.title)}</span>`;
-                html += '</td>';
-            } else {
-                html += '<td></td>';
-            }
+    // 全チャンネル・個別チャンネルのセクションを生成
+    const renderChannelTable = (ch, progs) => {
+        let t = `<table><thead><tr><th style="width:6em">開始</th><th style="width:6em">終了</th>`;
+        if (!ch) t += `<th style="width:8em">チャンネル</th>`;
+        t += `<th>番組名</th></tr></thead><tbody>`;
+        progs.forEach(p => {
+            t += `<tr class="epg-cell" onclick="showProgrammeDetail(this, ${escapeHtml(JSON.stringify(JSON.stringify(p)))})" title="${escapeHtml(p.description || '')}">`;
+            t += `<td class="time">${formatTime(p.start_time)}</td>`;
+            t += `<td class="time">${formatTime(p.end_time)}</td>`;
+            if (!ch) t += `<td>${escapeHtml(p.channel)}</td>`;
+            t += `<td class="title">${escapeHtml(p.title)}</td>`;
+            t += '</tr>';
         });
-        html += '</tr>';
+        t += '</tbody></table>';
+        return t;
+    };
+
+    // 全チャンネル (時間順)
+    html += '<div class="epg-tab-content active" data-ch="">';
+    html += renderChannelTable('', programmes);
+    html += '</div>';
+
+    // 個別チャンネル
+    channelOrder.forEach(ch => {
+        html += `<div class="epg-tab-content" data-ch="${escapeHtml(ch)}">`;
+        html += renderChannelTable(ch, byChannel[ch]);
+        html += '</div>';
     });
 
-    html += '</tbody></table>';
     container.innerHTML = html;
+
+    // タブ切り替えイベント
+    container.querySelectorAll('.epg-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            container.querySelectorAll('.epg-tab').forEach(t => t.classList.remove('active'));
+            container.querySelectorAll('.epg-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            const ch = tab.dataset.ch;
+            container.querySelector(`.epg-tab-content[data-ch="${ch}"]`).classList.add('active');
+        });
+    });
 }
 
 /* 番組詳細表示 */

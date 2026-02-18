@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs
 
 AUTOREC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,8 +65,13 @@ def get_programmes(params):
     args = []
 
     if date:
-        conditions.append("DATE(start_time) = ?")
-        args.append(date)
+        # 日本の放送日慣行: 4:00起点 (date 04:00 〜 翌日 04:00)
+        d = datetime.strptime(date, "%Y-%m-%d")
+        next_day = (d + timedelta(days=1)).strftime("%Y-%m-%d")
+        conditions.append("start_time >= ?")
+        args.append(f"{date} 04:00:00")
+        conditions.append("start_time < ?")
+        args.append(f"{next_day} 04:00:00")
     if channel:
         conditions.append("channel = ?")
         args.append(channel)

@@ -126,49 +126,67 @@ tr:hover {
     background: var(--bg-input);
 }
 
-/* 番組表グリッド */
-.epg-grid {
-    display: grid;
-    gap: 2px;
-    overflow-x: auto;
+/* 番組表タブ */
+.epg-tabs {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
 }
 
-.epg-header {
+.epg-tab {
     background: var(--bg-input);
-    padding: 0.5rem;
-    text-align: center;
-    font-weight: bold;
-    font-size: 0.85rem;
-    position: sticky;
-    top: 0;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px 4px 0 0;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
 }
 
-.epg-cell {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    padding: 0.25rem 0.4rem;
-    font-size: 0.8rem;
-    overflow: hidden;
+.epg-tab:hover {
+    color: var(--text);
+    background: var(--border);
+}
+
+.epg-tab.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.epg-tab-content {
+    display: none;
+}
+
+.epg-tab-content.active {
+    display: block;
+}
+
+/* 番組表リスト行 */
+tr.epg-cell {
     cursor: pointer;
     transition: background 0.15s;
-    min-height: 2rem;
 }
 
-.epg-cell:hover {
+tr.epg-cell:hover {
     background: var(--bg-input);
 }
 
-.epg-cell .time {
+tr.epg-cell .time {
     color: var(--accent);
-    font-size: 0.75rem;
     font-weight: bold;
+    white-space: nowrap;
 }
 
-.epg-cell .title {
-    display: block;
+tr.epg-cell .title {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 40vw;
 }
 
 /* フォーム */
