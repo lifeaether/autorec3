@@ -267,7 +267,18 @@ function showRuleForm(rule) {
     form.elements['rule-keyword'].value = rule ? (rule.keyword || '') : '';
     form.elements['rule-enabled'].checked = rule ? !!rule.enabled : true;
 
+    // プレビューをリセット
+    const preview = document.getElementById('rule-preview');
+    preview.style.display = 'none';
+    document.getElementById('rule-preview-table').innerHTML = '';
+    document.getElementById('rule-preview-count').textContent = '0';
+
     overlay.classList.add('active');
+
+    // 編集時はキーワードがあれば即プレビュー
+    if (rule && rule.keyword) {
+        previewRule();
+    }
 }
 
 async function editRule(id) {
@@ -316,6 +327,53 @@ async function saveRule() {
         loadRules();
     } catch (err) {
         alert('保存に失敗しました: ' + err.message);
+    }
+}
+
+async function previewRule() {
+    const keyword = document.getElementById('rule-keyword').value.trim();
+    const preview = document.getElementById('rule-preview');
+    const countEl = document.getElementById('rule-preview-count');
+    const tableEl = document.getElementById('rule-preview-table');
+
+    if (!keyword) {
+        preview.style.display = 'none';
+        tableEl.innerHTML = '';
+        countEl.textContent = '0';
+        return;
+    }
+
+    preview.style.display = '';
+    tableEl.innerHTML = '<p style="color:var(--text-muted)">検索中...</p>';
+
+    try {
+        const data = await API.get(`/api/programmes/search?keyword=${encodeURIComponent(keyword)}&limit=30`);
+        const programmes = data.programmes || [];
+        const total = data.total || 0;
+        countEl.textContent = total;
+
+        if (programmes.length === 0) {
+            tableEl.innerHTML = '<p style="color:var(--text-muted)">一致する番組はありません</p>';
+            return;
+        }
+
+        let html = '<div class="rule-preview-scroll"><table><thead><tr>';
+        html += '<th>日時</th><th>チャンネル</th><th>番組名</th>';
+        html += '</tr></thead><tbody>';
+        programmes.forEach(p => {
+            html += '<tr>';
+            html += `<td style="white-space:nowrap">${formatDateTime(p.start_time)}</td>`;
+            html += `<td>${escapeHtml(p.channel)}</td>`;
+            html += `<td>${escapeHtml(p.title)}</td>`;
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        if (total > 30) {
+            html += `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.25rem">他 ${total - 30} 件</p>`;
+        }
+        tableEl.innerHTML = html;
+    } catch (err) {
+        tableEl.innerHTML = `<p style="color:var(--error)">プレビュー取得に失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -416,6 +474,16 @@ async function init() {
             switchSection(a.dataset.section);
         });
     });
+
+    // キーワード予約プレビュー: debounce 付き input イベント
+    let previewTimer = null;
+    const ruleKeyword = document.getElementById('rule-keyword');
+    if (ruleKeyword) {
+        ruleKeyword.addEventListener('input', () => {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(previewRule, 500);
+        });
+    }
 
     // 初期セクション表示
     document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));

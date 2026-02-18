@@ -319,7 +319,7 @@ button, .btn {
     border-radius: 8px;
     padding: 1.5rem;
     width: 90%;
-    max-width: 500px;
+    max-width: 700px;
     max-height: 90vh;
     overflow-y: auto;
 }
@@ -334,6 +334,12 @@ button, .btn {
     justify-content: flex-end;
     margin-top: 1rem;
 }
+
+/* キーワード予約プレビュー */
+.rule-preview { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+.rule-preview label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; display: block; }
+.rule-preview table { font-size: 0.85rem; }
+.rule-preview-scroll { max-height: 250px; overflow-y: auto; }
 
 /* 番組詳細ポップアップ */
 .programme-detail {
