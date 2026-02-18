@@ -1,30 +1,39 @@
 /* autorec Web UI - メインアプリケーション */
 
 const API = {
-    async get(path) {
-        const res = await fetch(path);
-        return res.json();
+    TIMEOUT_MS: 10000,
+    async _fetch(path, options = {}) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), this.TIMEOUT_MS);
+        try {
+            const res = await fetch(path, { ...options, signal: controller.signal });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `HTTP ${res.status}`);
+            }
+            return await res.json();
+        } catch (err) {
+            if (err.name === 'AbortError')
+                throw new Error('サーバーへの接続がタイムアウトしました');
+            throw err;
+        } finally {
+            clearTimeout(timer);
+        }
     },
-    async post(path, data) {
-        const res = await fetch(path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+    get(path) { return this._fetch(path); },
+    post(path, data) {
+        return this._fetch(path, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        return res.json();
     },
-    async put(path, data) {
-        const res = await fetch(path, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+    put(path, data) {
+        return this._fetch(path, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        return res.json();
     },
-    async del(path) {
-        const res = await fetch(path, { method: 'DELETE' });
-        return res.json();
-    },
+    del(path) { return this._fetch(path, { method: 'DELETE' }); },
 };
 
 /* --- ユーティリティ --- */
@@ -99,8 +108,13 @@ async function loadEPG() {
     let url = `/api/programmes?date=${date}&limit=1000`;
     if (channel) url += `&channel=${encodeURIComponent(channel)}`;
 
-    const data = await API.get(url);
-    renderEPGTable(data.programmes, date);
+    try {
+        const data = await API.get(url);
+        renderEPGTable(data.programmes, date);
+    } catch (err) {
+        document.getElementById('epg-table').innerHTML =
+            `<p style="color:var(--danger)">番組表の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+    }
 }
 
 function renderEPGTable(programmes, date) {
@@ -219,24 +233,28 @@ document.addEventListener('click', (e) => {
 /* --- 録画予約 --- */
 
 async function loadRules() {
-    const data = await API.get('/api/rules');
     const tbody = document.getElementById('rules-table');
-    if (!data.rules || data.rules.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
-        return;
+    try {
+        const data = await API.get('/api/rules');
+        if (!data.rules || data.rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.rules.map(r => `
+            <tr>
+                <td>${r.id}</td>
+                <td>${escapeHtml(r.name)}</td>
+                <td>${escapeHtml(r.keyword || '*')}</td>
+                <td>${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')">削除</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
     }
-    tbody.innerHTML = data.rules.map(r => `
-        <tr>
-            <td>${r.id}</td>
-            <td>${escapeHtml(r.name)}</td>
-            <td>${escapeHtml(r.keyword || '*')}</td>
-            <td>${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}</td>
-            <td>
-                <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')">削除</button>
-            </td>
-        </tr>
-    `).join('');
 }
 
 function showRuleForm(rule) {
@@ -260,8 +278,12 @@ async function editRule(id) {
 
 async function deleteRule(id, name) {
     if (!confirm(`予約「${name}」を削除しますか?`)) return;
-    await API.del(`/api/rules/${id}`);
-    loadRules();
+    try {
+        await API.del(`/api/rules/${id}`);
+        loadRules();
+    } catch (err) {
+        alert('削除に失敗しました: ' + err.message);
+    }
 }
 
 async function saveRule() {
@@ -284,14 +306,17 @@ async function saveRule() {
         return;
     }
 
-    if (ruleId) {
-        await API.put(`/api/rules/${ruleId}`, data);
-    } else {
-        await API.post('/api/rules', data);
+    try {
+        if (ruleId) {
+            await API.put(`/api/rules/${ruleId}`, data);
+        } else {
+            await API.post('/api/rules', data);
+        }
+        document.getElementById('rule-modal').classList.remove('active');
+        loadRules();
+    } catch (err) {
+        alert('保存に失敗しました: ' + err.message);
     }
-
-    document.getElementById('rule-modal').classList.remove('active');
-    loadRules();
 }
 
 function quickAddRule(title) {
@@ -305,13 +330,16 @@ function quickAddRule(title) {
 async function directSchedule(idx) {
     const p = window._programmes[idx];
     if (!confirm(`「${p.title}」を録画予定に追加しますか？`)) return;
-    const res = await API.post('/api/schedules', {
-        event_id: p.event_id, channel: p.channel,
-        title: p.title, start_time: p.start_time, end_time: p.end_time,
-    });
-    if (res.error) { alert(res.error); return; }
-    alert('録画予定に追加しました');
-    document.getElementById('programme-detail').classList.remove('active');
+    try {
+        await API.post('/api/schedules', {
+            event_id: p.event_id, channel: p.channel,
+            title: p.title, start_time: p.start_time, end_time: p.end_time,
+        });
+        alert('録画予定に追加しました');
+        document.getElementById('programme-detail').classList.remove('active');
+    } catch (err) {
+        alert(err.message);
+    }
 }
 
 /* --- 録画スケジュール --- */
@@ -321,23 +349,27 @@ async function loadSchedules() {
     let url = '/api/schedules?limit=200';
     if (status) url += `&status=${status}`;
 
-    const data = await API.get(url);
     const tbody = document.getElementById('schedules-table');
-    if (!data.schedules || data.schedules.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">スケジュールなし</td></tr>';
-        return;
+    try {
+        const data = await API.get(url);
+        if (!data.schedules || data.schedules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">スケジュールなし</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.schedules.map(s => `
+            <tr>
+                <td>${s.id}</td>
+                <td>${escapeHtml(s.title)}</td>
+                <td>${escapeHtml(s.channel)}</td>
+                <td>${formatDateTime(s.start_time)}</td>
+                <td>${formatDateTime(s.end_time)}</td>
+                <td>${statusBadge(s.status)}</td>
+                <td>${escapeHtml(s.rule_name || '-')}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
     }
-    tbody.innerHTML = data.schedules.map(s => `
-        <tr>
-            <td>${s.id}</td>
-            <td>${escapeHtml(s.title)}</td>
-            <td>${escapeHtml(s.channel)}</td>
-            <td>${formatDateTime(s.start_time)}</td>
-            <td>${formatDateTime(s.end_time)}</td>
-            <td>${statusBadge(s.status)}</td>
-            <td>${escapeHtml(s.rule_name || '-')}</td>
-        </tr>
-    `).join('');
 }
 
 /* --- ログ --- */
@@ -347,21 +379,25 @@ async function loadLogs() {
     let url = '/api/logs?limit=200';
     if (level) url += `&level=${level}`;
 
-    const data = await API.get(url);
     const tbody = document.getElementById('logs-table');
-    if (!data.logs || data.logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">ログなし</td></tr>';
-        return;
+    try {
+        const data = await API.get(url);
+        if (!data.logs || data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">ログなし</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.logs.map(l => `
+            <tr>
+                <td>${formatDateTime(l.timestamp)}</td>
+                <td>${levelBadge(l.level)}</td>
+                <td>${escapeHtml(l.schedule_title || '-')}</td>
+                <td>${escapeHtml(l.schedule_channel || '-')}</td>
+                <td>${escapeHtml(l.message)}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
     }
-    tbody.innerHTML = data.logs.map(l => `
-        <tr>
-            <td>${formatDateTime(l.timestamp)}</td>
-            <td>${levelBadge(l.level)}</td>
-            <td>${escapeHtml(l.schedule_title || '-')}</td>
-            <td>${escapeHtml(l.schedule_channel || '-')}</td>
-            <td>${escapeHtml(l.message)}</td>
-        </tr>
-    `).join('');
 }
 
 /* --- 初期化 --- */
@@ -373,28 +409,7 @@ async function init() {
         epgDate.value = todayStr();
     }
 
-    // チャンネル一覧と番組表を並列取得
-    const date = epgDate ? epgDate.value : todayStr();
-    const [chData, epgData] = await Promise.all([
-        API.get('/api/channels'),
-        API.get(`/api/programmes?date=${date}&limit=1000`),
-    ]);
-
-    channels = chData.channels || [];
-
-    // チャンネルセレクトボックスを生成
-    const selects = document.querySelectorAll('.channel-select');
-    selects.forEach(sel => {
-        const current = sel.value;
-        let opts = '<option value="">全チャンネル</option>';
-        channels.forEach(ch => {
-            opts += `<option value="${escapeHtml(ch.name)}">${escapeHtml(ch.name)}</option>`;
-        });
-        sel.innerHTML = opts;
-        sel.value = current;
-    });
-
-    // ナビゲーションイベント
+    // ナビゲーションイベント (API失敗時もナビが動くよう先に登録)
     document.querySelectorAll('nav a[data-section]').forEach(a => {
         a.addEventListener('click', (e) => {
             e.preventDefault();
@@ -402,14 +417,41 @@ async function init() {
         });
     });
 
-    // 初期セクション表示 (既にデータがあるので直接レンダリング)
+    // 初期セクション表示
     document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
     const section = document.getElementById('section-epg');
     const link = document.querySelector('nav a[data-section="epg"]');
     if (section) section.classList.add('active');
     if (link) link.classList.add('active');
-    renderEPGTable(epgData.programmes, date);
+
+    // チャンネル一覧と番組表を並列取得
+    const date = epgDate ? epgDate.value : todayStr();
+    try {
+        const [chData, epgData] = await Promise.all([
+            API.get('/api/channels'),
+            API.get(`/api/programmes?date=${date}&limit=1000`),
+        ]);
+
+        channels = chData.channels || [];
+
+        // チャンネルセレクトボックスを生成
+        const selects = document.querySelectorAll('.channel-select');
+        selects.forEach(sel => {
+            const current = sel.value;
+            let opts = '<option value="">全チャンネル</option>';
+            channels.forEach(ch => {
+                opts += `<option value="${escapeHtml(ch.name)}">${escapeHtml(ch.name)}</option>`;
+            });
+            sel.innerHTML = opts;
+            sel.value = current;
+        });
+
+        renderEPGTable(epgData.programmes, date);
+    } catch (err) {
+        document.getElementById('epg-table').innerHTML =
+            `<p style="color:var(--danger)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', init);

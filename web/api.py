@@ -28,27 +28,36 @@ if os.path.exists(_conf_path):
                 AUTOREC_DB = val
 
 
-_local = threading.local()
+_connections = {}
+_conn_lock = threading.Lock()
 
 
-def _get_db(db_path):
-    """SQLite 接続を取得 (スレッドローカルでキャッシュ)"""
-    cache = getattr(_local, 'connections', None)
-    if cache is None:
-        cache = {}
-        _local.connections = cache
-    conn = cache.get(db_path)
-    if conn is not None:
-        return conn
+def _init_connection(db_path):
+    """新しい SQLite 接続を作成し初期設定を実行"""
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     if db_path == EPG_DB:
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_programme_start_channel ON programme(start_time, channel)"
+            "CREATE INDEX IF NOT EXISTS idx_programme_start_channel "
+            "ON programme(start_time, channel)"
         )
-    cache[db_path] = conn
     return conn
+
+
+def _get_db(db_path):
+    """SQLite 接続を取得 (モジュールレベルで共有)"""
+    conn = _connections.get(db_path)
+    if conn is not None:
+        return conn
+    with _conn_lock:
+        conn = _connections.get(db_path)
+        if conn is not None:
+            return conn
+        conn = _init_connection(db_path)
+        _connections[db_path] = conn
+        return conn
 
 
 def _json_response(data, status=200):
