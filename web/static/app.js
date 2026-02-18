@@ -78,6 +78,13 @@ function levelBadge(level) {
     return `<span class="badge badge-${level}">${level}</span>`;
 }
 
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+}
+
 /* --- ナビゲーション --- */
 
 let channels = [];
@@ -93,6 +100,7 @@ function switchSection(name) {
     if (name === 'epg') loadEPG();
     else if (name === 'rules') loadRules();
     else if (name === 'schedules') loadSchedules();
+    else if (name === 'recordings') loadRecordings();
     else if (name === 'logs') loadLogs();
 }
 
@@ -459,6 +467,95 @@ async function loadLogs() {
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
     }
+}
+
+/* --- 録画済みファイル --- */
+
+let recordingsData = [];
+
+async function loadRecordings() {
+    const container = document.getElementById('recordings-list');
+    try {
+        const data = await API.get('/api/recordings');
+        recordingsData = data.series || [];
+        renderRecordings(recordingsData);
+    } catch (err) {
+        container.innerHTML =
+            `<p style="color:var(--danger)">録画一覧の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+    }
+}
+
+function renderRecordings(series) {
+    const container = document.getElementById('recordings-list');
+    if (!series || series.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted)">録画ファイルがありません</p>';
+        return;
+    }
+
+    let html = '';
+    series.forEach((s, idx) => {
+        html += `<div class="card" style="padding:0;margin-bottom:0.5rem">`;
+        html += `<div class="recordings-series-header" onclick="toggleSeries(${idx})">`;
+        html += `<span class="recordings-series-arrow" id="series-arrow-${idx}">&#9654;</span>`;
+        html += `<strong>${escapeHtml(s.name)}</strong>`;
+        html += `<span style="margin-left:auto;color:var(--text-muted);font-size:0.85rem">${s.file_count} ファイル / ${formatFileSize(s.total_size)}</span>`;
+        html += `</div>`;
+        html += `<div class="recordings-files" id="series-files-${idx}" style="display:none">`;
+        html += `<table><thead><tr><th>ファイル名</th><th>サイズ</th><th>更新日時</th><th>操作</th></tr></thead><tbody>`;
+        s.files.forEach(f => {
+            const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
+            html += `<tr>`;
+            html += `<td class="recordings-filename">${escapeHtml(f.name)}</td>`;
+            html += `<td style="white-space:nowrap">${formatFileSize(f.size)}</td>`;
+            html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
+            html += `<td style="white-space:nowrap">`;
+            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">DL</a>`;
+            html += `</td></tr>`;
+        });
+        html += `</tbody></table></div></div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleSeries(idx) {
+    const files = document.getElementById('series-files-' + idx);
+    const arrow = document.getElementById('series-arrow-' + idx);
+    if (!files) return;
+    if (files.style.display === 'none') {
+        files.style.display = '';
+        arrow.innerHTML = '&#9660;';
+    } else {
+        files.style.display = 'none';
+        arrow.innerHTML = '&#9654;';
+    }
+}
+
+function filterRecordings() {
+    const query = (document.getElementById('recordings-search').value || '').toLowerCase();
+    if (!query) {
+        renderRecordings(recordingsData);
+        return;
+    }
+    const filtered = recordingsData
+        .map(s => {
+            if (s.name.toLowerCase().includes(query)) return s;
+            const matchedFiles = s.files.filter(f => f.name.toLowerCase().includes(query));
+            if (matchedFiles.length === 0) return null;
+            return { ...s, files: matchedFiles, file_count: matchedFiles.length, total_size: matchedFiles.reduce((a, f) => a + f.size, 0) };
+        })
+        .filter(Boolean);
+    renderRecordings(filtered);
+}
+
+function playRecording(path, name) {
+    const modal = document.getElementById('video-modal');
+    const player = document.getElementById('video-player');
+    const title = document.getElementById('video-modal-title');
+    title.textContent = name || '再生';
+    player.src = '/recordings/' + path;
+    modal.classList.add('active');
 }
 
 /* --- 初期化 --- */

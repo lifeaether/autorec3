@@ -10,6 +10,7 @@ from urllib.parse import parse_qs
 AUTOREC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EPG_DB = os.path.join(AUTOREC_DIR, "db", "epg.sqlite")
 AUTOREC_DB = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
+RECORD_DIR = "/mnt/data"
 
 # conf から DB パスを読み込み (あれば上書き)
 _conf_path = os.path.join(AUTOREC_DIR, "conf", "autorec.conf")
@@ -26,6 +27,8 @@ if os.path.exists(_conf_path):
                 EPG_DB = val
             elif key.strip() == "AUTOREC_DB" and val:
                 AUTOREC_DB = val
+            elif key.strip() == "RECORD_DIR" and val:
+                RECORD_DIR = val
 
 
 _connections = {}
@@ -405,6 +408,54 @@ def get_channels(_params):
     return _json_response({"channels": channels})
 
 
+# --- 録画済みファイル API ---
+
+def get_recordings(_params):
+    """GET /api/recordings - 録画済みファイル一覧"""
+    series = []
+    if not os.path.isdir(RECORD_DIR):
+        return _json_response({"series": []})
+
+    try:
+        with os.scandir(RECORD_DIR) as entries:
+            for entry in sorted(entries, key=lambda e: e.name):
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+                files = []
+                total_size = 0
+                try:
+                    with os.scandir(entry.path) as sub_entries:
+                        for f in sorted(sub_entries, key=lambda e: e.name):
+                            if not f.is_file(follow_symlinks=False):
+                                continue
+                            if not f.name.endswith(".ts"):
+                                continue
+                            try:
+                                stat = f.stat()
+                                files.append({
+                                    "name": f.name,
+                                    "size": stat.st_size,
+                                    "mtime": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                                    "path": f"{entry.name}/{f.name}",
+                                })
+                                total_size += stat.st_size
+                            except OSError:
+                                continue
+                except OSError:
+                    continue
+                if files:
+                    series.append({
+                        "name": entry.name,
+                        "file_count": len(files),
+                        "total_size": total_size,
+                        "files": files,
+                    })
+    except OSError:
+        return _json_response({"series": []})
+
+    return _json_response({"series": series})
+
+
 # --- ルーティング ---
 
 def handle_request(method, path, params, body=b""):
@@ -442,5 +493,9 @@ def handle_request(method, path, params, body=b""):
     # チャンネル
     if method == "GET" and path == "/api/channels":
         return get_channels(params)
+
+    # 録画済みファイル
+    if method == "GET" and path == "/api/recordings":
+        return get_recordings(params)
 
     return _error("Not found", 404)

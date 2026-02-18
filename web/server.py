@@ -3,7 +3,7 @@
 import os
 import sys
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote, quote
 
 # autorec ディレクトリをパスに追加
 AUTOREC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,6 +37,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self._handle_api("GET", parsed)
+        elif parsed.path.startswith("/recordings/"):
+            self._serve_recording(parsed)
         else:
             # 静的ファイル配信
             if parsed.path == "/":
@@ -46,7 +48,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         """静的ファイルに Cache-Control ヘッダを追加"""
         parsed = urlparse(self.path)
-        if not parsed.path.startswith("/api/"):
+        if not parsed.path.startswith("/api/") and not parsed.path.startswith("/recordings/"):
             self.send_header("Cache-Control", "max-age=300")
         super().end_headers()
 
@@ -97,6 +99,87 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response_body)
 
+    def _serve_recording(self, parsed):
+        """録画ファイル配信 (Range リクエスト対応)"""
+        # パスをデコードして RECORD_DIR 配下のファイルパスを構築
+        rel_path = unquote(parsed.path[len("/recordings/"):])
+        file_path = os.path.realpath(os.path.join(api.RECORD_DIR, rel_path))
+
+        # パストラバーサル防止
+        record_dir_real = os.path.realpath(api.RECORD_DIR)
+        if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
+            self.send_error(403, "Forbidden")
+            return
+
+        if not os.path.isfile(file_path):
+            self.send_error(404, "Not Found")
+            return
+
+        file_size = os.path.getsize(file_path)
+        params = parse_qs(parsed.query)
+        is_download = params.get("download", [""])[0] == "1"
+
+        # Range ヘッダ処理
+        range_header = self.headers.get("Range")
+        start = 0
+        end = file_size - 1
+
+        if range_header and range_header.startswith("bytes="):
+            try:
+                byte_range = range_header[6:].split(",")[0].strip()
+                if byte_range.startswith("-"):
+                    # 末尾からの指定
+                    suffix_len = int(byte_range[1:])
+                    start = max(0, file_size - suffix_len)
+                elif byte_range.endswith("-"):
+                    start = int(byte_range[:-1])
+                else:
+                    parts = byte_range.split("-")
+                    start = int(parts[0])
+                    end = int(parts[1])
+            except (ValueError, IndexError):
+                self.send_error(416, "Range Not Satisfiable")
+                return
+
+            if start > end or start >= file_size:
+                self.send_error(416, "Range Not Satisfiable")
+                return
+            end = min(end, file_size - 1)
+            content_length = end - start + 1
+            self.send_response(206)
+            self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+        else:
+            content_length = file_size
+            self.send_response(200)
+
+        self.send_header("Content-Type", "video/mp2t")
+        self.send_header("Content-Length", content_length)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Access-Control-Allow-Origin", "*")
+
+        if is_download:
+            filename = os.path.basename(file_path)
+            encoded_name = quote(filename)
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{encoded_name}")
+
+        self.end_headers()
+
+        # 64KB チャンクでストリーミング
+        chunk_size = 65536
+        try:
+            with open(file_path, "rb") as f:
+                f.seek(start)
+                remaining = content_length
+                while remaining > 0:
+                    read_size = min(chunk_size, remaining)
+                    data = f.read(read_size)
+                    if not data:
+                        break
+                    self.wfile.write(data)
+                    remaining -= len(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def do_OPTIONS(self):
         """CORS プリフライト対応"""
         self.send_response(204)
@@ -123,6 +206,7 @@ def main():
     print(f"[web] 静的ファイル: {STATIC_DIR}")
     print(f"[web] EPG DB: {api.EPG_DB}")
     print(f"[web] 管理 DB: {api.AUTOREC_DB}")
+    print(f"[web] 録画先: {api.RECORD_DIR}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
