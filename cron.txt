@@ -1,0 +1,14 @@
+# autorec cron 設定
+# crontab にこのファイルの内容を登録: crontab cron.txt
+# 注: schedule-update.sh が自動生成する録画エントリはこのファイルの末尾に追加される
+
+SHELL=/bin/bash
+AUTOREC_DIR=/home/user/claude/autorec
+
+# EPG 一括更新 (毎日 3:00 と 15:00)
+0 3 * * * $AUTOREC_DIR/bin/epg-update.sh >> $AUTOREC_DIR/log/epg-update.log 2>&1
+0 15 * * * $AUTOREC_DIR/bin/epg-update.sh >> $AUTOREC_DIR/log/epg-update.log 2>&1
+
+# スケジュール更新 (EPG更新後の安全マージンとして 3:30 と 15:30)
+30 3 * * * $AUTOREC_DIR/bin/schedule-update.sh >> $AUTOREC_DIR/log/schedule.log 2>&1
+30 15 * * * $AUTOREC_DIR/bin/schedule-update.sh >> $AUTOREC_DIR/log/schedule.log 2>&1

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>autorec - 番組表アーカイブ</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/" class="logo">autorec</a>
+        <a href="/">番組表</a>
+        <a href="epg.html" class="active">アーカイブ</a>
+        <a href="/#rules" onclick="location.href='/'">録画ルール</a>
+        <a href="/#schedules" onclick="location.href='/'">録画予定</a>
+        <a href="/#logs" onclick="location.href='/'">ログ</a>
+    </nav>
+
+    <main>
+        <h2>番組表アーカイブ</h2>
+
+        <!-- 検索フォーム -->
+        <div class="card">
+            <form id="search-form" onsubmit="event.preventDefault(); searchProgrammes();">
+                <div class="toolbar">
+                    <input type="text" id="search-keyword" placeholder="キーワード検索" style="min-width:200px">
+                    <select id="search-channel" class="channel-select">
+                        <option value="">全チャンネル</option>
+                    </select>
+                    <input type="text" id="search-category" placeholder="ジャンル" style="min-width:120px">
+                    <input type="date" id="search-date-from">
+                    <span style="color:var(--text-muted)">〜</span>
+                    <input type="date" id="search-date-to">
+                    <button type="submit" class="btn btn-primary">検索</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="card" id="stats-card" style="display:none">
+            <div style="display:flex;gap:2rem;flex-wrap:wrap">
+                <div>
+                    <span style="color:var(--text-muted);font-size:0.85rem">総番組数</span>
+                    <div id="stat-total" style="font-size:1.5rem;font-weight:bold;color:var(--accent)">-</div>
+                </div>
+                <div>
+                    <span style="color:var(--text-muted);font-size:0.85rem">期間</span>
+                    <div id="stat-range" style="font-size:1rem">-</div>
+                </div>
+                <div>
+                    <span style="color:var(--text-muted);font-size:0.85rem">チャンネル数</span>
+                    <div id="stat-channels" style="font-size:1.5rem;font-weight:bold">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 検索結果 -->
+        <div class="card">
+            <div id="search-info" style="margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted)"></div>
+            <div style="overflow-x:auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>時間</th>
+                            <th>チャンネル</th>
+                            <th>番組名</th>
+                            <th>ジャンル</th>
+                            <th>説明</th>
+                        </tr>
+                    </thead>
+                    <tbody id="search-results">
+                        <tr><td colspan="6" style="text-align:center;color:var(--text-muted)">検索してください</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="search-pagination" class="pagination"></div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = '';
+        let currentOffset = 0;
+        const LIMIT = 100;
+        let channels = [];
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function formatTime(iso) {
+            if (!iso) return '';
+            const d = new Date(iso.replace(' ', 'T'));
+            return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso.replace(' ', 'T'));
+            return d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/programmes/stats');
+                const data = await res.json();
+                document.getElementById('stats-card').style.display = '';
+                document.getElementById('stat-total').textContent = (data.total_programmes || 0).toLocaleString();
+                document.getElementById('stat-range').textContent =
+                    (data.earliest ? formatDate(data.earliest) : '?') + ' 〜 ' + (data.latest ? formatDate(data.latest) : '?');
+                document.getElementById('stat-channels').textContent = (data.by_channel || []).length;
+            } catch (e) {
+                console.error('Stats load failed:', e);
+            }
+        }
+
+        async function loadChannels() {
+            try {
+                const res = await fetch('/api/channels');
+                const data = await res.json();
+                channels = data.channels || [];
+                const sel = document.getElementById('search-channel');
+                let opts = '<option value="">全チャンネル</option>';
+                channels.forEach(ch => {
+                    opts += `<option value="${escapeHtml(ch.name)}">${escapeHtml(ch.name)}</option>`;
+                });
+                sel.innerHTML = opts;
+            } catch (e) {
+                console.error('Channels load failed:', e);
+            }
+        }
+
+        async function searchProgrammes(offset) {
+            currentOffset = offset || 0;
+            const keyword = document.getElementById('search-keyword').value;
+            const channel = document.getElementById('search-channel').value;
+            const category = document.getElementById('search-category').value;
+            const dateFrom = document.getElementById('search-date-from').value;
+            const dateTo = document.getElementById('search-date-to').value;
+
+            const params = new URLSearchParams();
+            if (keyword) params.set('keyword', keyword);
+            if (channel) params.set('channel', channel);
+            if (category) params.set('category', category);
+            if (dateFrom) params.set('date_from', dateFrom);
+            if (dateTo) params.set('date_to', dateTo + ' 23:59:59');
+            params.set('limit', LIMIT);
+            params.set('offset', currentOffset);
+
+            const res = await fetch('/api/programmes/search?' + params.toString());
+            const data = await res.json();
+
+            const info = document.getElementById('search-info');
+            info.textContent = `${data.total.toLocaleString()} 件中 ${currentOffset + 1}〜${Math.min(currentOffset + LIMIT, data.total)} 件を表示`;
+
+            const tbody = document.getElementById('search-results');
+            if (!data.programmes || data.programmes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">該当する番組がありません</td></tr>';
+                document.getElementById('search-pagination').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = data.programmes.map(p => `
+                <tr>
+                    <td>${formatDate(p.start_time)}</td>
+                    <td>${formatTime(p.start_time)} - ${formatTime(p.end_time)}</td>
+                    <td>${escapeHtml(p.channel)}</td>
+                    <td>${escapeHtml(p.title)}</td>
+                    <td>${escapeHtml(p.category || '-')}</td>
+                    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(p.description)}">${escapeHtml(p.description || '')}</td>
+                </tr>
+            `).join('');
+
+            // ページネーション
+            const totalPages = Math.ceil(data.total / LIMIT);
+            const currentPage = Math.floor(currentOffset / LIMIT);
+            let paginationHtml = '';
+            if (currentPage > 0) {
+                paginationHtml += `<button class="btn btn-secondary btn-sm" onclick="searchProgrammes(${(currentPage - 1) * LIMIT})">前へ</button>`;
+            }
+            paginationHtml += `<span style="color:var(--text-muted);font-size:0.85rem">${currentPage + 1} / ${totalPages}</span>`;
+            if (currentPage < totalPages - 1) {
+                paginationHtml += `<button class="btn btn-secondary btn-sm" onclick="searchProgrammes(${(currentPage + 1) * LIMIT})">次へ</button>`;
+            }
+            document.getElementById('search-pagination').innerHTML = paginationHtml;
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadChannels();
+            loadStats();
+        });
+    </script>
+</body>
+</html>

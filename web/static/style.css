@@ -1,0 +1,379 @@
+/* autorec Web UI スタイル */
+
+:root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-input: #0f3460;
+    --text: #e6e6e6;
+    --text-muted: #8a8a9a;
+    --accent: #e94560;
+    --accent-hover: #ff6b81;
+    --success: #2ecc71;
+    --warning: #f39c12;
+    --error: #e74c3c;
+    --border: #2a2a4a;
+    --table-stripe: #1a1a3e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+/* ナビゲーション */
+nav {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+nav .logo {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--accent);
+    padding: 0.75rem 0;
+    text-decoration: none;
+}
+
+nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+nav a:hover, nav a.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
+/* メインコンテンツ */
+main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+h2 {
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+}
+
+/* セクション */
+.section {
+    display: none;
+    animation: fadeIn 0.2s ease-in;
+}
+
+.section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* カード */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* テーブル */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th, td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+th {
+    background: var(--bg-input);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+tr:nth-child(even) {
+    background: var(--table-stripe);
+}
+
+tr:hover {
+    background: var(--bg-input);
+}
+
+/* 番組表グリッド */
+.epg-grid {
+    display: grid;
+    gap: 2px;
+    overflow-x: auto;
+}
+
+.epg-header {
+    background: var(--bg-input);
+    padding: 0.5rem;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.85rem;
+    position: sticky;
+    top: 0;
+}
+
+.epg-cell {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.15s;
+    min-height: 2rem;
+}
+
+.epg-cell:hover {
+    background: var(--bg-input);
+}
+
+.epg-cell .time {
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.epg-cell .title {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* フォーム */
+.form-group {
+    margin-bottom: 0.75rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* ボタン */
+button, .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn-secondary {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--border);
+}
+
+.btn-danger {
+    background: var(--error);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ツールバー */
+.toolbar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.toolbar input, .toolbar select {
+    width: auto;
+    min-width: 150px;
+}
+
+/* ステータスバッジ */
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-scheduled { background: var(--accent); color: white; }
+.badge-recording { background: var(--warning); color: #333; }
+.badge-done { background: var(--success); color: white; }
+.badge-failed { background: var(--error); color: white; }
+.badge-skipped { background: var(--text-muted); color: white; }
+.badge-info { background: #3498db; color: white; }
+.badge-warn { background: var(--warning); color: #333; }
+.badge-error { background: var(--error); color: white; }
+
+.badge-enabled { background: var(--success); color: white; }
+.badge-disabled { background: var(--text-muted); color: white; }
+
+/* モーダル */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal h3 {
+    margin-bottom: 1rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+/* 番組詳細ポップアップ */
+.programme-detail {
+    position: fixed;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 1rem;
+    z-index: 150;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    display: none;
+}
+
+.programme-detail.active {
+    display: block;
+}
+
+.programme-detail h4 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.programme-detail .meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.programme-detail .desc {
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+/* ページネーション */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+    nav {
+        flex-wrap: wrap;
+    }
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .toolbar input, .toolbar select {
+        width: 100%;
+    }
+    table {
+        font-size: 0.8rem;
+    }
+    th, td {
+        padding: 0.3rem;
+    }
+}
