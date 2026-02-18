@@ -217,6 +217,12 @@ def create_rule(body):
         ),
     )
     conn.commit()
+
+    # crontab 再生成 (非同期)
+    script = os.path.join(AUTOREC_DIR, "bin", "schedule-update.sh")
+    if os.path.exists(script):
+        subprocess.Popen(["bash", script], cwd=AUTOREC_DIR)
+
     rule_id = cursor.lastrowid
     row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
     return _json_response({"rule": dict(row)}, 201)
@@ -247,6 +253,12 @@ def update_rule(rule_id, body):
     args.append(rule_id)
     conn.execute(f"UPDATE rule SET {', '.join(updates)} WHERE id = ?", args)
     conn.commit()
+
+    # crontab 再生成 (非同期)
+    script = os.path.join(AUTOREC_DIR, "bin", "schedule-update.sh")
+    if os.path.exists(script):
+        subprocess.Popen(["bash", script], cwd=AUTOREC_DIR)
+
     row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
     return _json_response({"rule": dict(row)})
 

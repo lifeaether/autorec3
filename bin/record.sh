@@ -79,14 +79,22 @@ if [ "$DURATION" -le 0 ]; then
 fi
 
 # 保存先ディレクトリ作成
-# ルール名でサブディレクトリを作成
-SAFE_RULE_NAME=$(echo "$RULE_NAME" | sed 's/[\/\\:*?"<>|]/_/g')
+# 番組名からシリーズ名を抽出 (回数・サブタイトル等を除去)
+SERIES_NAME=$(echo "$TITLE" | sed -E \
+    -e 's/「[^」]*」//g' \
+    -e 's/（[0-9]+）//g' \
+    -e 's/\([0-9]+\)//g' \
+    -e 's/[　 ]*#[0-9]+//' \
+    -e 's/[　 ]*第[0-9]+[回話]//g' \
+    -e 's/[　 ]+$//; s/^[　 ]+//')
+[ -z "$SERIES_NAME" ] && SERIES_NAME="$TITLE"
+SAFE_SERIES=$(echo "$SERIES_NAME" | sed 's/[\/\\:*?"<>|]/_/g')
 SAFE_TITLE=$(echo "$TITLE" | sed 's/[\/\\:*?"<>|]/_/g')
 DATE_STR=$(date -d "$START_TIME" '+%Y-%m-%d' 2>/dev/null) || \
     DATE_STR=$(python3 -c "from datetime import datetime; print(datetime.fromisoformat('$START_TIME').strftime('%Y-%m-%d'))")
 SAFE_CHANNEL=$(echo "$CHANNEL" | sed 's/[\/\\:*?"<>|]/_/g')
 
-OUTPUT_DIR="$RECORD_DIR/$SAFE_RULE_NAME"
+OUTPUT_DIR="$RECORD_DIR/$SAFE_SERIES"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_FILE="$OUTPUT_DIR/${DATE_STR}_${SAFE_CHANNEL}_${SAFE_TITLE}.ts"
 

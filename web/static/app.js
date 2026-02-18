@@ -325,6 +325,9 @@ async function saveRule() {
         }
         document.getElementById('rule-modal').classList.remove('active');
         loadRules();
+        // スケジュール更新を待って録画予定を表示
+        switchSection('schedules');
+        setTimeout(loadSchedules, 3000);
     } catch (err) {
         alert('保存に失敗しました: ' + err.message);
     }
