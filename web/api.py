@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+import subprocess
 import threading
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs
@@ -289,6 +290,41 @@ def get_schedules(params):
     })
 
 
+def create_schedule(body):
+    """POST /api/schedules - 番組表から直接録画予定を追加"""
+    data = _parse_json_body(body)
+    if not data:
+        return _error("Invalid JSON body")
+
+    for field in ("event_id", "channel", "title", "start_time", "end_time"):
+        if not data.get(field):
+            return _error(f"{field} is required")
+
+    conn = _get_db(AUTOREC_DB)
+    dup = conn.execute(
+        "SELECT id FROM schedule WHERE event_id = ? AND channel = ? AND status IN ('scheduled','recording','done')",
+        (data["event_id"], data["channel"]),
+    ).fetchone()
+    if dup:
+        return _error("この番組は既に録画予定に登録されています", 409)
+
+    cursor = conn.execute(
+        """INSERT INTO schedule (event_id, channel, title, start_time, end_time, rule_id, status)
+           VALUES (?, ?, ?, ?, ?, NULL, 'scheduled')""",
+        (data["event_id"], data["channel"], data["title"], data["start_time"], data["end_time"]),
+    )
+    conn.commit()
+    schedule_id = cursor.lastrowid
+
+    # crontab 再生成 (非同期)
+    script = os.path.join(AUTOREC_DIR, "bin", "schedule-update.sh")
+    if os.path.exists(script):
+        subprocess.Popen(["bash", script], cwd=AUTOREC_DIR)
+
+    row = conn.execute("SELECT * FROM schedule WHERE id = ?", (schedule_id,)).fetchone()
+    return _json_response({"schedule": dict(row)}, 201)
+
+
 # --- ログ API ---
 
 def get_logs(params):
@@ -375,6 +411,8 @@ def handle_request(method, path, params, body=b""):
     # スケジュール
     if method == "GET" and path == "/api/schedules":
         return get_schedules(params)
+    if method == "POST" and path == "/api/schedules":
+        return create_schedule(body)
 
     # ログ
     if method == "GET" and path == "/api/logs":

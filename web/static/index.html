@@ -11,7 +11,7 @@
         <a href="/" class="logo">autorec</a>
         <a href="#" data-section="epg" class="active">番組表</a>
         <a href="epg.html">アーカイブ</a>
-        <a href="#" data-section="rules">録画ルール</a>
+        <a href="#" data-section="rules">録画予約</a>
         <a href="#" data-section="schedules">録画予定</a>
         <a href="#" data-section="logs">ログ</a>
         <a href="#" data-section="help" style="margin-left:auto">ヘルプ</a>
@@ -34,28 +34,25 @@
             </div>
         </div>
 
-        <!-- 録画ルールセクション -->
+        <!-- 録画予約セクション -->
         <div id="section-rules" class="section">
-            <h2>録画ルール</h2>
+            <h2>録画予約</h2>
             <div class="toolbar">
-                <button class="btn btn-primary" onclick="showRuleForm(null)">+ ルール追加</button>
+                <button class="btn btn-primary" onclick="showRuleForm(null)">+ キーワード予約</button>
             </div>
             <div class="card">
                 <table>
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>ルール名</th>
+                            <th>予約名</th>
                             <th>キーワード</th>
-                            <th>チャンネル</th>
-                            <th>ジャンル</th>
-                            <th>時間帯</th>
                             <th>状態</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody id="rules-table">
-                        <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
+                        <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -84,7 +81,7 @@
                             <th>開始</th>
                             <th>終了</th>
                             <th>状態</th>
-                            <th>ルール</th>
+                            <th>予約名</th>
                         </tr>
                     </thead>
                     <tbody id="schedules-table">
@@ -130,10 +127,10 @@
                 <table>
                     <thead><tr><th>画面</th><th>説明</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>番組表</strong></td><td>日付・チャンネルを選んで番組一覧を表示します。番組をクリックすると詳細が表示され、そこからルール作成もできます。</td></tr>
+                        <tr><td><strong>番組表</strong></td><td>日付・チャンネルを選んで番組一覧を表示します。番組をクリックすると詳細が表示され、そこから予約作成もできます。</td></tr>
                         <tr><td><strong>アーカイブ</strong></td><td>過去に取得した全番組データをキーワード・ジャンル・日付で検索できます。</td></tr>
-                        <tr><td><strong>録画ルール</strong></td><td>自動録画の条件を管理します。キーワード・チャンネル・ジャンル・時間帯・曜日で指定でき、条件に一致する番組が自動的に録画予定に登録されます。</td></tr>
-                        <tr><td><strong>録画予定</strong></td><td>ルールにマッチして録画予定に入った番組の一覧です。状態でフィルタできます。</td></tr>
+                        <tr><td><strong>録画予約</strong></td><td>キーワード予約を管理します。キーワードに一致する番組が自動的に録画予定に登録されます。</td></tr>
+                        <tr><td><strong>録画予定</strong></td><td>予約にマッチして録画予定に入った番組の一覧です。状態でフィルタできます。</td></tr>
                         <tr><td><strong>ログ</strong></td><td>録画の開始・完了・エラーなどの履歴です。</td></tr>
                     </tbody>
                 </table>
@@ -142,23 +139,28 @@
                 <h3 style="margin-bottom:0.5rem">録画の流れ</h3>
                 <ol style="padding-left:1.5rem;line-height:2">
                     <li><strong>EPG取得</strong> — cron で定期実行 (1日2回) され、番組表データがDBに蓄積されます</li>
-                    <li><strong>ルール登録</strong> — この画面の「録画ルール」でキーワードなどの条件を設定します</li>
-                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行され、ルールに一致する番組が「録画予定」に登録されます</li>
+                    <li><strong>予約登録</strong> — 「キーワード予約」で自動録画条件を設定するか、番組表から番組を直接録画予定に追加します</li>
+                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行され、予約に一致する番組が「録画予定」に登録されます</li>
                     <li><strong>録画実行</strong> — 番組開始の1分前に cron から自動的に録画が開始されます</li>
                     <li><strong>通知</strong> — 録画完了・失敗時に Discord 等で通知されます</li>
                 </ol>
             </div>
             <div class="card">
-                <h3 style="margin-bottom:0.5rem">録画ルールの条件</h3>
+                <h3 style="margin-bottom:0.5rem">予約方法</h3>
+                <table>
+                    <thead><tr><th>方法</th><th>説明</th><th>操作</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>キーワード予約</strong></td><td>キーワードに一致する番組を自動的に録画</td><td>「録画予約」→「+ キーワード予約」</td></tr>
+                        <tr><td><strong>番組表から直接予約</strong></td><td>番組表で番組をクリックし、その番組を直接録画予定に追加</td><td>「番組表」→ 番組クリック →「この番組を録画する」</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">キーワード予約の条件</h3>
                 <table>
                     <thead><tr><th>項目</th><th>説明</th><th>例</th></tr></thead>
                     <tbody>
-                        <tr><td>キーワード</td><td>番組タイトルの部分一致</td><td>ニュース</td></tr>
-                        <tr><td>チャンネル</td><td>特定チャンネルに限定 (空欄=全ch)</td><td>NHK総合</td></tr>
-                        <tr><td>ジャンル</td><td>番組ジャンルの部分一致</td><td>アニメ</td></tr>
-                        <tr><td>開始/終了時刻</td><td>番組開始時刻の範囲</td><td>19:00 〜 23:00</td></tr>
-                        <tr><td>曜日</td><td>日=0, 月=1, ..., 土=6 (カンマ区切り)</td><td>1,2,3,4,5 (平日)</td></tr>
-                        <tr><td>優先度</td><td>重複時に優先度が高いルールを優先</td><td>0 (標準)</td></tr>
+                        <tr><td>キーワード</td><td>番組タイトルの部分一致で自動録画</td><td>ニュース</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -168,46 +170,18 @@
     <!-- 番組詳細ポップアップ -->
     <div id="programme-detail" class="programme-detail"></div>
 
-    <!-- ルール追加/編集モーダル -->
+    <!-- キーワード予約 追加/編集モーダル -->
     <div id="rule-modal" class="modal-overlay">
         <div class="modal">
-            <h3 id="rule-modal-title">ルール追加</h3>
+            <h3 id="rule-modal-title">キーワード予約</h3>
             <form id="rule-form" onsubmit="event.preventDefault(); saveRule();">
                 <div class="form-group">
-                    <label for="rule-name">ルール名 *</label>
+                    <label for="rule-name">予約名 *</label>
                     <input type="text" name="rule-name" id="rule-name" required placeholder="例: NHKニュース">
                 </div>
                 <div class="form-group">
                     <label for="rule-keyword">キーワード (部分一致)</label>
-                    <input type="text" name="rule-keyword" id="rule-keyword" placeholder="空欄=全番組">
-                </div>
-                <div class="form-group">
-                    <label for="rule-channel">チャンネル</label>
-                    <select name="rule-channel" id="rule-channel" class="channel-select">
-                        <option value="">全チャンネル</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="rule-category">ジャンル</label>
-                    <input type="text" name="rule-category" id="rule-category" placeholder="例: ニュース">
-                </div>
-                <div class="form-group" style="display:flex;gap:0.5rem">
-                    <div style="flex:1">
-                        <label for="rule-time-from">開始時刻</label>
-                        <input type="time" name="rule-time-from" id="rule-time-from">
-                    </div>
-                    <div style="flex:1">
-                        <label for="rule-time-to">終了時刻</label>
-                        <input type="time" name="rule-time-to" id="rule-time-to">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="rule-weekdays">曜日 (日=0, 月=1, ..., 土=6)</label>
-                    <input type="text" name="rule-weekdays" id="rule-weekdays" placeholder="空欄=毎日, 例: 1,2,3,4,5">
-                </div>
-                <div class="form-group">
-                    <label for="rule-priority">優先度</label>
-                    <input type="number" name="rule-priority" id="rule-priority" value="0">
+                    <input type="text" name="rule-keyword" id="rule-keyword" placeholder="番組タイトルで検索">
                 </div>
                 <div class="form-group">
                     <label>

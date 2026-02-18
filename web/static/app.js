@@ -195,9 +195,12 @@ function showProgrammeDetail(el, idx) {
             ${p.category ? ' | ' + escapeHtml(p.category) : ''}
         </div>
         <div class="desc">${escapeHtml(p.description || '')}</div>
-        <div style="margin-top:0.5rem">
-            <button class="btn btn-primary btn-sm" onclick="quickAddRule('${escapeHtml(p.title)}', '${escapeHtml(p.channel)}')">
-                このキーワードでルール作成
+        <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="directSchedule(${idx})">
+                この番組を録画する
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="quickAddRule('${escapeHtml(p.title)}')">
+                このキーワードで予約作成
             </button>
         </div>
     `;
@@ -213,13 +216,13 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/* --- 録画ルール --- */
+/* --- 録画予約 --- */
 
 async function loadRules() {
     const data = await API.get('/api/rules');
     const tbody = document.getElementById('rules-table');
     if (!data.rules || data.rules.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
         return;
     }
     tbody.innerHTML = data.rules.map(r => `
@@ -227,9 +230,6 @@ async function loadRules() {
             <td>${r.id}</td>
             <td>${escapeHtml(r.name)}</td>
             <td>${escapeHtml(r.keyword || '*')}</td>
-            <td>${escapeHtml(r.channel || '全ch')}</td>
-            <td>${escapeHtml(r.category || '-')}</td>
-            <td>${r.time_from || ''} - ${r.time_to || ''}</td>
             <td>${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}</td>
             <td>
                 <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
@@ -242,17 +242,11 @@ async function loadRules() {
 function showRuleForm(rule) {
     const overlay = document.getElementById('rule-modal');
     const form = document.getElementById('rule-form');
-    document.getElementById('rule-modal-title').textContent = rule ? 'ルール編集' : 'ルール追加';
+    document.getElementById('rule-modal-title').textContent = rule ? 'キーワード予約 編集' : 'キーワード予約';
     form.dataset.ruleId = rule ? rule.id : '';
 
     form.elements['rule-name'].value = rule ? rule.name : '';
     form.elements['rule-keyword'].value = rule ? (rule.keyword || '') : '';
-    form.elements['rule-channel'].value = rule ? (rule.channel || '') : '';
-    form.elements['rule-category'].value = rule ? (rule.category || '') : '';
-    form.elements['rule-time-from'].value = rule ? (rule.time_from || '') : '';
-    form.elements['rule-time-to'].value = rule ? (rule.time_to || '') : '';
-    form.elements['rule-weekdays'].value = rule ? (rule.weekdays || '') : '';
-    form.elements['rule-priority'].value = rule ? (rule.priority || 0) : 0;
     form.elements['rule-enabled'].checked = rule ? !!rule.enabled : true;
 
     overlay.classList.add('active');
@@ -265,7 +259,7 @@ async function editRule(id) {
 }
 
 async function deleteRule(id, name) {
-    if (!confirm(`ルール「${name}」を削除しますか?`)) return;
+    if (!confirm(`予約「${name}」を削除しますか?`)) return;
     await API.del(`/api/rules/${id}`);
     loadRules();
 }
@@ -276,17 +270,17 @@ async function saveRule() {
     const data = {
         name: form.elements['rule-name'].value,
         keyword: form.elements['rule-keyword'].value || null,
-        channel: form.elements['rule-channel'].value || null,
-        category: form.elements['rule-category'].value || null,
-        time_from: form.elements['rule-time-from'].value || null,
-        time_to: form.elements['rule-time-to'].value || null,
-        weekdays: form.elements['rule-weekdays'].value || null,
-        priority: parseInt(form.elements['rule-priority'].value) || 0,
+        channel: null,
+        category: null,
+        time_from: null,
+        time_to: null,
+        weekdays: null,
+        priority: 0,
         enabled: form.elements['rule-enabled'].checked ? 1 : 0,
     };
 
     if (!data.name) {
-        alert('ルール名を入力してください');
+        alert('予約名を入力してください');
         return;
     }
 
@@ -300,13 +294,24 @@ async function saveRule() {
     loadRules();
 }
 
-function quickAddRule(title, channel) {
+function quickAddRule(title) {
     document.getElementById('programme-detail').classList.remove('active');
     switchSection('rules');
     showRuleForm(null);
     document.getElementById('rule-form').elements['rule-name'].value = title;
     document.getElementById('rule-form').elements['rule-keyword'].value = title;
-    document.getElementById('rule-form').elements['rule-channel'].value = channel;
+}
+
+async function directSchedule(idx) {
+    const p = window._programmes[idx];
+    if (!confirm(`「${p.title}」を録画予定に追加しますか？`)) return;
+    const res = await API.post('/api/schedules', {
+        event_id: p.event_id, channel: p.channel,
+        title: p.title, start_time: p.start_time, end_time: p.end_time,
+    });
+    if (res.error) { alert(res.error); return; }
+    alert('録画予定に追加しました');
+    document.getElementById('programme-detail').classList.remove('active');
 }
 
 /* --- 録画スケジュール --- */
