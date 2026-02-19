@@ -558,13 +558,44 @@ function filterRecordings() {
     renderRecordings(filtered);
 }
 
+let recordingPlayer = null;
+
 function playRecording(path, name) {
     const modal = document.getElementById('video-modal');
-    const player = document.getElementById('video-player');
+    const videoEl = document.getElementById('video-player');
     const title = document.getElementById('video-modal-title');
     title.textContent = name || '再生';
-    player.src = '/recordings/' + path;
+
+    closeRecordingPlayer();
+
+    if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
+        recordingPlayer = mpegts.createPlayer({
+            type: 'mpegts',
+            isLive: true,
+            url: `/recordings/transcode?path=${encodeURIComponent(path)}`,
+        }, {
+            enableWorker: false,
+            liveBufferLatencyChasing: false,
+        });
+        recordingPlayer.attachMediaElement(videoEl);
+        recordingPlayer.load();
+        videoEl.play().catch(() => {});
+    } else {
+        videoEl.src = '/recordings/' + path;
+    }
+
     modal.classList.add('active');
+}
+
+function closeRecordingPlayer() {
+    const videoEl = document.getElementById('video-player');
+    if (recordingPlayer) {
+        recordingPlayer.destroy();
+        recordingPlayer = null;
+    }
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
 }
 
 /* --- ライブ視聴機能 --- */

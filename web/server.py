@@ -39,6 +39,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
             self._handle_api("GET", parsed)
+        elif parsed.path == "/recordings/transcode":
+            self._serve_recording_transcode(parsed)
         elif parsed.path.startswith("/recordings/"):
             self._serve_recording(parsed)
         elif parsed.path == "/live/stream":
@@ -168,8 +170,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
 
         self.end_headers()
 
-        # 64KB チャンクでストリーミング
-        chunk_size = 65536
+        # 1MB チャンクでストリーミング (DL 高速化)
+        chunk_size = 1048576
         try:
             with open(file_path, "rb") as f:
                 f.seek(start)
@@ -183,6 +185,71 @@ class AutorecHandler(SimpleHTTPRequestHandler):
                     remaining -= len(data)
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def _serve_recording_transcode(self, parsed):
+        """録画ファイルをトランスコードして配信 (MPEG-2 → H.264 for MSE)"""
+        params = parse_qs(parsed.query)
+        rel_path = params.get("path", [""])[0]
+        if not rel_path:
+            self.send_error(400, "path parameter is required")
+            return
+
+        file_path = os.path.realpath(os.path.join(api.RECORD_DIR, rel_path))
+
+        # パストラバーサル防止
+        record_dir_real = os.path.realpath(api.RECORD_DIR)
+        if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
+            self.send_error(403, "Forbidden")
+            return
+
+        if not os.path.isfile(file_path):
+            self.send_error(404, "Not Found")
+            return
+
+        try:
+            ffmpeg = subprocess.Popen(
+                [
+                    "ffmpeg",
+                    "-hide_banner", "-loglevel", "error",
+                    "-analyzeduration", "1000000",
+                    "-probesize", "2000000",
+                    "-i", file_path,
+                    "-c:v", "libx264", "-preset", "ultrafast",
+                    "-tune", "zerolatency",
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-f", "mpegts",
+                    "-mpegts_flags", "+resend_headers",
+                    "pipe:1",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            self.send_error(503, "ffmpeg not found (playback requires ffmpeg for transcoding)")
+            return
+
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "video/mp2t")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store")
+            self.end_headers()
+
+            while True:
+                data = ffmpeg.stdout.read(65536)
+                if not data:
+                    break
+                self.wfile.write(data)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            ffmpeg.terminate()
+            try:
+                ffmpeg.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                ffmpeg.kill()
+                ffmpeg.wait()
 
     def _serve_live_stream(self, parsed):
         """ライブTV ストリーム配信 (recpt1 → ffmpeg → HTTP)"""

@@ -243,10 +243,10 @@
         <div class="modal" style="max-width:900px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
                 <h3 id="video-modal-title">再生</h3>
-                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('video-modal').classList.remove('active'); document.getElementById('video-player').pause(); document.getElementById('video-player').removeAttribute('src');">閉じる</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');">閉じる</button>
             </div>
-            <video id="video-player" controls style="width:100%;max-height:70vh;background:#000"></video>
-            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem">.ts ファイルの再生はブラウザの対応状況に依存します。再生できない場合はダウンロードしてください。</p>
+            <video id="video-player" controls autoplay style="width:100%;max-height:70vh;background:#000"></video>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem">ffmpeg でトランスコードして再生しています。再生開始まで数秒かかる場合があります。</p>
         </div>
     </div>
 
