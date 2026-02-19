@@ -279,14 +279,58 @@ table tr:last-child td {
 }
 
 /* ===== EPG Newspaper Grid ===== */
-.epg-grid {
-    display: flex;
-    overflow: auto;
-    max-height: 75vh;
-    position: relative;
+.epg-container {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--bg-card);
+    overflow: hidden;
+}
+
+/* Header row — always visible, never scrolls vertically */
+.epg-header {
+    display: flex;
+    overflow: hidden;
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-card);
+}
+
+.epg-header-cell {
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.epg-header-cell:last-child {
+    border-right: none;
+}
+
+.epg-header-corner {
+    min-width: 44px;
+    max-width: 44px;
+    flex-shrink: 0;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.7rem;
+    text-align: center;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border);
+}
+
+/* Scrollable body */
+.epg-grid {
+    display: flex;
+    overflow: auto;
+    max-height: 70vh;
+    position: relative;
 }
 
 .epg-time-axis {
@@ -322,27 +366,10 @@ table tr:last-child td {
     max-width: 200px;
     border-right: 1px solid var(--border);
     flex-shrink: 0;
-    overflow: visible;
 }
 
 .epg-channel:last-child {
     border-right: none;
-}
-
-.epg-channel-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: var(--bg-card);
-    border-bottom: 2px solid var(--border);
-    padding: 0.45rem 0.35rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text);
 }
 
 .epg-channel-body {
@@ -445,18 +472,6 @@ table tr:last-child td {
 .cat-education { border-left-color: #a0826e; }
 .cat-info      { border-left-color: #7898a8; }
 
-/* Sticky corner patch — time axis header */
-.epg-time-axis-header {
-    position: sticky;
-    top: 0;
-    z-index: 11;
-    background: var(--bg-card);
-    border-bottom: 2px solid var(--border);
-    padding: 0.45rem 0.35rem;
-    font-size: 0.7rem;
-    text-align: center;
-    color: var(--text-muted);
-}
 
 /* ===== Forms ===== */
 .form-group {
@@ -890,7 +905,7 @@ button, .btn {
         padding: 1.5rem;
     }
 
-    .epg-channel {
+    .epg-channel, .epg-header-cell {
         min-width: 90px;
         max-width: 150px;
     }
@@ -919,12 +934,12 @@ button, .btn {
         font-size: 1.15rem;
     }
 
-    .epg-channel {
+    .epg-channel, .epg-header-cell {
         min-width: 72px;
         max-width: 120px;
     }
 
-    .epg-channel-header {
+    .epg-header-cell {
         font-size: 0.65rem;
         padding: 0.3rem 0.2rem;
     }
@@ -933,7 +948,7 @@ button, .btn {
         font-size: 0.65rem;
     }
 
-    .epg-time-axis {
+    .epg-time-axis, .epg-header-corner {
         min-width: 32px;
         max-width: 32px;
     }

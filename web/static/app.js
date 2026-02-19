@@ -245,10 +245,20 @@ function renderEPGTable(programmes) {
         }
     }
 
+    // --- ヘッダー行（スクロール領域の外） ---
+    let html = '<div class="epg-container">';
+    html += '<div class="epg-header">';
+    html += `<div class="epg-header-corner">${dateLabelOf(gridStart)}</div>`;
+    channelOrder.forEach(ch => {
+        html += `<div class="epg-header-cell">${escapeHtml(ch)}</div>`;
+    });
+    html += '</div>';
+
+    // --- スクロール領域 ---
+    html += '<div class="epg-grid">';
+
     // 時刻軸
-    let html = '<div class="epg-grid">';
     html += '<div class="epg-time-axis">';
-    html += `<div class="epg-time-axis-header">${dateLabelOf(gridStart)}</div>`;
     html += `<div class="epg-time-axis-body" style="height:${totalPx}px">`;
     for (let h = 0; h <= totalHours; h++) {
         const t = new Date(gridStart.getTime() + h * 3600000);
@@ -261,10 +271,9 @@ function renderEPGTable(programmes) {
     });
     html += '</div></div>';
 
-    // チャンネル列
+    // チャンネル列（ヘッダーなし — body のみ）
     channelOrder.forEach(ch => {
         html += '<div class="epg-channel">';
-        html += `<div class="epg-channel-header">${escapeHtml(ch)}</div>`;
         html += `<div class="epg-channel-body" style="height:${totalPx}px">`;
 
         // 毎時罫線
@@ -293,19 +302,23 @@ function renderEPGTable(programmes) {
         html += '</div></div>';
     });
 
-    html += '</div>';
+    html += '</div></div>';
     container.innerHTML = html;
 
-    // 現在時刻線 & 自動スクロール
+    // ヘッダーと本体の横スクロールを同期
     const grid = container.querySelector('.epg-grid');
+    const header = container.querySelector('.epg-header');
+    grid.addEventListener('scroll', () => {
+        header.scrollLeft = grid.scrollLeft;
+    });
+
+    // 現在時刻線 & 自動スクロール
     const updateNowLine = () => {
         const n = new Date();
         const px = timeToPx(n);
-        // 範囲外なら非表示
         grid.querySelectorAll('.epg-now-line').forEach(el => el.remove());
         if (px < 0 || px > totalPx) return;
 
-        // 各チャンネル列 + 時刻軸にライン追加
         grid.querySelectorAll('.epg-channel-body, .epg-time-axis-body').forEach(body => {
             const line = document.createElement('div');
             line.className = 'epg-now-line';
@@ -318,7 +331,6 @@ function renderEPGTable(programmes) {
     // 現在位置へ自動スクロール
     const nowPx = timeToPx(now);
     if (nowPx > 0 && nowPx < totalPx) {
-        // ヘッダー分のオフセットを考慮して、現在時刻が上寄りに見えるように
         grid.scrollTop = Math.max(0, nowPx - 60);
     }
 
