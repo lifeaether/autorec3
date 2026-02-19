@@ -293,7 +293,7 @@ function renderEPGTable(programmes) {
             if (height <= 0) return;
 
             const catCls = categoryClass(p.category);
-            html += `<div class="epg-programme epg-cell ${catCls}" style="top:${top}px;height:${height}px" onclick="showProgrammeDetail(this, ${p.idx})">`;
+            html += `<div class="epg-programme epg-cell ${catCls}" style="top:${top}px;height:${height}px" onmouseenter="showProgrammeDetail(this, ${p.idx})" onclick="showProgrammeDetail(this, ${p.idx})">`;
             html += `<div class="epg-prog-time">${formatTime(p.start_time)}</div>`;
             html += `<div class="epg-prog-title">${escapeHtml(p.title)}</div>`;
             html += '</div>';
@@ -339,9 +339,15 @@ function renderEPGTable(programmes) {
 }
 
 /* 番組詳細表示 */
+let _detailHideTimer = null;
+
 function showProgrammeDetail(el, idx) {
     const p = window._programmes[idx];
     const detail = document.getElementById('programme-detail');
+
+    // 非表示タイマーをキャンセル
+    if (_detailHideTimer) { clearTimeout(_detailHideTimer); _detailHideTimer = null; }
+
     detail.innerHTML = `
         <h4>${escapeHtml(p.title)}</h4>
         <div class="meta">
@@ -359,11 +365,46 @@ function showProgrammeDetail(el, idx) {
         </div>
     `;
     const rect = el.getBoundingClientRect();
-    detail.style.top = Math.min(rect.bottom + 5, window.innerHeight - 300) + 'px';
-    detail.style.left = Math.min(rect.left, window.innerWidth - 420) + 'px';
+    // 右側にはみ出す場合は左に寄せる、下にはみ出す場合は上に表示
+    let top = rect.bottom + 5;
+    let left = rect.left;
+    if (top + 250 > window.innerHeight) top = Math.max(5, rect.top - 260);
+    if (left + 400 > window.innerWidth) left = Math.max(5, window.innerWidth - 410);
+    detail.style.top = top + 'px';
+    detail.style.left = left + 'px';
     detail.classList.add('active');
 }
 
+function hideProgrammeDetail() {
+    _detailHideTimer = setTimeout(() => {
+        document.getElementById('programme-detail').classList.remove('active');
+    }, 200);
+}
+
+// ポップアップ自体にマウスが入ったら非表示をキャンセル
+document.addEventListener('DOMContentLoaded', () => {
+    const detail = document.getElementById('programme-detail');
+    if (detail) {
+        detail.addEventListener('mouseenter', () => {
+            if (_detailHideTimer) { clearTimeout(_detailHideTimer); _detailHideTimer = null; }
+        });
+        detail.addEventListener('mouseleave', () => {
+            hideProgrammeDetail();
+        });
+    }
+});
+
+// 番組ブロックからマウスが離れたら非表示（遅延付き）
+document.addEventListener('mouseout', (e) => {
+    if (e.target.closest && e.target.closest('.epg-cell')) {
+        const related = e.relatedTarget;
+        if (!related || (!related.closest('.epg-cell') && !related.closest('.programme-detail'))) {
+            hideProgrammeDetail();
+        }
+    }
+});
+
+// クリックで他の場所を押した場合も閉じる
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.epg-cell') && !e.target.closest('.programme-detail')) {
         document.getElementById('programme-detail').classList.remove('active');
