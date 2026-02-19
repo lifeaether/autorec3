@@ -305,11 +305,21 @@ function renderEPGTable(programmes) {
     html += '</div></div>';
     container.innerHTML = html;
 
-    // ヘッダーと本体の横スクロールを同期
+    // ヘッダーと本体のスクロール同期
     const grid = container.querySelector('.epg-grid');
     const header = container.querySelector('.epg-header');
+    const cornerEl = container.querySelector('.epg-header-corner');
+
+    // スクロール位置から表示中の日付を算出しヘッダーに反映
+    const updateCornerDate = () => {
+        const scrollMs = (grid.scrollTop / PX_PER_HOUR) * 3600000;
+        const visibleDate = new Date(gridStart.getTime() + scrollMs);
+        cornerEl.textContent = dateLabelOf(visibleDate);
+    };
+
     grid.addEventListener('scroll', () => {
         header.scrollLeft = grid.scrollLeft;
+        updateCornerDate();
     });
 
     // 現在時刻線 & 自動スクロール
@@ -333,6 +343,7 @@ function renderEPGTable(programmes) {
     if (nowPx > 0 && nowPx < totalPx) {
         grid.scrollTop = Math.max(0, nowPx - 60);
     }
+    updateCornerDate();
 
     // 60秒ごとに現在時刻線を更新
     _epgNowTimer = setInterval(updateNowLine, 60000);
