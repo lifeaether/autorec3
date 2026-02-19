@@ -569,10 +569,12 @@ function playRecording(path, name) {
     closeRecordingPlayer();
 
     if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
+        // path は既に部分エンコード済みなので decode してから再エンコード
+        const rawPath = decodeURIComponent(path);
         recordingPlayer = mpegts.createPlayer({
             type: 'mpegts',
             isLive: true,
-            url: `/recordings/transcode?path=${encodeURIComponent(path)}`,
+            url: `/recordings/transcode?path=${encodeURIComponent(rawPath)}`,
         }, {
             enableWorker: false,
             liveBufferLatencyChasing: false,

@@ -31,6 +31,7 @@ if os.path.exists(_conf_path):
 
 class AutorecHandler(SimpleHTTPRequestHandler):
     """autorec HTTP リクエストハンドラ"""
+    protocol_version = "HTTP/1.1"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
@@ -170,20 +171,21 @@ class AutorecHandler(SimpleHTTPRequestHandler):
 
         self.end_headers()
 
-        # 1MB チャンクでストリーミング (DL 高速化)
-        chunk_size = 1048576
+        # os.sendfile() でゼロコピー転送 (カーネル内で直接 disk→socket)
         try:
             with open(file_path, "rb") as f:
-                f.seek(start)
+                self.wfile.flush()
+                out_fd = self.wfile.fileno()
+                in_fd = f.fileno()
+                offset = start
                 remaining = content_length
                 while remaining > 0:
-                    read_size = min(chunk_size, remaining)
-                    data = f.read(read_size)
-                    if not data:
+                    sent = os.sendfile(out_fd, in_fd, offset, min(remaining, 16777216))
+                    if sent == 0:
                         break
-                    self.wfile.write(data)
-                    remaining -= len(data)
-        except (BrokenPipeError, ConnectionResetError):
+                    offset += sent
+                    remaining -= sent
+        except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 
     def _serve_recording_transcode(self, parsed):
@@ -233,6 +235,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "video/mp2t")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Cache-Control", "no-cache, no-store")
+            self.send_header("Connection", "close")
             self.end_headers()
 
             while True:
@@ -336,6 +339,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "video/mp2t")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Cache-Control", "no-cache, no-store")
+            self.send_header("Connection", "close")
             self.end_headers()
 
             # ffmpeg 出力をクライアントにストリーミング
