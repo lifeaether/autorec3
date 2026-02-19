@@ -483,6 +483,34 @@ def get_now_playing(params):
     return _json_response({"now_playing": None})
 
 
+def get_recording_duration(params):
+    """GET /api/recordings/duration?path=<path> - ffprobe で再生時間を取得"""
+    rel_path = params.get("path", [""])[0]
+    if not rel_path:
+        return _error("path parameter is required")
+
+    file_path = os.path.realpath(os.path.join(RECORD_DIR, rel_path))
+    record_dir_real = os.path.realpath(RECORD_DIR)
+    if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
+        return _error("Forbidden", 403)
+
+    if not os.path.isfile(file_path):
+        return _error("Not found", 404)
+
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "json", file_path],
+            capture_output=True, text=True, timeout=10,
+        )
+        data = json.loads(result.stdout)
+        duration = float(data["format"]["duration"])
+        return _json_response({"duration": duration})
+    except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError,
+            subprocess.TimeoutExpired):
+        return _error("Could not determine duration", 500)
+
+
 # --- 録画済みファイル API ---
 
 def get_recordings(_params):
@@ -578,5 +606,7 @@ def handle_request(method, path, params, body=b""):
     # 録画済みファイル
     if method == "GET" and path == "/api/recordings":
         return get_recordings(params)
+    if method == "GET" and path == "/api/recordings/duration":
+        return get_recording_duration(params)
 
     return _error("Not found", 404)

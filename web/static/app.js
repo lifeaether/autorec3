@@ -559,37 +559,106 @@ function filterRecordings() {
 }
 
 let recordingPlayer = null;
+let recordingBaseTime = 0;
+let recordingDuration = 0;
+let recordingPath = null;
+let seekUpdateTimer = null;
+let seekBarDragging = false;
+
+function formatDuration(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 function playRecording(path, name) {
     const modal = document.getElementById('video-modal');
-    const videoEl = document.getElementById('video-player');
     const title = document.getElementById('video-modal-title');
     title.textContent = name || '再生';
 
     closeRecordingPlayer();
 
     if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
-        // path は既に部分エンコード済みなので decode してから再エンコード
-        const rawPath = decodeURIComponent(path);
-        recordingPlayer = mpegts.createPlayer({
-            type: 'mpegts',
-            isLive: true,
-            url: `/recordings/transcode?path=${encodeURIComponent(rawPath)}`,
-        }, {
-            enableWorker: false,
-            liveBufferLatencyChasing: false,
-        });
-        recordingPlayer.attachMediaElement(videoEl);
-        recordingPlayer.load();
-        videoEl.play().catch(() => {});
+        recordingPath = decodeURIComponent(path);
+        recordingBaseTime = 0;
+        recordingDuration = 0;
+
+        // 再生時間を取得してシークバー初期化
+        API.get(`/api/recordings/duration?path=${encodeURIComponent(recordingPath)}`)
+            .then(data => {
+                if (data.duration) {
+                    recordingDuration = data.duration;
+                    const bar = document.getElementById('video-seek-bar');
+                    bar.max = recordingDuration;
+                    bar.value = 0;
+                    document.getElementById('video-total-time').textContent = formatDuration(recordingDuration);
+                    document.getElementById('video-current-time').textContent = '0:00';
+                    document.getElementById('video-seek-container').style.display = '';
+                }
+            })
+            .catch(() => {});
+
+        startRecordingStream(0);
     } else {
+        const videoEl = document.getElementById('video-player');
         videoEl.src = '/recordings/' + path;
+        document.getElementById('video-seek-container').style.display = 'none';
     }
 
     modal.classList.add('active');
 }
 
+function startRecordingStream(seekTime) {
+    const videoEl = document.getElementById('video-player');
+
+    if (recordingPlayer) {
+        recordingPlayer.destroy();
+        recordingPlayer = null;
+    }
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+
+    recordingBaseTime = seekTime;
+
+    let url = `/recordings/transcode?path=${encodeURIComponent(recordingPath)}`;
+    if (seekTime > 0) url += `&ss=${seekTime}`;
+
+    recordingPlayer = mpegts.createPlayer({
+        type: 'mpegts',
+        isLive: true,
+        url: url,
+    }, {
+        enableWorker: false,
+        liveBufferLatencyChasing: false,
+    });
+    recordingPlayer.attachMediaElement(videoEl);
+    recordingPlayer.load();
+    videoEl.play().catch(() => {});
+
+    // シークバー更新開始
+    if (seekUpdateTimer) clearInterval(seekUpdateTimer);
+    seekUpdateTimer = setInterval(updateSeekBar, 500);
+}
+
+function updateSeekBar() {
+    if (seekBarDragging || !recordingDuration) return;
+    const videoEl = document.getElementById('video-player');
+    const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
+    const bar = document.getElementById('video-seek-bar');
+    const currentEl = document.getElementById('video-current-time');
+    if (bar) bar.value = Math.min(currentTime, recordingDuration);
+    if (currentEl) currentEl.textContent = formatDuration(currentTime);
+}
+
 function closeRecordingPlayer() {
+    if (seekUpdateTimer) {
+        clearInterval(seekUpdateTimer);
+        seekUpdateTimer = null;
+    }
     const videoEl = document.getElementById('video-player');
     if (recordingPlayer) {
         recordingPlayer.destroy();
@@ -598,6 +667,11 @@ function closeRecordingPlayer() {
     videoEl.pause();
     videoEl.removeAttribute('src');
     videoEl.load();
+    recordingPath = null;
+    recordingBaseTime = 0;
+    recordingDuration = 0;
+    seekBarDragging = false;
+    document.getElementById('video-seek-container').style.display = 'none';
 }
 
 /* --- ライブ視聴機能 --- */
@@ -739,6 +813,22 @@ async function init() {
             switchSection(a.dataset.section);
         });
     });
+
+    // 録画再生シークバー
+    const seekBar = document.getElementById('video-seek-bar');
+    if (seekBar) {
+        seekBar.addEventListener('input', () => {
+            seekBarDragging = true;
+            document.getElementById('video-current-time').textContent =
+                formatDuration(parseFloat(seekBar.value));
+        });
+        seekBar.addEventListener('change', () => {
+            seekBarDragging = false;
+            if (recordingPath && recordingDuration) {
+                startRecordingStream(parseFloat(seekBar.value));
+            }
+        });
+    }
 
     // キーワード予約プレビュー: debounce 付き input イベント
     let previewTimer = null;

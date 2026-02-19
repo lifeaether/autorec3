@@ -208,21 +208,36 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "Not Found")
             return
 
+        # シークパラメータ
+        ss = params.get("ss", [""])[0]
+        if ss:
+            try:
+                float(ss)
+            except ValueError:
+                self.send_error(400, "Invalid ss parameter")
+                return
+
+        cmd = [
+            "ffmpeg",
+            "-hide_banner", "-loglevel", "error",
+            "-analyzeduration", "1000000",
+            "-probesize", "2000000",
+        ]
+        if ss:
+            cmd += ["-ss", ss]
+        cmd += [
+            "-i", file_path,
+            "-c:v", "libx264", "-preset", "ultrafast",
+            "-tune", "zerolatency",
+            "-c:a", "aac", "-b:a", "128k",
+            "-f", "mpegts",
+            "-mpegts_flags", "+resend_headers",
+            "pipe:1",
+        ]
+
         try:
             ffmpeg = subprocess.Popen(
-                [
-                    "ffmpeg",
-                    "-hide_banner", "-loglevel", "error",
-                    "-analyzeduration", "1000000",
-                    "-probesize", "2000000",
-                    "-i", file_path,
-                    "-c:v", "libx264", "-preset", "ultrafast",
-                    "-tune", "zerolatency",
-                    "-c:a", "aac", "-b:a", "128k",
-                    "-f", "mpegts",
-                    "-mpegts_flags", "+resend_headers",
-                    "pipe:1",
-                ],
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
