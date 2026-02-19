@@ -211,17 +211,36 @@ function renderEPGTable(programmes) {
     };
 
     // --- HTML構築 ---
+    // 日付ラベル用ヘルパー
+    const weekday = ['日','月','火','水','木','金','土'];
+    const dateLabelOf = (d) => `${d.getMonth()+1}/${d.getDate()}(${weekday[d.getDay()]})`;
+
+    // 日付境界(0時)の位置を事前計算
+    const dateBoundaries = [];
+    {
+        // gridStart の翌日0時から探索
+        let d = new Date(gridStart);
+        d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0);
+        while (d < gridEnd) {
+            dateBoundaries.push({ date: new Date(d), px: timeToPx(d) });
+            d.setDate(d.getDate() + 1);
+        }
+    }
+
     // 時刻軸
     let html = '<div class="epg-grid">';
     html += '<div class="epg-time-axis">';
-    html += '<div class="epg-time-axis-header">時刻</div>';
+    html += `<div class="epg-time-axis-header">${dateLabelOf(gridStart)}</div>`;
     html += `<div class="epg-time-axis-body" style="height:${totalPx}px">`;
     for (let h = 0; h <= totalHours; h++) {
         const t = new Date(gridStart.getTime() + h * 3600000);
-        const label = String(t.getHours());
         const top = h * PX_PER_HOUR;
-        html += `<div class="epg-time-label" style="top:${top}px">${label}</div>`;
+        html += `<div class="epg-time-label" style="top:${top}px">${t.getHours()}</div>`;
     }
+    // 日付境界ラベル（時刻軸）
+    dateBoundaries.forEach(b => {
+        html += `<div class="epg-date-label" style="top:${b.px}px">${dateLabelOf(b.date)}</div>`;
+    });
     html += '</div></div>';
 
     // チャンネル列
@@ -234,6 +253,10 @@ function renderEPGTable(programmes) {
         for (let h = 0; h <= totalHours; h++) {
             html += `<div class="epg-hour-line" style="top:${h * PX_PER_HOUR}px"></div>`;
         }
+        // 日付境界線
+        dateBoundaries.forEach(b => {
+            html += `<div class="epg-date-line" style="top:${b.px}px"></div>`;
+        });
 
         // 番組ブロック
         byChannel[ch].forEach(p => {

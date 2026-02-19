@@ -395,25 +395,39 @@ table tr:last-child td {
     pointer-events: none;
 }
 
-.epg-now-line::before {
-    content: "現在";
-    position: absolute;
-    left: 2px;
-    top: -14px;
-    font-size: 0.6rem;
-    font-weight: 700;
-    color: var(--error);
-    background: var(--bg-card);
-    padding: 0 3px;
-    border-radius: 3px;
-}
-
 .epg-hour-line {
     position: absolute;
     left: 0;
     right: 0;
     height: 1px;
     background: var(--border);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.epg-date-label {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-light);
+    border-radius: 3px;
+    padding: 1px 0;
+    line-height: 1.3;
+    transform: translateY(-100%);
+    pointer-events: none;
+}
+
+.epg-date-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.4;
     pointer-events: none;
     z-index: 0;
 }
