@@ -121,8 +121,10 @@ window._programmes = [];
 
 async function loadEPG() {
     const category = document.getElementById('epg-category').value;
+    const d = new Date();
+    const now = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
 
-    let url = `/api/programmes?limit=10000`;
+    let url = `/api/programmes?limit=10000&active_after=${encodeURIComponent(now)}`;
     if (category) url += `&category=${encodeURIComponent(category)}`;
 
     try {
@@ -862,10 +864,12 @@ async function init() {
     switchSection(initialSection);
 
     // チャンネル一覧と番組表を並列取得
+    const d = new Date();
+    const now = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
     try {
         const [chData, epgData, catData] = await Promise.all([
             API.get('/api/channels'),
-            API.get('/api/programmes?limit=10000'),
+            API.get(`/api/programmes?limit=10000&active_after=${encodeURIComponent(now)}`),
             API.get('/api/categories'),
         ]);
 

@@ -112,12 +112,16 @@ def get_programmes(params):
     if category:
         conditions.append("category LIKE ?")
         args.append(f"%{category}%")
+    active_after = params.get("active_after", [""])[0]
+    if active_after:
+        conditions.append("end_time > ?")
+        args.append(active_after)
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     conn = _get_db(EPG_DB)
     rows = conn.execute(
-        f"SELECT event_id, channel, title, start_time, end_time, category FROM programme {where} ORDER BY start_time, channel LIMIT ? OFFSET ?",
+        f"SELECT event_id, channel, title, description, start_time, end_time, category FROM programme {where} ORDER BY start_time, channel LIMIT ? OFFSET ?",
         args + [limit, offset],
     ).fetchall()
     programmes = [dict(r) for r in rows]
