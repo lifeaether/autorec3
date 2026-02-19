@@ -93,6 +93,7 @@ let liveNowTimer = null;  // 番組情報更新用 interval
 /* --- ナビゲーション --- */
 
 let channels = [];
+let categories = [];
 
 function switchSection(name) {
     // セクション切替時、ライブ視聴中なら停止
@@ -256,7 +257,7 @@ async function loadRules() {
     try {
         const data = await API.get('/api/rules');
         if (!data.rules || data.rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
             return;
         }
         tbody.innerHTML = data.rules.map(r => `
@@ -264,6 +265,7 @@ async function loadRules() {
                 <td>${r.id}</td>
                 <td>${escapeHtml(r.name)}</td>
                 <td>${escapeHtml(r.keyword || '*')}</td>
+                <td>${escapeHtml(r.category || '-')}</td>
                 <td>${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}</td>
                 <td>
                     <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
@@ -272,7 +274,7 @@ async function loadRules() {
             </tr>
         `).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
     }
 }
 
@@ -286,6 +288,15 @@ function showRuleForm(rule) {
     form.elements['rule-keyword'].value = rule ? (rule.keyword || '') : '';
     form.elements['rule-enabled'].checked = rule ? !!rule.enabled : true;
 
+    // カテゴリ select を生成・値セット
+    const catSelect = document.getElementById('rule-category');
+    let catOpts = '<option value="">指定なし</option>';
+    categories.forEach(cat => {
+        catOpts += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+    });
+    catSelect.innerHTML = catOpts;
+    catSelect.value = rule ? (rule.category || '') : '';
+
     // プレビューをリセット
     const preview = document.getElementById('rule-preview');
     preview.style.display = 'none';
@@ -294,8 +305,8 @@ function showRuleForm(rule) {
 
     overlay.classList.add('active');
 
-    // 編集時はキーワードがあれば即プレビュー
-    if (rule && rule.keyword) {
+    // 編集時はキーワードまたはカテゴリがあれば即プレビュー
+    if (rule && (rule.keyword || rule.category)) {
         previewRule();
     }
 }
@@ -323,7 +334,7 @@ async function saveRule() {
         name: form.elements['rule-name'].value,
         keyword: form.elements['rule-keyword'].value || null,
         channel: null,
-        category: null,
+        category: document.getElementById('rule-category').value || null,
         time_from: null,
         time_to: null,
         weekdays: null,
@@ -354,11 +365,12 @@ async function saveRule() {
 
 async function previewRule() {
     const keyword = document.getElementById('rule-keyword').value.trim();
+    const category = document.getElementById('rule-category').value;
     const preview = document.getElementById('rule-preview');
     const countEl = document.getElementById('rule-preview-count');
     const tableEl = document.getElementById('rule-preview-table');
 
-    if (!keyword) {
+    if (!keyword && !category) {
         preview.style.display = 'none';
         tableEl.innerHTML = '';
         countEl.textContent = '0';
@@ -369,7 +381,10 @@ async function previewRule() {
     tableEl.innerHTML = '<p style="color:var(--text-muted)">検索中...</p>';
 
     try {
-        const data = await API.get(`/api/programmes/search?keyword=${encodeURIComponent(keyword)}&limit=30`);
+        let searchUrl = `/api/programmes/search?limit=30`;
+        if (keyword) searchUrl += `&keyword=${encodeURIComponent(keyword)}`;
+        if (category) searchUrl += `&category=${encodeURIComponent(category)}`;
+        const data = await API.get(searchUrl);
         const programmes = data.programmes || [];
         const total = data.total || 0;
         countEl.textContent = total;
@@ -842,6 +857,15 @@ async function init() {
         });
     }
 
+    // ジャンル変更時もプレビュー更新
+    const ruleCategory = document.getElementById('rule-category');
+    if (ruleCategory) {
+        ruleCategory.addEventListener('change', () => {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(previewRule, 300);
+        });
+    }
+
     // 初期セクション表示
     document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
@@ -873,7 +897,7 @@ async function init() {
             sel.value = current;
         });
 
-        const categories = catData.categories || [];
+        categories = catData.categories || [];
         const catSelect = document.getElementById('epg-category');
         if (catSelect) {
             let catOpts = '<option value="">全ジャンル</option>';

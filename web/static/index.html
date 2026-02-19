@@ -52,12 +52,13 @@
                             <th>ID</th>
                             <th>予約名</th>
                             <th>キーワード</th>
+                            <th>ジャンル</th>
                             <th>状態</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody id="rules-table">
-                        <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
+                        <tr><td colspan="6" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -201,6 +202,7 @@
                     <thead><tr><th>項目</th><th>説明</th><th>例</th></tr></thead>
                     <tbody>
                         <tr><td>キーワード</td><td>番組タイトルの部分一致で自動録画</td><td>ニュース</td></tr>
+                        <tr><td>ジャンル</td><td>番組のジャンル (カテゴリ) で絞り込み</td><td>映画</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -222,6 +224,12 @@
                 <div class="form-group">
                     <label for="rule-keyword">キーワード (部分一致)</label>
                     <input type="text" name="rule-keyword" id="rule-keyword" placeholder="番組タイトルで検索">
+                </div>
+                <div class="form-group">
+                    <label for="rule-category">ジャンル</label>
+                    <select name="rule-category" id="rule-category">
+                        <option value="">指定なし</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>
