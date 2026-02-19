@@ -14,6 +14,7 @@
         <a href="#" data-section="rules">録画予約</a>
         <a href="#" data-section="schedules">録画予定</a>
         <a href="#" data-section="recordings">録画済み</a>
+        <a href="#" data-section="live">ライブ</a>
         <a href="#" data-section="logs">ログ</a>
         <a href="#" data-section="help" style="margin-left:auto">ヘルプ</a>
     </nav>
@@ -103,6 +104,28 @@
             </div>
         </div>
 
+        <!-- ライブ視聴セクション -->
+        <div id="section-live" class="section">
+            <h2>ライブ視聴</h2>
+            <div class="toolbar">
+                <select id="live-channel" style="min-width:200px">
+                    <option value="">チャンネルを選択</option>
+                </select>
+                <button id="live-start-btn" class="btn btn-primary" onclick="startLive()">視聴開始</button>
+                <button id="live-stop-btn" class="btn btn-danger" onclick="stopLive()" style="display:none">停止</button>
+                <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
+            </div>
+            <div class="card" id="live-player-card" style="padding:0;overflow:hidden">
+                <video id="live-video" controls autoplay style="width:100%;max-height:70vh;background:#000;display:block"></video>
+            </div>
+            <div id="live-now-playing" class="card" style="display:none">
+                <h3 style="margin-bottom:0.5rem">放送中</h3>
+                <div id="live-now-info"></div>
+            </div>
+            <div id="live-stream-info" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem"></div>
+            <div id="live-error" style="color:var(--error);margin-top:0.5rem"></div>
+        </div>
+
         <!-- ログセクション -->
         <div id="section-logs" class="section">
             <h2>録画ログ</h2>
@@ -144,6 +167,7 @@
                         <tr><td><strong>録画予約</strong></td><td>キーワード予約を管理します。キーワードに一致する番組が自動的に録画予定に登録されます。</td></tr>
                         <tr><td><strong>録画予定</strong></td><td>予約にマッチして録画予定に入った番組の一覧です。状態でフィルタできます。</td></tr>
                         <tr><td><strong>録画済み</strong></td><td>録画完了したファイルをシリーズ別に一覧表示します。ブラウザ内再生やダウンロードが可能です。</td></tr>
+                        <tr><td><strong>ライブ</strong></td><td>放送中のテレビをリアルタイムで視聴します。チャンネルを選択して視聴開始をクリックすると、recpt1 経由でストリーミング再生が始まります。同時視聴は最大2ストリームです。</td></tr>
                         <tr><td><strong>ログ</strong></td><td>録画の開始・完了・エラーなどの履歴です。</td></tr>
                     </tbody>
                 </table>
@@ -226,6 +250,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """autorec Web UI - Python 標準ライブラリのみの軽量HTTPサーバー"""
 import os
+import subprocess
 import sys
+import time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
@@ -39,6 +41,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self._handle_api("GET", parsed)
         elif parsed.path.startswith("/recordings/"):
             self._serve_recording(parsed)
+        elif parsed.path == "/live/stream":
+            self._serve_live_stream(parsed)
         else:
             # 静的ファイル配信
             if parsed.path == "/":
@@ -48,7 +52,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         """静的ファイルに Cache-Control ヘッダを追加"""
         parsed = urlparse(self.path)
-        if not parsed.path.startswith("/api/") and not parsed.path.startswith("/recordings/"):
+        if not parsed.path.startswith("/api/") and not parsed.path.startswith("/recordings/") and not parsed.path.startswith("/live/"):
             self.send_header("Cache-Control", "max-age=300")
         super().end_headers()
 
@@ -179,6 +183,119 @@ class AutorecHandler(SimpleHTTPRequestHandler):
                     remaining -= len(data)
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def _serve_live_stream(self, parsed):
+        """ライブTV ストリーム配信 (recpt1 → ffmpeg → HTTP)"""
+        params = parse_qs(parsed.query)
+        ch = params.get("ch", [""])[0]
+        if not ch:
+            self.send_error(400, "ch parameter is required")
+            return
+
+        valid_channels = api._get_valid_channels()
+        if ch not in valid_channels:
+            self.send_error(400, f"Invalid channel: {ch}")
+            return
+
+        channel_name = valid_channels[ch]
+
+        # recpt1 起動
+        try:
+            recpt1 = subprocess.Popen(
+                ["recpt1", "--b25", "--strip", ch, "-", "-"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            self.send_error(503, "recpt1 not found")
+            return
+
+        # 0.5秒待って起動エラー検出
+        time.sleep(0.5)
+        if recpt1.poll() is not None:
+            stderr_out = recpt1.stderr.read().decode("utf-8", errors="replace")
+            self.send_error(503, f"recpt1 failed to start: {stderr_out[:200]}")
+            return
+
+        # ffmpeg でトランスコード (MPEG-2 → H.264, ブラウザ MSE 互換)
+        try:
+            ffmpeg = subprocess.Popen(
+                [
+                    "ffmpeg",
+                    "-hide_banner", "-loglevel", "error",
+                    "-analyzeduration", "500000",
+                    "-probesize", "1000000",
+                    "-fflags", "+nobuffer",
+                    "-i", "pipe:0",
+                    "-c:v", "libx264", "-preset", "ultrafast",
+                    "-tune", "zerolatency",
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-f", "mpegts",
+                    "-mpegts_flags", "+resend_headers",
+                    "pipe:1",
+                ],
+                stdin=recpt1.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            recpt1.terminate()
+            recpt1.wait()
+            self.send_error(503, "ffmpeg not found (live playback requires ffmpeg for transcoding)")
+            return
+
+        # recpt1 stdout を親プロセスから閉じる (pipe 連携用)
+        recpt1.stdout.close()
+
+        # ストリーム登録 (上限チェック)
+        stream_id = api.register_live_stream(ch, channel_name, recpt1.pid)
+        if stream_id is None:
+            recpt1.terminate()
+            ffmpeg.terminate()
+            try:
+                ffmpeg.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                ffmpeg.kill()
+            try:
+                recpt1.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                recpt1.kill()
+            self.send_error(503, "Max live streams reached")
+            return
+
+        try:
+            # レスポンスヘッダ送信 (Content-Length なし → 接続終了で完了)
+            self.send_response(200)
+            self.send_header("Content-Type", "video/mp2t")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store")
+            self.end_headers()
+
+            # ffmpeg 出力をクライアントにストリーミング
+            while True:
+                data = ffmpeg.stdout.read(65536)
+                if not data:
+                    break
+                self.wfile.write(data)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            # クライアント切断
+            pass
+        finally:
+            # recpt1 と ffmpeg を終了
+            recpt1.terminate()
+            ffmpeg.terminate()
+            try:
+                ffmpeg.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                ffmpeg.kill()
+                ffmpeg.wait()
+            try:
+                recpt1.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                recpt1.kill()
+                recpt1.wait()
+            api.unregister_live_stream(stream_id)
 
     def do_OPTIONS(self):
         """CORS プリフライト対応"""

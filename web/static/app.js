@@ -85,11 +85,19 @@ function formatFileSize(bytes) {
     return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
 }
 
+/* --- ライブ視聴 --- */
+
+let livePlayer = null;    // mpegts.Player
+let liveNowTimer = null;  // 番組情報更新用 interval
+
 /* --- ナビゲーション --- */
 
 let channels = [];
 
 function switchSection(name) {
+    // セクション切替時、ライブ視聴中なら停止
+    if (name !== 'live' && livePlayer) stopLive();
+
     document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
     const section = document.getElementById('section-' + name);
@@ -101,6 +109,7 @@ function switchSection(name) {
     else if (name === 'rules') loadRules();
     else if (name === 'schedules') loadSchedules();
     else if (name === 'recordings') loadRecordings();
+    else if (name === 'live') initLiveSection();
     else if (name === 'logs') loadLogs();
 }
 
@@ -556,6 +565,129 @@ function playRecording(path, name) {
     title.textContent = name || '再生';
     player.src = '/recordings/' + path;
     modal.classList.add('active');
+}
+
+/* --- ライブ視聴機能 --- */
+
+function initLiveSection() {
+    const select = document.getElementById('live-channel');
+    if (select && select.options.length <= 1 && channels.length > 0) {
+        channels.forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch.number;
+            opt.textContent = ch.name;
+            select.appendChild(opt);
+        });
+    }
+}
+
+function startLive() {
+    const select = document.getElementById('live-channel');
+    const ch = select.value;
+    if (!ch) {
+        alert('チャンネルを選択してください');
+        return;
+    }
+
+    if (typeof mpegts === 'undefined' || !mpegts.isSupported()) {
+        document.getElementById('live-error').textContent =
+            'このブラウザは mpegts.js に対応していません。Chrome または Edge をお使いください。';
+        return;
+    }
+
+    // UI 更新
+    document.getElementById('live-error').textContent = '';
+    document.getElementById('live-stream-info').textContent = '';
+    document.getElementById('live-start-btn').style.display = 'none';
+    document.getElementById('live-stop-btn').style.display = '';
+    select.disabled = true;
+    document.getElementById('live-status').innerHTML =
+        '<span class="live-indicator"></span> 接続中...';
+
+    const videoEl = document.getElementById('live-video');
+
+    livePlayer = mpegts.createPlayer({
+        type: 'mpegts',
+        isLive: true,
+        url: `/live/stream?ch=${ch}`,
+    }, {
+        enableWorker: false,
+        liveBufferLatencyChasing: true,
+        liveBufferLatencyMaxLatency: 5.0,
+        liveBufferLatencyMinRemain: 1.0,
+    });
+
+    livePlayer.attachMediaElement(videoEl);
+
+    livePlayer.on(mpegts.Events.MEDIA_INFO, (info) => {
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生中';
+        let infoText = '';
+        if (info.videoCodec) infoText += `映像: ${info.videoCodec}`;
+        if (info.width && info.height) infoText += ` ${info.width}x${info.height}`;
+        if (info.audioCodec) infoText += ` / 音声: ${info.audioCodec}`;
+        document.getElementById('live-stream-info').textContent = infoText;
+    });
+
+    livePlayer.on(mpegts.Events.ERROR, (type, detail, info) => {
+        document.getElementById('live-error').textContent =
+            `再生エラー: ${detail || type}`;
+    });
+
+    livePlayer.load();
+    videoEl.play().catch(() => {
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生ボタンを押してください';
+    });
+
+    // 番組情報を取得 (チャンネル名で検索)
+    const chName = select.options[select.selectedIndex].textContent;
+    loadLiveNowPlaying(chName);
+    liveNowTimer = setInterval(() => loadLiveNowPlaying(chName), 60000);
+}
+
+function stopLive() {
+    if (livePlayer) {
+        livePlayer.destroy();
+        livePlayer = null;
+    }
+    if (liveNowTimer) {
+        clearInterval(liveNowTimer);
+        liveNowTimer = null;
+    }
+
+    // UI リセット
+    document.getElementById('live-start-btn').style.display = '';
+    document.getElementById('live-stop-btn').style.display = 'none';
+    document.getElementById('live-channel').disabled = false;
+    document.getElementById('live-status').textContent = '';
+    document.getElementById('live-stream-info').textContent = '';
+    document.getElementById('live-error').textContent = '';
+    document.getElementById('live-now-playing').style.display = 'none';
+    document.getElementById('live-now-info').textContent = '';
+}
+
+async function loadLiveNowPlaying(channelName) {
+    try {
+        const data = await API.get(`/api/live/now?channel=${encodeURIComponent(channelName)}`);
+        const container = document.getElementById('live-now-playing');
+        const info = document.getElementById('live-now-info');
+        if (data.now_playing) {
+            const p = data.now_playing;
+            info.innerHTML = `
+                <strong>${escapeHtml(p.title)}</strong><br>
+                <span style="color:var(--text-muted);font-size:0.85rem">
+                    ${formatTime(p.start_time)} - ${formatTime(p.end_time)}
+                    ${p.category ? ' | ' + escapeHtml(p.category) : ''}
+                </span>
+            `;
+            container.style.display = '';
+        } else {
+            container.style.display = 'none';
+        }
+    } catch {
+        // 番組情報取得失敗は無視
+    }
 }
 
 /* --- 初期化 --- */

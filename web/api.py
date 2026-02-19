@@ -12,6 +12,10 @@ EPG_DB = os.path.join(AUTOREC_DIR, "db", "epg.sqlite")
 AUTOREC_DB = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
 RECORD_DIR = "/mnt/data"
 
+MAX_LIVE_STREAMS = 2
+_live_streams = {}   # {stream_id: {"channel", "channel_name", "pid", "started_at"}}
+_live_lock = threading.Lock()
+
 # conf から DB パスを読み込み (あれば上書き)
 _conf_path = os.path.join(AUTOREC_DIR, "conf", "autorec.conf")
 if os.path.exists(_conf_path):
@@ -408,6 +412,77 @@ def get_channels(_params):
     return _json_response({"channels": channels})
 
 
+def _get_valid_channels():
+    """channels.conf から {番号: 名前} の dict を返す"""
+    result = {}
+    conf_path = os.path.join(AUTOREC_DIR, "conf", "channels.conf")
+    if os.path.exists(conf_path):
+        with open(conf_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split(None, 1)
+                if len(parts) >= 2:
+                    result[parts[0]] = parts[1]
+    return result
+
+
+def register_live_stream(channel_num, channel_name, pid):
+    """登録成功時 stream_id を返す。上限超過時は None"""
+    with _live_lock:
+        if len(_live_streams) >= MAX_LIVE_STREAMS:
+            return None
+        stream_id = f"live_{pid}_{channel_num}"
+        _live_streams[stream_id] = {
+            "channel": channel_num,
+            "channel_name": channel_name,
+            "pid": pid,
+            "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        return stream_id
+
+
+def unregister_live_stream(stream_id):
+    """登録解除"""
+    with _live_lock:
+        _live_streams.pop(stream_id, None)
+
+
+def get_live_status(_params):
+    """GET /api/live/status"""
+    with _live_lock:
+        streams = [
+            {"stream_id": sid, **info}
+            for sid, info in _live_streams.items()
+        ]
+    return _json_response({
+        "active_streams": len(streams),
+        "max_streams": MAX_LIVE_STREAMS,
+        "streams": streams,
+    })
+
+
+def get_now_playing(params):
+    """GET /api/live/now?channel=NHK総合"""
+    channel = params.get("channel", [""])[0]
+    if not channel:
+        return _error("channel parameter is required")
+
+    conn = _get_db(EPG_DB)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    row = conn.execute(
+        "SELECT event_id, channel, title, start_time, end_time, category FROM programme "
+        "WHERE channel = ? AND start_time <= ? AND end_time > ? "
+        "ORDER BY start_time DESC LIMIT 1",
+        (channel, now, now),
+    ).fetchone()
+
+    if row:
+        return _json_response({"now_playing": dict(row)})
+    return _json_response({"now_playing": None})
+
+
 # --- 録画済みファイル API ---
 
 def get_recordings(_params):
@@ -493,6 +568,12 @@ def handle_request(method, path, params, body=b""):
     # チャンネル
     if method == "GET" and path == "/api/channels":
         return get_channels(params)
+
+    # ライブ視聴
+    if method == "GET" and path == "/api/live/status":
+        return get_live_status(params)
+    if method == "GET" and path == "/api/live/now":
+        return get_now_playing(params)
 
     # 録画済みファイル
     if method == "GET" and path == "/api/recordings":
