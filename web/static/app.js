@@ -120,24 +120,21 @@ function switchSection(name) {
 window._programmes = [];
 
 async function loadEPG() {
-    const date = document.getElementById('epg-date').value || todayStr();
-    const channel = document.getElementById('epg-channel').value;
     const category = document.getElementById('epg-category').value;
 
-    let url = `/api/programmes?date=${date}&limit=1000`;
-    if (channel) url += `&channel=${encodeURIComponent(channel)}`;
+    let url = `/api/programmes?limit=10000`;
     if (category) url += `&category=${encodeURIComponent(category)}`;
 
     try {
         const data = await API.get(url);
-        renderEPGTable(data.programmes, date);
+        renderEPGTable(data.programmes);
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
             `<p style="color:var(--danger)">番組表の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
-function renderEPGTable(programmes, date) {
+function renderEPGTable(programmes) {
     const container = document.getElementById('epg-table');
     if (!programmes || programmes.length === 0) {
         container.innerHTML = '<p style="color:var(--text-muted)">番組データがありません</p>';
@@ -160,13 +157,13 @@ function renderEPGTable(programmes, date) {
 
     // renderChannelTable: ch が空文字なら全チャンネル表示
     const renderChannelTable = (ch, items) => {
-        let t = `<table><thead><tr><th style="width:6em">開始</th><th style="width:6em">終了</th>`;
+        let t = `<table><thead><tr><th style="width:9em">開始</th><th style="width:6em">終了</th>`;
         if (!ch) t += `<th style="width:8em">チャンネル</th>`;
         t += `<th>番組名</th></tr></thead><tbody>`;
         items.forEach(item => {
             const p = item.prog;
             t += `<tr class="epg-cell" onclick="showProgrammeDetail(this, ${item.idx})">`;
-            t += `<td class="time">${formatTime(p.start_time)}</td>`;
+            t += `<td class="time">${formatDateTime(p.start_time)}</td>`;
             t += `<td class="time">${formatTime(p.end_time)}</td>`;
             if (!ch) t += `<td>${escapeHtml(p.channel)}</td>`;
             t += `<td class="title">${escapeHtml(p.title)}</td>`;
@@ -817,12 +814,6 @@ async function loadLiveNowPlaying(channelName) {
 /* --- 初期化 --- */
 
 async function init() {
-    // 日付を今日に設定 (API呼び出し前に設定)
-    const epgDate = document.getElementById('epg-date');
-    if (epgDate && !epgDate.value) {
-        epgDate.value = todayStr();
-    }
-
     // ナビゲーションイベント (API失敗時もナビが動くよう先に登録)
     document.querySelectorAll('nav a[data-section]').forEach(a => {
         a.addEventListener('click', (e) => {
@@ -871,11 +862,10 @@ async function init() {
     switchSection(initialSection);
 
     // チャンネル一覧と番組表を並列取得
-    const date = epgDate ? epgDate.value : todayStr();
     try {
         const [chData, epgData, catData] = await Promise.all([
             API.get('/api/channels'),
-            API.get(`/api/programmes?date=${date}&limit=1000`),
+            API.get('/api/programmes?limit=10000'),
             API.get('/api/categories'),
         ]);
 
@@ -903,7 +893,7 @@ async function init() {
             catSelect.innerHTML = catOpts;
         }
 
-        renderEPGTable(epgData.programmes, date);
+        renderEPGTable(epgData.programmes);
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
             `<p style="color:var(--danger)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
