@@ -318,7 +318,7 @@ def get_schedules(params):
             FROM schedule s
             LEFT JOIN rule r ON s.rule_id = r.id
             {where}
-            ORDER BY s.start_time DESC
+            ORDER BY s.start_time ASC
             LIMIT ? OFFSET ?""",
         args + [limit, offset],
     ).fetchall()
