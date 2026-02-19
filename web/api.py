@@ -108,6 +108,10 @@ def get_programmes(params):
     if channel:
         conditions.append("channel = ?")
         args.append(channel)
+    category = params.get("category", [""])[0]
+    if category:
+        conditions.append("category LIKE ?")
+        args.append(f"%{category}%")
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
@@ -188,6 +192,17 @@ def get_programme_stats(_params):
         "earliest": date_range["earliest"],
         "latest": date_range["latest"],
     })
+
+
+def get_categories(_params):
+    """GET /api/categories - ジャンル一覧"""
+    conn = _get_db(EPG_DB)
+    rows = conn.execute(
+        "SELECT DISTINCT value FROM programme, json_each(programme.category) "
+        "WHERE category IS NOT NULL ORDER BY value"
+    ).fetchall()
+    categories = [r[0] for r in rows if not r[0].isascii()]
+    return _json_response({"categories": categories})
 
 
 # --- 録画ルール API ---
@@ -570,6 +585,8 @@ def handle_request(method, path, params, body=b""):
         return search_programmes(params)
     if method == "GET" and path == "/api/programmes/stats":
         return get_programme_stats(params)
+    if method == "GET" and path == "/api/categories":
+        return get_categories(params)
 
     # ルール
     if method == "GET" and path == "/api/rules":

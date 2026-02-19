@@ -121,9 +121,11 @@ window._programmes = [];
 async function loadEPG() {
     const date = document.getElementById('epg-date').value || todayStr();
     const channel = document.getElementById('epg-channel').value;
+    const category = document.getElementById('epg-category').value;
 
     let url = `/api/programmes?date=${date}&limit=1000`;
     if (channel) url += `&channel=${encodeURIComponent(channel)}`;
+    if (category) url += `&category=${encodeURIComponent(category)}`;
 
     try {
         const data = await API.get(url);
@@ -851,9 +853,10 @@ async function init() {
     // チャンネル一覧と番組表を並列取得
     const date = epgDate ? epgDate.value : todayStr();
     try {
-        const [chData, epgData] = await Promise.all([
+        const [chData, epgData, catData] = await Promise.all([
             API.get('/api/channels'),
             API.get(`/api/programmes?date=${date}&limit=1000`),
+            API.get('/api/categories'),
         ]);
 
         channels = chData.channels || [];
@@ -869,6 +872,16 @@ async function init() {
             sel.innerHTML = opts;
             sel.value = current;
         });
+
+        const categories = catData.categories || [];
+        const catSelect = document.getElementById('epg-category');
+        if (catSelect) {
+            let catOpts = '<option value="">全ジャンル</option>';
+            categories.forEach(cat => {
+                catOpts += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+            });
+            catSelect.innerHTML = catOpts;
+        }
 
         renderEPGTable(epgData.programmes, date);
     } catch (err) {
