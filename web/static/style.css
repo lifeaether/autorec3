@@ -278,67 +278,169 @@ table tr:last-child td {
     display: none;
 }
 
-/* ===== EPG Tabs ===== */
-.epg-tabs {
+/* ===== EPG Newspaper Grid ===== */
+.epg-grid {
     display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-}
-
-.epg-tab {
-    background: var(--bg-card);
-    color: var(--text-muted);
+    overflow: auto;
+    max-height: 75vh;
+    position: relative;
     border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    padding: 0.4rem 1rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
 }
 
-.epg-tab:hover {
-    color: var(--accent);
-    background: var(--accent-light);
-    border-color: var(--accent);
+.epg-time-axis {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 44px;
+    max-width: 44px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
-.epg-tab.active {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
+.epg-time-axis-body {
+    position: relative;
 }
 
-.epg-tab-content {
-    display: none;
-}
-
-.epg-tab-content.active {
-    display: block;
-}
-
-/* EPG list rows */
-tr.epg-cell {
-    cursor: pointer;
-    transition: background var(--transition-fast);
-}
-
-tr.epg-cell:hover {
-    background: var(--accent-light);
-}
-
-tr.epg-cell .time {
-    color: var(--accent);
+.epg-time-label {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 0.75rem;
     font-weight: 600;
-    white-space: nowrap;
+    color: var(--text-muted);
+    transform: translateY(-0.5em);
+    pointer-events: none;
 }
 
-tr.epg-cell .title {
+.epg-channel {
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.epg-channel:last-child {
+    border-right: none;
+}
+
+.epg-channel-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-card);
+    border-bottom: 2px solid var(--border);
+    padding: 0.45rem 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 40vw;
+    color: var(--text);
+}
+
+.epg-channel-body {
+    position: relative;
+}
+
+.epg-programme {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    border-left: 3px solid var(--accent);
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    padding: 2px 4px;
+    overflow: hidden;
+    cursor: pointer;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    transition: background var(--transition-fast), box-shadow var(--transition-fast);
+    z-index: 1;
+}
+
+.epg-programme:hover {
+    background: var(--accent-light);
+    box-shadow: var(--shadow-sm);
+    z-index: 2;
+}
+
+.epg-prog-time {
+    font-size: 0.65rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.epg-prog-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    word-break: break-all;
+}
+
+.epg-now-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--error);
+    z-index: 4;
+    pointer-events: none;
+}
+
+.epg-now-line::before {
+    content: "現在";
+    position: absolute;
+    left: 2px;
+    top: -14px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--error);
+    background: var(--bg-card);
+    padding: 0 3px;
+    border-radius: 3px;
+}
+
+.epg-hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Category colors */
+.cat-news      { border-left-color: #4a90d9; }
+.cat-sports    { border-left-color: #e8a040; }
+.cat-drama     { border-left-color: #e87090; }
+.cat-anime     { border-left-color: #9b59b6; }
+.cat-movie     { border-left-color: #50b8d9; }
+.cat-variety   { border-left-color: #5dba7d; }
+.cat-music     { border-left-color: #e87878; }
+.cat-documentary { border-left-color: #7dba5d; }
+.cat-education { border-left-color: #a0826e; }
+.cat-info      { border-left-color: #7898a8; }
+
+/* Sticky corner patch — time axis header */
+.epg-time-axis-header {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--bg-card);
+    border-bottom: 2px solid var(--border);
+    padding: 0.45rem 0.35rem;
+    font-size: 0.7rem;
+    text-align: center;
+    color: var(--text-muted);
 }
 
 /* ===== Forms ===== */
@@ -773,9 +875,17 @@ button, .btn {
         padding: 1.5rem;
     }
 
-    .epg-tab {
-        font-size: 0.75rem;
-        padding: 0.3rem 0.65rem;
+    .epg-channel {
+        min-width: 90px;
+        max-width: 150px;
+    }
+
+    .epg-programme {
+        font-size: 0.7rem;
+    }
+
+    .epg-prog-title {
+        -webkit-line-clamp: 2;
     }
 }
 
@@ -794,9 +904,27 @@ button, .btn {
         font-size: 1.15rem;
     }
 
-    .epg-tab {
-        font-size: 0.7rem;
-        padding: 0.25rem 0.5rem;
+    .epg-channel {
+        min-width: 72px;
+        max-width: 120px;
+    }
+
+    .epg-channel-header {
+        font-size: 0.65rem;
+        padding: 0.3rem 0.2rem;
+    }
+
+    .epg-programme {
+        font-size: 0.65rem;
+    }
+
+    .epg-time-axis {
+        min-width: 32px;
+        max-width: 32px;
+    }
+
+    .epg-time-label {
+        font-size: 0.65rem;
     }
 
     main {

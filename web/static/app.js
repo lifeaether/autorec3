@@ -136,6 +136,9 @@ async function loadEPG() {
     }
 }
 
+/* 現在時刻線の更新タイマー */
+let _epgNowTimer = null;
+
 function renderEPGTable(programmes) {
     const container = document.getElementById('epg-table');
     if (!programmes || programmes.length === 0) {
@@ -143,78 +146,143 @@ function renderEPGTable(programmes) {
         return;
     }
 
+    // 前回のタイマーをクリア
+    if (_epgNowTimer) { clearInterval(_epgNowTimer); _epgNowTimer = null; }
+
+    const PX_PER_HOUR = 120;
+
     // 番組データをグローバル配列に格納
     window._programmes = programmes;
 
-    // チャンネルごとにグループ化 (インデックスも記録)
+    // 日付パース & チャンネル別グループ化
+    const parsed = programmes.map((p, idx) => ({
+        ...p,
+        idx,
+        startDate: new Date(p.start_time.replace(' ', 'T')),
+        endDate:   new Date(p.end_time.replace(' ', 'T')),
+    }));
+
     const byChannel = {};
     const channelOrder = [];
-    programmes.forEach((p, idx) => {
+    parsed.forEach(p => {
         if (!byChannel[p.channel]) {
             byChannel[p.channel] = [];
             channelOrder.push(p.channel);
         }
-        byChannel[p.channel].push({ prog: p, idx });
+        byChannel[p.channel].push(p);
     });
 
-    // renderChannelTable: ch が空文字なら全チャンネル表示
-    const renderChannelTable = (ch, items) => {
-        let t = `<table><thead><tr><th style="width:9em">開始</th><th style="width:6em">終了</th>`;
-        if (!ch) t += `<th style="width:8em">チャンネル</th>`;
-        t += `<th>番組名</th></tr></thead><tbody>`;
-        items.forEach(item => {
-            const p = item.prog;
-            t += `<tr class="epg-cell" onclick="showProgrammeDetail(this, ${item.idx})">`;
-            t += `<td class="time">${formatDateTime(p.start_time)}</td>`;
-            t += `<td class="time">${formatTime(p.end_time)}</td>`;
-            if (!ch) t += `<td>${escapeHtml(p.channel)}</td>`;
-            t += `<td class="title">${escapeHtml(p.title)}</td>`;
-            t += '</tr>';
-        });
-        t += '</tbody></table>';
-        return t;
+    // グリッド時間範囲を計算
+    const now = new Date();
+    let gridStart = new Date(now); gridStart.setMinutes(0, 0, 0);
+    let gridEnd = new Date(now); gridEnd.setHours(gridEnd.getHours() + 6, 0, 0, 0);
+
+    parsed.forEach(p => {
+        if (p.startDate < gridStart) gridStart = new Date(p.startDate.getFullYear(), p.startDate.getMonth(), p.startDate.getDate(), p.startDate.getHours(), 0, 0);
+        if (p.endDate > gridEnd) {
+            gridEnd = new Date(p.endDate);
+            if (gridEnd.getMinutes() > 0 || gridEnd.getSeconds() > 0) {
+                gridEnd.setHours(gridEnd.getHours() + 1, 0, 0, 0);
+            }
+        }
+    });
+
+    const totalHours = (gridEnd - gridStart) / 3600000;
+    const totalPx = totalHours * PX_PER_HOUR;
+
+    // ヘルパー: Date → px offset
+    const timeToPx = (d) => ((d - gridStart) / 3600000) * PX_PER_HOUR;
+
+    // ヘルパー: カテゴリ → CSSクラス
+    const categoryClass = (cat) => {
+        if (!cat) return '';
+        const c = cat.toLowerCase();
+        if (c.includes('ニュース') || c.includes('報道') || c.includes('news'))       return 'cat-news';
+        if (c.includes('スポーツ') || c.includes('sport'))                             return 'cat-sports';
+        if (c.includes('ドラマ') || c.includes('drama'))                               return 'cat-drama';
+        if (c.includes('アニメ') || c.includes('anime'))                               return 'cat-anime';
+        if (c.includes('映画') || c.includes('movie'))                                 return 'cat-movie';
+        if (c.includes('バラエティ') || c.includes('variety'))                         return 'cat-variety';
+        if (c.includes('音楽') || c.includes('music'))                                 return 'cat-music';
+        if (c.includes('ドキュメンタリー') || c.includes('documentary') || c.includes('教養')) return 'cat-documentary';
+        if (c.includes('趣味') || c.includes('教育') || c.includes('education'))       return 'cat-education';
+        if (c.includes('情報') || c.includes('info'))                                  return 'cat-info';
+        return '';
     };
 
-    // タブ生成
-    let html = '<div class="epg-tabs">';
-    html += '<button class="epg-tab active" data-ch="">全チャンネル</button>';
+    // --- HTML構築 ---
+    // 時刻軸
+    let html = '<div class="epg-grid">';
+    html += '<div class="epg-time-axis">';
+    html += '<div class="epg-time-axis-header">時刻</div>';
+    html += `<div class="epg-time-axis-body" style="height:${totalPx}px">`;
+    for (let h = 0; h <= totalHours; h++) {
+        const t = new Date(gridStart.getTime() + h * 3600000);
+        const label = String(t.getHours());
+        const top = h * PX_PER_HOUR;
+        html += `<div class="epg-time-label" style="top:${top}px">${label}</div>`;
+    }
+    html += '</div></div>';
+
+    // チャンネル列
     channelOrder.forEach(ch => {
-        html += `<button class="epg-tab" data-ch="${escapeHtml(ch)}">${escapeHtml(ch)}</button>`;
+        html += '<div class="epg-channel">';
+        html += `<div class="epg-channel-header">${escapeHtml(ch)}</div>`;
+        html += `<div class="epg-channel-body" style="height:${totalPx}px">`;
+
+        // 毎時罫線
+        for (let h = 0; h <= totalHours; h++) {
+            html += `<div class="epg-hour-line" style="top:${h * PX_PER_HOUR}px"></div>`;
+        }
+
+        // 番組ブロック
+        byChannel[ch].forEach(p => {
+            const top = Math.max(0, timeToPx(p.startDate));
+            const bottom = Math.min(totalPx, timeToPx(p.endDate));
+            const height = bottom - top;
+            if (height <= 0) return;
+
+            const catCls = categoryClass(p.category);
+            html += `<div class="epg-programme epg-cell ${catCls}" style="top:${top}px;height:${height}px" onclick="showProgrammeDetail(this, ${p.idx})">`;
+            html += `<div class="epg-prog-time">${formatTime(p.start_time)}</div>`;
+            html += `<div class="epg-prog-title">${escapeHtml(p.title)}</div>`;
+            html += '</div>';
+        });
+
+        html += '</div></div>';
     });
+
     html += '</div>';
-
-    // 全チャンネルタブ (時間順) — 初回のみ描画
-    const allItems = programmes.map((prog, idx) => ({ prog, idx }));
-    html += '<div class="epg-tab-content active" data-ch="">';
-    html += renderChannelTable('', allItems);
-    html += '</div>';
-
-    // 個別チャンネルタブ — プレースホルダのみ (遅延レンダリング)
-    channelOrder.forEach(ch => {
-        html += `<div class="epg-tab-content" data-ch="${escapeHtml(ch)}"></div>`;
-    });
-
     container.innerHTML = html;
 
-    // byChannel をコンテナに保持 (遅延レンダリング用)
-    container._byChannel = byChannel;
-    container._renderChannelTable = renderChannelTable;
+    // 現在時刻線 & 自動スクロール
+    const grid = container.querySelector('.epg-grid');
+    const updateNowLine = () => {
+        const n = new Date();
+        const px = timeToPx(n);
+        // 範囲外なら非表示
+        grid.querySelectorAll('.epg-now-line').forEach(el => el.remove());
+        if (px < 0 || px > totalPx) return;
 
-    // タブ切り替えイベント
-    container.querySelectorAll('.epg-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            container.querySelectorAll('.epg-tab').forEach(t => t.classList.remove('active'));
-            container.querySelectorAll('.epg-tab-content').forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            const ch = tab.dataset.ch;
-            const content = container.querySelector(`.epg-tab-content[data-ch="${ch}"]`);
-            // 遅延レンダリング: 未描画なら描画
-            if (ch && content && !content.innerHTML) {
-                content.innerHTML = container._renderChannelTable(ch, container._byChannel[ch]);
-            }
-            content.classList.add('active');
+        // 各チャンネル列 + 時刻軸にライン追加
+        grid.querySelectorAll('.epg-channel-body, .epg-time-axis-body').forEach(body => {
+            const line = document.createElement('div');
+            line.className = 'epg-now-line';
+            line.style.top = px + 'px';
+            body.appendChild(line);
         });
-    });
+    };
+    updateNowLine();
+
+    // 現在位置へ自動スクロール
+    const nowPx = timeToPx(now);
+    if (nowPx > 0 && nowPx < totalPx) {
+        // ヘッダー分のオフセットを考慮して、現在時刻が上寄りに見えるように
+        grid.scrollTop = Math.max(0, nowPx - 60);
+    }
+
+    // 60秒ごとに現在時刻線を更新
+    _epgNowTimer = setInterval(updateNowLine, 60000);
 }
 
 /* 番組詳細表示 */
