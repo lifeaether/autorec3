@@ -866,13 +866,9 @@ async function init() {
         });
     }
 
-    // 初期セクション表示
-    document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
-    const section = document.getElementById('section-epg');
-    const link = document.querySelector('nav a[data-section="epg"]');
-    if (section) section.classList.add('active');
-    if (link) link.classList.add('active');
+    // 初期セクション表示 (hash があればそのセクションを開く)
+    const initialSection = location.hash.replace('#', '') || 'epg';
+    switchSection(initialSection);
 
     // チャンネル一覧と番組表を並列取得
     const date = epgDate ? epgDate.value : todayStr();
