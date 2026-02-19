@@ -322,6 +322,7 @@ table tr:last-child td {
     max-width: 200px;
     border-right: 1px solid var(--border);
     flex-shrink: 0;
+    overflow: visible;
 }
 
 .epg-channel:last-child {
@@ -331,7 +332,7 @@ table tr:last-child td {
 .epg-channel-header {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 10;
     background: var(--bg-card);
     border-bottom: 2px solid var(--border);
     padding: 0.45rem 0.35rem;
@@ -448,7 +449,7 @@ table tr:last-child td {
 .epg-time-axis-header {
     position: sticky;
     top: 0;
-    z-index: 4;
+    z-index: 11;
     background: var(--bg-card);
     border-bottom: 2px solid var(--border);
     padding: 0.45rem 0.35rem;

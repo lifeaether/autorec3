@@ -163,14 +163,32 @@ function renderEPGTable(programmes) {
     }));
 
     const byChannel = {};
-    const channelOrder = [];
+    const channelSet = new Set();
     parsed.forEach(p => {
         if (!byChannel[p.channel]) {
             byChannel[p.channel] = [];
-            channelOrder.push(p.channel);
+            channelSet.add(p.channel);
         }
         byChannel[p.channel].push(p);
     });
+
+    // リモコン番号順にソート (地上波の一般的な並び)
+    const CH_ORDER = [
+        'NHK総合', 'NHK-Eテレ', 'Eテレ',
+        '日テレ', '日本テレビ',
+        'テレビ朝日', 'テレ朝',
+        'TBS',
+        'テレビ東京', 'テレ東',
+        'フジテレビ', 'フジ',
+        'TOKYO MX', 'MX',
+    ];
+    const chSortKey = (name) => {
+        for (let i = 0; i < CH_ORDER.length; i++) {
+            if (name.includes(CH_ORDER[i])) return i;
+        }
+        return CH_ORDER.length;
+    };
+    const channelOrder = [...channelSet].sort((a, b) => chSortKey(a) - chSortKey(b));
 
     // グリッド時間範囲を計算
     const now = new Date();
