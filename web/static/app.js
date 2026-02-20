@@ -869,10 +869,24 @@ function renderRecordings(series) {
             html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
             html += `<td style="white-space:nowrap">`;
             html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">DL</a>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
             html += `</td></tr>`;
         });
-        html += `</tbody></table></div></div>`;
+        html += `</tbody></table>`;
+        // Mobile card layout
+        html += `<div class="recordings-file-card">`;
+        s.files.forEach(f => {
+            const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
+            html += `<div class="recordings-file-card-item">`;
+            html += `<div class="recordings-file-card-name">${escapeHtml(f.name)}</div>`;
+            html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
+            html += `<div class="recordings-file-card-actions">`;
+            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
+            html += `</div></div>`;
+        });
+        html += `</div>`;
+        html += `</div></div>`;
     });
 
     container.innerHTML = html;
@@ -983,10 +997,24 @@ function renderRecordingsFiltered(series) {
             html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
             html += `<td style="white-space:nowrap">`;
             html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">DL</a>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
             html += `</td></tr>`;
         });
-        html += `</tbody></table></div></div>`;
+        html += `</tbody></table>`;
+        // Mobile card layout
+        html += `<div class="recordings-file-card">`;
+        s.files.forEach(f => {
+            const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
+            html += `<div class="recordings-file-card-item">`;
+            html += `<div class="recordings-file-card-name">${escapeHtml(f.name)}</div>`;
+            html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
+            html += `<div class="recordings-file-card-actions">`;
+            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
+            html += `</div></div>`;
+        });
+        html += `</div>`;
+        html += `</div></div>`;
     });
 
     container.innerHTML = html;

@@ -1042,6 +1042,38 @@ button, .btn {
     max-width: 40vw;
 }
 
+.recordings-file-card {
+    display: none;
+}
+
+.recordings-file-card-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.recordings-file-card-item:last-child {
+    border-bottom: none;
+}
+
+.recordings-file-card-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-all;
+    margin-bottom: 0.3rem;
+}
+
+.recordings-file-card-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.recordings-file-card-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 /* ===== Live TV ===== */
 
 /* Hero player container */
@@ -1425,12 +1457,39 @@ button, .btn {
         width: 100%;
     }
 
+    /* --- Filter button group: horizontal scroll on mobile --- */
+    .toolbar .btn-group {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin: 0 -1rem;
+        padding: 0 1rem;
+    }
+
+    .toolbar .btn-group::-webkit-scrollbar {
+        display: none;
+    }
+
+    .toolbar .btn-group .btn-filter {
+        flex-shrink: 0;
+    }
+
     /* --- Tables: hide on mobile, show card lists --- */
     .table-card {
         display: none;
     }
 
     .card-list {
+        display: block;
+    }
+
+    /* --- Recordings files: card layout on mobile --- */
+    .recordings-files table {
+        display: none;
+    }
+
+    .recordings-file-card {
         display: block;
     }
 
