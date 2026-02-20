@@ -1257,6 +1257,90 @@ button, .btn {
     border-radius: var(--radius-sm);
 }
 
+/* ===== Nav tab divider ===== */
+.nav-tab-divider {
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+}
+
+.nav-tab-divider::after {
+    content: "";
+    display: block;
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+}
+
+/* ===== Nav dropdown (その他) ===== */
+.nav-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.nav-dropdown-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-height: auto;
+}
+
+.nav-dropdown-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    min-width: 140px;
+    z-index: 110;
+    padding: 0.25rem 0;
+}
+
+.nav-dropdown.open .nav-dropdown-menu {
+    display: block;
+}
+
+.nav-dropdown-menu .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    height: auto;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    transition: background var(--transition-fast);
+    white-space: nowrap;
+}
+
+.nav-dropdown-menu .nav-link:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.nav-dropdown-menu .nav-link.active {
+    color: var(--accent);
+}
+
 /* ===== Seek bar ===== */
 #video-seek-bar {
     -webkit-appearance: none;
@@ -1410,6 +1494,12 @@ button, .btn {
     .more-drawer a::before {
         margin-right: 0.5rem;
         font-size: 1.1rem;
+    }
+
+    .drawer-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 0.25rem 1.25rem;
     }
 
     /* Drawer icons (data-section for index.html, href for epg.html) */

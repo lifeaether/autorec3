@@ -17,14 +17,20 @@
             <div class="nav-tabs">
                 <a href="/#live" class="nav-tab">ライブ</a>
                 <a href="/#epg" class="nav-tab">番組表</a>
+                <span class="nav-tab-divider"></span>
                 <a href="/#recordings" class="nav-tab">録画済み</a>
+                <a href="/#schedules" class="nav-tab">録画一覧</a>
+                <a href="/#rules" class="nav-tab">録画ルール</a>
             </div>
             <div class="nav-actions">
-                <a href="/#rules" class="nav-link">録画ルール</a>
-                <a href="/#schedules" class="nav-link">録画一覧</a>
-                <a href="/#logs" class="nav-link">ログ</a>
-                <a href="epg.html" class="nav-link active">アーカイブ</a>
-                <a href="/#help" class="nav-link">ヘルプ</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')">···</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="/#logs" class="nav-link">ログ</a>
+                        <a href="epg.html" class="nav-link active">アーカイブ</a>
+                        <a href="/#help" class="nav-link">ヘルプ</a>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- Mobile: Bottom bar -->
@@ -32,14 +38,15 @@
             <a href="/#live" class="nav-primary">ライブ</a>
             <a href="/#epg" class="nav-primary">番組表</a>
             <a href="/#recordings" class="nav-primary">録画済み</a>
-            <a href="/#rules" class="nav-primary">録画ルール</a>
+            <a href="/#schedules" class="nav-primary">録画一覧</a>
             <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">メニュー</a>
         </div>
     </nav>
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
+        <a href="/#rules">録画ルール</a>
+        <div class="drawer-divider"></div>
         <a href="epg.html" class="active">アーカイブ</a>
-        <a href="/#schedules">録画一覧</a>
         <a href="/#logs">ログ</a>
         <a href="/#help">ヘルプ</a>
     </div>
@@ -99,6 +106,13 @@
     <div id="programme-detail" class="programme-detail"></div>
 
     <script src="/app.js"></script>
+    <script>
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+    </script>
     <script>
         let currentOffset = 0;
         const LIMIT = 2000;

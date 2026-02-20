@@ -17,7 +17,10 @@
             <div class="nav-tabs">
                 <a href="#" data-section="live" class="nav-tab active">ライブ</a>
                 <a href="#" data-section="epg" class="nav-tab">番組表</a>
+                <span class="nav-tab-divider"></span>
                 <a href="#" data-section="recordings" class="nav-tab">録画済み</a>
+                <a href="#" data-section="schedules" class="nav-tab">録画一覧</a>
+                <a href="#" data-section="rules" class="nav-tab">録画ルール</a>
             </div>
             <div class="nav-actions">
                 <select class="nav-quality-select" id="nav-quality-select" onchange="setStreamQuality(this.value)">
@@ -25,11 +28,14 @@
                     <option value="low">低画質</option>
                     <option value="lowest">最低画質</option>
                 </select>
-                <a href="#" data-section="rules" class="nav-link">録画ルール</a>
-                <a href="#" data-section="schedules" class="nav-link">録画一覧</a>
-                <a href="#" data-section="logs" class="nav-link">ログ</a>
-                <a href="epg.html" class="nav-link">アーカイブ</a>
-                <a href="#" data-section="help" class="nav-link">ヘルプ</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')">···</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#" data-section="logs" class="nav-link">ログ</a>
+                        <a href="epg.html" class="nav-link">アーカイブ</a>
+                        <a href="#" data-section="help" class="nav-link">ヘルプ</a>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- Mobile: Bottom bar -->
@@ -37,16 +43,12 @@
             <a href="#" data-section="live" class="nav-primary active">ライブ</a>
             <a href="#" data-section="epg" class="nav-primary">番組表</a>
             <a href="#" data-section="recordings" class="nav-primary">録画済み</a>
-            <a href="#" data-section="rules" class="nav-primary">録画ルール</a>
+            <a href="#" data-section="schedules" class="nav-primary">録画一覧</a>
             <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">メニュー</a>
         </div>
     </nav>
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
-        <a href="epg.html">アーカイブ</a>
-        <a href="#" data-section="schedules" onclick="switchFromDrawer('schedules',event)">録画一覧</a>
-        <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)">ログ</a>
-        <a href="#" data-section="help" onclick="switchFromDrawer('help',event)">ヘルプ</a>
         <div class="drawer-quality-row">
             <span>画質</span>
             <select id="drawer-quality-select" onchange="setStreamQuality(this.value); closeMoreDrawer();">
@@ -55,6 +57,12 @@
                 <option value="lowest">最低画質</option>
             </select>
         </div>
+        <div class="drawer-divider"></div>
+        <a href="#" data-section="rules" onclick="switchFromDrawer('rules',event)">録画ルール</a>
+        <div class="drawer-divider"></div>
+        <a href="epg.html">アーカイブ</a>
+        <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)">ログ</a>
+        <a href="#" data-section="help" onclick="switchFromDrawer('help',event)">ヘルプ</a>
     </div>
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
 
@@ -318,5 +326,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/app.js"></script>
+    <script>
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+    </script>
 </body>
 </html>
