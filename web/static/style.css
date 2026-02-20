@@ -1690,7 +1690,7 @@ button, .btn {
     }
 
     .jikkyo-comment {
-        font-size: 0.95rem;
+        font-size: 0.75rem;
     }
 
     /* --- Filter buttons: wider padding --- */
@@ -1753,7 +1753,7 @@ button, .btn {
     position: absolute;
     white-space: nowrap;
     color: #fff;
-    font-size: 1.2rem;
+    font-size: 1.8rem;
     font-weight: 700;
     font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
     text-shadow:
