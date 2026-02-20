@@ -26,7 +26,7 @@
                     <option value="lowest">最低画質</option>
                 </select>
                 <a href="#" data-section="rules" class="nav-link">録画ルール</a>
-                <a href="#" data-section="schedules" class="nav-link">録画予定</a>
+                <a href="#" data-section="schedules" class="nav-link">録画一覧</a>
                 <a href="#" data-section="logs" class="nav-link">ログ</a>
                 <a href="epg.html" class="nav-link">アーカイブ</a>
                 <a href="#" data-section="help" class="nav-link">ヘルプ</a>
@@ -44,7 +44,7 @@
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
         <a href="epg.html">アーカイブ</a>
-        <a href="#" data-section="schedules" onclick="switchFromDrawer('schedules',event)">録画予定</a>
+        <a href="#" data-section="schedules" onclick="switchFromDrawer('schedules',event)">録画一覧</a>
         <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)">ログ</a>
         <a href="#" data-section="help" onclick="switchFromDrawer('help',event)">ヘルプ</a>
         <div class="drawer-quality-row">
@@ -95,14 +95,14 @@
             <div class="card-list" id="rules-cards"></div>
         </div>
 
-        <!-- 録画予定セクション -->
+        <!-- 録画一覧セクション -->
         <div id="section-schedules" class="section">
             <div class="section-header">
-                <h2>録画予定</h2>
+                <h2>録画一覧</h2>
                 <div class="toolbar">
                     <div class="btn-group" id="schedule-status">
-                        <button class="btn-filter active" data-value="" onclick="setFilter(this, loadSchedules)">全て</button>
-                        <button class="btn-filter" data-value="scheduled" onclick="setFilter(this, loadSchedules)">予定</button>
+                        <button class="btn-filter" data-value="" onclick="setFilter(this, loadSchedules)">全て</button>
+                        <button class="btn-filter active" data-value="scheduled" onclick="setFilter(this, loadSchedules)">予定</button>
                         <button class="btn-filter" data-value="recording" onclick="setFilter(this, loadSchedules)">録画中</button>
                         <button class="btn-filter" data-value="done" onclick="setFilter(this, loadSchedules)">完了</button>
                         <button class="btn-filter" data-value="failed" onclick="setFilter(this, loadSchedules)">失敗</button>
@@ -223,7 +223,7 @@
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付で横断検索</li>
                     <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワードやジャンルで録画条件を管理。条件に一致する番組が自動的に録画予定に登録されます</li>
-                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画予定</a> — ルールにマッチした番組や直接追加した番組の録画スケジュール一覧。状態でフィルタできます</li>
+                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — ルールにマッチした番組や直接追加した番組の録画スケジュール一覧。状態でフィルタできます</li>
                     <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴</li>
                 </ul>
             </div>
