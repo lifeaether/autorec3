@@ -6,7 +6,6 @@
     --bg-card: #141828;
     --bg-input: #0f1322;
     --bg-nav: rgba(13, 18, 36, 0.95);
-    --bg-nav-dropdown: #1a2040;
     --text: #e8eaf0;
     --text-muted: #6b7280;
     --accent: #4a9eff;
@@ -233,108 +232,6 @@ nav .logo {
     text-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
 }
 
-/* Management dropdown */
-.nav-dropdown {
-    position: relative;
-    height: 100%;
-    display: flex;
-    align-items: center;
-}
-
-.nav-dropdown-trigger {
-    color: var(--text-muted);
-    background: none;
-    border: none;
-    padding: 0 0.75rem;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    font-size: 0.85rem;
-    font-weight: 400;
-    font-family: inherit;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color var(--transition-fast);
-    min-height: auto;
-    border-radius: 0;
-}
-
-.nav-dropdown-trigger::after {
-    content: "";
-    display: inline-block;
-    width: 0;
-    height: 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 4px solid currentColor;
-    margin-left: 6px;
-    transition: transform var(--transition-fast);
-}
-
-.nav-dropdown-trigger:hover {
-    color: var(--text);
-}
-
-.nav-dropdown.open .nav-dropdown-trigger {
-    color: var(--accent);
-}
-
-.nav-dropdown.open .nav-dropdown-trigger::after {
-    transform: rotate(180deg);
-}
-
-/* Dropdown has active section highlight */
-.nav-dropdown.has-active .nav-dropdown-trigger {
-    color: var(--accent);
-    text-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
-}
-
-.nav-dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    min-width: 160px;
-    background: var(--bg-nav-dropdown);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-lg);
-    padding: 0.4rem 0;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-4px);
-    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
-}
-
-.nav-dropdown.open .nav-dropdown-menu {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.nav-dropdown-menu a {
-    display: block;
-    padding: 0.6rem 1rem;
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: color var(--transition-fast), background var(--transition-fast);
-    white-space: nowrap;
-}
-
-.nav-dropdown-menu a::before {
-    display: none !important;
-}
-
-.nav-dropdown-menu a:hover {
-    color: var(--text);
-    background: var(--accent-light);
-}
-
-.nav-dropdown-menu a.active {
-    color: var(--accent);
-    background: var(--accent-light);
-}
-
 /* Mobile bottom bar (hidden on desktop) */
 .nav-mobile {
     display: none;
@@ -366,9 +263,7 @@ nav a[href="/#help"]::before             { content: "\2753 "; }
 
 /* Desktop: hide emoji on nav-tab and nav-link (text only) */
 .nav-tab::before,
-.nav-link::before,
-.nav-dropdown-trigger::before,
-.nav-dropdown-menu a::before {
+.nav-link::before {
     display: none !important;
 }
 
