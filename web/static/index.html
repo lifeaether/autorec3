@@ -61,19 +61,9 @@
     <main>
       <div class="content-wrapper">
         <!-- 番組表セクション -->
-        <div id="section-epg" class="section">
-            <div class="section-header">
-                <h2>番組表</h2>
-                <div class="toolbar">
-                    <div class="btn-group" id="epg-category">
-                        <button class="btn-filter active" data-value="" onclick="setFilter(this, loadEPG)">全ジャンル</button>
-                    </div>
-                </div>
-            </div>
-            <div class="card">
-                <div id="epg-table" style="overflow-x:auto">
-                    <p style="color:var(--text-muted)">読み込み中...</p>
-                </div>
+        <div id="section-epg" class="section section-epg-fullscreen">
+            <div id="epg-table" style="overflow-x:auto">
+                <p style="color:var(--text-muted)">読み込み中...</p>
             </div>
         </div>
 
