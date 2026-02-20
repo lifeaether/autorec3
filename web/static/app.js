@@ -456,7 +456,7 @@ function showProgrammeDetail(el, idx) {
         <div class="desc">${escapeHtml(p.description || '')}</div>
         <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="directSchedule(${idx})">
-                録画予定に追加
+                録画予約
             </button>
             <button class="btn btn-secondary btn-sm" onclick="quickAddRule('${escapeHtml(p.title)}')">
                 録画ルールを作成
@@ -712,13 +712,13 @@ function quickAddRule(title) {
 
 async function directSchedule(idx) {
     const p = window._programmes[idx];
-    if (!confirm(`「${p.title}」を録画予定に追加しますか？`)) return;
+    if (!confirm(`「${p.title}」を録画予約しますか？`)) return;
     try {
         await API.post('/api/schedules', {
             event_id: p.event_id, channel: p.channel,
             title: p.title, start_time: p.start_time, end_time: p.end_time,
         });
-        alert('録画予定に追加しました');
+        alert('録画予約しました');
         document.getElementById('programme-detail').classList.remove('active');
     } catch (err) {
         alert(err.message);
