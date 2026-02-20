@@ -564,24 +564,29 @@ def get_recordings(_params):
 
     try:
         with os.scandir(RECORD_DIR) as entries:
-            for entry in sorted(entries, key=lambda e: e.name):
+            for entry in entries:
                 if not entry.is_dir(follow_symlinks=False):
                     continue
                 files = []
                 total_size = 0
+                max_mtime = 0.0
                 try:
                     with os.scandir(entry.path) as sub_entries:
-                        for f in sorted(sub_entries, key=lambda e: e.name):
+                        for f in sub_entries:
                             if not f.is_file(follow_symlinks=False):
                                 continue
                             if not f.name.endswith(".ts"):
                                 continue
                             try:
                                 stat = f.stat()
+                                mtime = stat.st_mtime
+                                if mtime > max_mtime:
+                                    max_mtime = mtime
                                 files.append({
                                     "name": f.name,
                                     "size": stat.st_size,
-                                    "mtime": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                                    "mtime": datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                                    "mtime_ts": mtime,
                                     "path": f"{entry.name}/{f.name}",
                                 })
                                 total_size += stat.st_size
@@ -590,14 +595,22 @@ def get_recordings(_params):
                 except OSError:
                     continue
                 if files:
+                    files.sort(key=lambda f: f["mtime_ts"], reverse=True)
+                    for f in files:
+                        del f["mtime_ts"]
                     series.append({
                         "name": entry.name,
                         "file_count": len(files),
                         "total_size": total_size,
+                        "max_mtime": max_mtime,
                         "files": files,
                     })
     except OSError:
         return _json_response({"series": []})
+
+    series.sort(key=lambda s: s["max_mtime"], reverse=True)
+    for s in series:
+        del s["max_mtime"]
 
     return _json_response({"series": series})
 
