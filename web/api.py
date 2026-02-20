@@ -281,6 +281,14 @@ def update_rule(rule_id, body):
 
     args.append(rule_id)
     conn.execute(f"UPDATE rule SET {', '.join(updates)} WHERE id = ?", args)
+
+    # ルール無効化時は紐付く予定も取り消し
+    cancelled = 0
+    if data.get("enabled") == 0:
+        cancelled = conn.execute(
+            "DELETE FROM schedule WHERE rule_id = ? AND status = 'scheduled'", (rule_id,)
+        ).rowcount
+
     conn.commit()
 
     # crontab 再生成 (非同期)
@@ -289,18 +297,24 @@ def update_rule(rule_id, body):
         subprocess.Popen(["bash", script], cwd=AUTOREC_DIR)
 
     row = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
-    return _json_response({"rule": dict(row)})
+    result = {"rule": dict(row)}
+    if cancelled:
+        result["cancelled_schedules"] = cancelled
+    return _json_response(result)
 
 
 def delete_rule(rule_id):
-    """DELETE /api/rules/:id - ルール削除"""
+    """DELETE /api/rules/:id - ルール削除 (紐付く予定も取り消し)"""
     conn = _get_db(AUTOREC_DB)
     existing = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
     if not existing:
         return _error("Rule not found", 404)
+    cancelled = conn.execute(
+        "DELETE FROM schedule WHERE rule_id = ? AND status = 'scheduled'", (rule_id,)
+    ).rowcount
     conn.execute("DELETE FROM rule WHERE id = ?", (rule_id,))
     conn.commit()
-    return _json_response({"deleted": rule_id})
+    return _json_response({"deleted": rule_id, "cancelled_schedules": cancelled})
 
 
 # --- スケジュール API ---

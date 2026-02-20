@@ -606,9 +606,12 @@ async function editRule(id) {
 }
 
 async function deleteRule(id, name) {
-    if (!confirm(`ルール「${name}」を削除しますか?`)) return;
+    if (!confirm(`ルール「${name}」を削除しますか?\n※ 未実行の録画予定も取り消されます`)) return;
     try {
-        await API.del(`/api/rules/${id}`);
+        const result = await API.del(`/api/rules/${id}`);
+        if (result.cancelled_schedules > 0) {
+            alert(`ルールを削除し、${result.cancelled_schedules}件の録画予定を取り消しました`);
+        }
         loadRules();
     } catch (err) {
         alert('削除に失敗しました: ' + err.message);
@@ -636,12 +639,16 @@ async function saveRule() {
     }
 
     try {
+        let result;
         if (ruleId) {
-            await API.put(`/api/rules/${ruleId}`, data);
+            result = await API.put(`/api/rules/${ruleId}`, data);
         } else {
-            await API.post('/api/rules', data);
+            result = await API.post('/api/rules', data);
         }
         document.getElementById('rule-modal').classList.remove('active');
+        if (result.cancelled_schedules > 0) {
+            alert(`ルールを無効化し、${result.cancelled_schedules}件の録画予定を取り消しました`);
+        }
         loadRules();
         // スケジュール更新を待って録画予定を表示
         switchSection('schedules');
