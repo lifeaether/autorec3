@@ -10,8 +10,8 @@ source "$AUTOREC_DIR/conf/autorec.conf"
 
 AUTOREC_DB="${AUTOREC_DB:-$AUTOREC_DIR/db/autorec.sqlite}"
 RECORD_DIR="${RECORD_DIR:-/media/datb}"
-MARGIN_BEFORE="${MARGIN_BEFORE:-60}"
-MARGIN_AFTER="${MARGIN_AFTER:-60}"
+START_OFFSET="${START_OFFSET:-1}"
+END_OFFSET="${END_OFFSET:-0}"
 
 SCHEDULE_ID="$1"
 
@@ -54,20 +54,20 @@ END_EPOCH=$(date -d "$END_TIME" '+%s' 2>/dev/null) || \
     END_EPOCH=$(python3 -c "from datetime import datetime; print(int(datetime.fromisoformat('$END_TIME').timestamp()))")
 NOW_EPOCH=$(date '+%s')
 
-# 開始まで待機 (マージン考慮)
-RECORD_START=$((START_EPOCH - MARGIN_BEFORE))
+# 開始まで待機 (オフセット考慮)
+RECORD_START=$((START_EPOCH - START_OFFSET))
 if [ "$NOW_EPOCH" -lt "$RECORD_START" ]; then
     WAIT=$((RECORD_START - NOW_EPOCH))
     log_msg "info" "録画開始まで ${WAIT}秒 待機: $TITLE"
     sleep "$WAIT"
 fi
 
-# 録画時間 = 番組時間 + 前後マージン
-DURATION=$((END_EPOCH - START_EPOCH + MARGIN_BEFORE + MARGIN_AFTER))
+# 録画時間 = 番組時間 + 前後オフセット
+DURATION=$((END_EPOCH - START_EPOCH + START_OFFSET + END_OFFSET))
 
 # 現在時刻から計算し直す (既に開始時刻を過ぎている場合)
 NOW_EPOCH=$(date '+%s')
-ACTUAL_END=$((END_EPOCH + MARGIN_AFTER))
+ACTUAL_END=$((END_EPOCH + END_OFFSET))
 if [ "$NOW_EPOCH" -gt "$START_EPOCH" ]; then
     DURATION=$((ACTUAL_END - NOW_EPOCH))
 fi

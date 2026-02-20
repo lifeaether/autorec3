@@ -9,8 +9,8 @@ source "$AUTOREC_DIR/conf/autorec.conf"
 
 EPG_DB="${EPG_DB:-$AUTOREC_DIR/db/epg.sqlite}"
 AUTOREC_DB="${AUTOREC_DB:-$AUTOREC_DIR/db/autorec.sqlite}"
-MARGIN_BEFORE="${MARGIN_BEFORE:-60}"
-MARGIN_AFTER="${MARGIN_AFTER:-60}"
+START_OFFSET="${START_OFFSET:-1}"
+END_OFFSET="${END_OFFSET:-0}"
 
 echo "[schedule] === スケジュール更新開始 ==="
 
@@ -93,16 +93,16 @@ echo "" >> "$CRON_GENERATED"
 echo "# === 以下は自動生成された録画スケジュール ===" >> "$CRON_GENERATED"
 
 # スケジュールから cron エントリを生成
-# 開始時刻の MARGIN_BEFORE 秒前に record.sh を起動
+# 開始時刻の START_OFFSET 秒前に record.sh を起動
 sqlite3 -separator '|' "$AUTOREC_DB" \
     "SELECT id, start_time, end_time, channel, title FROM schedule WHERE status = 'scheduled' AND start_time > '$NOW' ORDER BY start_time;" | \
 while IFS='|' read -r sched_id start_time end_time channel title; do
-    # 開始マージンを考慮した cron 時刻を計算
-    CRON_TIME=$(date -d "$start_time $MARGIN_BEFORE seconds ago" '+%M %H %d %m *' 2>/dev/null) || {
+    # 開始オフセットを考慮した cron 時刻を計算
+    CRON_TIME=$(date -d "$start_time $START_OFFSET seconds ago" '+%M %H %d %m *' 2>/dev/null) || {
         # date -d が使えない環境用フォールバック
         CRON_TIME=$(python3 -c "
 from datetime import datetime, timedelta
-dt = datetime.fromisoformat('$start_time') - timedelta(seconds=$MARGIN_BEFORE)
+dt = datetime.fromisoformat('$start_time') - timedelta(seconds=$START_OFFSET)
 print(f'{dt.minute} {dt.hour} {dt.day} {dt.month} *')
 " 2>/dev/null) || continue
     }
