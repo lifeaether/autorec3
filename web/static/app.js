@@ -904,46 +904,85 @@ function closeRecordingPlayer() {
 
 /* --- ライブ視聴機能 --- */
 
+let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
+
 function initLiveSection() {
-    const group = document.getElementById('live-channel');
-    if (group && !group.dataset.loaded && channels.length > 0) {
-        let html = '';
-        channels.forEach(ch => {
-            html += `<button class="btn-filter" data-value="${escapeHtml(ch.number)}" onclick="setFilter(this)">${escapeHtml(ch.name)}</button>`;
-        });
-        group.innerHTML = html;
-        group.dataset.loaded = '1';
-    }
+    loadLiveChannelGrid();
 }
 
-function startLive() {
-    const ch = getFilterValue('live-channel');
-    if (!ch) {
-        alert('チャンネルを選択してください');
-        return;
-    }
+async function loadLiveChannelGrid() {
+    const grid = document.getElementById('live-channel-grid');
+    if (!grid || channels.length === 0) return;
 
+    let nowPlaying = {};
+    try {
+        const data = await API.get('/api/live/now-all');
+        nowPlaying = data.now_playing || {};
+    } catch { /* EPGデータなしでも続行 */ }
+
+    const now = new Date();
+    let html = '';
+    channels.forEach(ch => {
+        const prog = nowPlaying[ch.name];
+        const isPlaying = liveCurrentCh === ch.number;
+        html += `<div class="live-ch-card${isPlaying ? ' playing' : ''}" onclick="startLive('${escapeHtml(ch.number)}', '${escapeHtml(ch.name)}')">`;
+        html += `<div class="live-ch-name">${escapeHtml(ch.name)}</div>`;
+        if (prog) {
+            const start = new Date(prog.start_time.replace(' ', 'T'));
+            const end = new Date(prog.end_time.replace(' ', 'T'));
+            const total = end - start;
+            const elapsed = now - start;
+            const pct = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
+            html += `<div class="live-ch-programme">`;
+            html += `<div class="time">${formatTime(prog.start_time)} - ${formatTime(prog.end_time)}</div>`;
+            html += `<div class="title">${escapeHtml(prog.title)}</div>`;
+            html += `</div>`;
+            html += `<div class="live-ch-progress"><div class="live-ch-progress-bar" style="width:${pct.toFixed(1)}%"></div></div>`;
+        } else {
+            html += `<div class="live-ch-no-info">番組情報なし</div>`;
+        }
+        html += '</div>';
+    });
+    grid.innerHTML = html;
+}
+
+function startLive(chNum, chName) {
     if (typeof mpegts === 'undefined' || !mpegts.isSupported()) {
         document.getElementById('live-error').textContent =
             'このブラウザは mpegts.js に対応していません。Chrome または Edge をお使いください。';
         return;
     }
 
+    // 既に同じチャンネルを視聴中なら何もしない
+    if (liveCurrentCh === chNum && livePlayer) return;
+
+    // 既に別チャンネル再生中なら停止
+    if (livePlayer) stopLive(true);
+
+    liveCurrentCh = chNum;
+
     // UI 更新
     document.getElementById('live-error').textContent = '';
     document.getElementById('live-stream-info').textContent = '';
-    document.getElementById('live-start-btn').style.display = 'none';
-    document.getElementById('live-stop-btn').style.display = '';
-    document.querySelectorAll('#live-channel .btn-filter').forEach(b => b.disabled = true);
+    document.getElementById('live-player-title').textContent = chName;
+    document.getElementById('live-player-area').style.display = '';
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
+
+    // カードのハイライト更新
+    document.querySelectorAll('.live-ch-card').forEach(c => c.classList.remove('playing'));
+    document.querySelectorAll('.live-ch-card').forEach(c => {
+        if (c.onclick && c.onclick.toString().includes(`'${chNum}'`)) c.classList.add('playing');
+    });
+    // より確実なハイライト: grid 再描画で反映
+    loadLiveChannelGrid();
 
     const videoEl = document.getElementById('live-video');
 
     livePlayer = mpegts.createPlayer({
         type: 'mpegts',
         isLive: true,
-        url: `/live/stream?ch=${ch}`,
+        url: `/live/stream?ch=${chNum}`,
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
@@ -963,7 +1002,7 @@ function startLive() {
         document.getElementById('live-stream-info').textContent = infoText;
     });
 
-    livePlayer.on(mpegts.Events.ERROR, (type, detail, info) => {
+    livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
         document.getElementById('live-error').textContent =
             `再生エラー: ${detail || type}`;
     });
@@ -974,14 +1013,12 @@ function startLive() {
             '<span class="live-indicator"></span> 再生ボタンを押してください';
     });
 
-    // 番組情報を取得 (チャンネル名で検索)
-    const activeBtn = document.querySelector('#live-channel .btn-filter.active');
-    const chName = activeBtn ? activeBtn.textContent : '';
-    loadLiveNowPlaying(chName);
-    liveNowTimer = setInterval(() => loadLiveNowPlaying(chName), 60000);
+    // 番組情報を定期更新
+    if (liveNowTimer) clearInterval(liveNowTimer);
+    liveNowTimer = setInterval(loadLiveChannelGrid, 60000);
 }
 
-function stopLive() {
+function stopLive(keepGrid) {
     if (livePlayer) {
         livePlayer.destroy();
         livePlayer = null;
@@ -991,37 +1028,17 @@ function stopLive() {
         liveNowTimer = null;
     }
 
+    liveCurrentCh = null;
+
     // UI リセット
-    document.getElementById('live-start-btn').style.display = '';
-    document.getElementById('live-stop-btn').style.display = 'none';
-    document.querySelectorAll('#live-channel .btn-filter').forEach(b => b.disabled = false);
+    document.getElementById('live-player-area').style.display = 'none';
     document.getElementById('live-status').textContent = '';
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-error').textContent = '';
-    document.getElementById('live-now-playing').style.display = 'none';
-    document.getElementById('live-now-info').textContent = '';
-}
 
-async function loadLiveNowPlaying(channelName) {
-    try {
-        const data = await API.get(`/api/live/now?channel=${encodeURIComponent(channelName)}`);
-        const container = document.getElementById('live-now-playing');
-        const info = document.getElementById('live-now-info');
-        if (data.now_playing) {
-            const p = data.now_playing;
-            info.innerHTML = `
-                <strong>${escapeHtml(p.title)}</strong><br>
-                <span style="color:var(--text-muted);font-size:0.85rem">
-                    ${formatTime(p.start_time)} - ${formatTime(p.end_time)}
-                    ${p.category ? ' | ' + escapeHtml(p.category) : ''}
-                </span>
-            `;
-            container.style.display = '';
-        } else {
-            container.style.display = 'none';
-        }
-    } catch {
-        // 番組情報取得失敗は無視
+    // カードのハイライト解除
+    if (!keepGrid) {
+        document.querySelectorAll('.live-ch-card').forEach(c => c.classList.remove('playing'));
     }
 }
 

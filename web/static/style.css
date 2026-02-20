@@ -795,11 +795,81 @@ button, .btn {
 
 /* ===== Live ===== */
 #live-video {
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-radius: 0;
 }
 
-#live-now-playing {
-    border-top: 1px solid var(--border);
+.live-channel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem;
+}
+
+.live-ch-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.live-ch-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.live-ch-card.playing {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent), var(--shadow-md);
+}
+
+.live-ch-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.live-ch-programme {
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.5;
+}
+
+.live-ch-programme .time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.live-ch-programme .title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+.live-ch-progress {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.live-ch-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 1s linear;
+}
+
+.live-ch-no-info {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
 }
 
 .live-indicator {
