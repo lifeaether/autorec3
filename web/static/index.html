@@ -37,13 +37,13 @@
             <a href="#" data-section="live" class="nav-primary active">ライブ</a>
             <a href="#" data-section="epg" class="nav-primary">番組表</a>
             <a href="#" data-section="recordings" class="nav-primary">録画済み</a>
-            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">その他</a>
+            <a href="#" data-section="rules" class="nav-primary">録画予約</a>
+            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">メニュー</a>
         </div>
     </nav>
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
         <a href="epg.html">アーカイブ</a>
-        <a href="#" data-section="rules" onclick="switchFromDrawer('rules',event)">録画予約</a>
         <a href="#" data-section="schedules" onclick="switchFromDrawer('schedules',event)">録画予定</a>
         <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)">ログ</a>
         <a href="#" data-section="help" onclick="switchFromDrawer('help',event)">ヘルプ</a>
