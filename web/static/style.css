@@ -145,7 +145,8 @@ nav .nav-more-btn {
 }
 
 /* Push help link to the bottom (desktop sidebar) */
-nav a.nav-secondary[data-section="help"] {
+nav a.nav-secondary[data-section="help"],
+nav a.nav-secondary[href="/#help"] {
     margin-top: auto;
 }
 
