@@ -734,6 +734,7 @@ button, .btn {
     justify-content: center;
     gap: 0.4rem;
     min-height: 44px;
+    text-decoration: none;
 }
 
 .btn-primary {

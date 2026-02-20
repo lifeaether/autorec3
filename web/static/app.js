@@ -869,7 +869,7 @@ function renderRecordings(series) {
             html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
             html += `<td style="white-space:nowrap">`;
             html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
             html += `</td></tr>`;
         });
         html += `</tbody></table>`;
@@ -882,7 +882,7 @@ function renderRecordings(series) {
             html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
             html += `<div class="recordings-file-card-actions">`;
             html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button>`;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
             html += `</div></div>`;
         });
         html += `</div>`;
@@ -997,7 +997,7 @@ function renderRecordingsFiltered(series) {
             html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
             html += `<td style="white-space:nowrap">`;
             html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
             html += `</td></tr>`;
         });
         html += `</tbody></table>`;
@@ -1010,7 +1010,7 @@ function renderRecordingsFiltered(series) {
             html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
             html += `<div class="recordings-file-card-actions">`;
             html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button>`;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">ダウンロード</a>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
             html += `</div></div>`;
         });
         html += `</div>`;
