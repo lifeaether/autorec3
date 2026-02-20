@@ -12,15 +12,27 @@
 <body>
     <nav>
         <a href="/" class="logo">autorec</a>
-        <a href="/#epg">番組表</a>
+        <!-- Primary tabs: mobile bottom bar shows these 4 -->
+        <a href="/#live" class="nav-primary">ライブ</a>
+        <a href="/#epg" class="nav-primary">番組表</a>
+        <a href="/#recordings" class="nav-primary">録画済み</a>
+        <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">その他</a>
+        <!-- Secondary: desktop sidebar shows all, mobile hides these -->
+        <a href="epg.html" class="nav-secondary active">アーカイブ</a>
+        <a href="/#rules" class="nav-secondary">録画予約</a>
+        <a href="/#schedules" class="nav-secondary">録画予定</a>
+        <a href="/#logs" class="nav-secondary">ログ</a>
+        <a href="/#help" class="nav-secondary">ヘルプ</a>
+    </nav>
+    <!-- Mobile more drawer -->
+    <div id="more-drawer" class="more-drawer">
         <a href="epg.html" class="active">アーカイブ</a>
         <a href="/#rules">録画予約</a>
         <a href="/#schedules">録画予定</a>
-        <a href="/#recordings">録画済み</a>
-        <a href="/#live">ライブ</a>
         <a href="/#logs">ログ</a>
-        <a href="/#help" style="margin-left:auto">ヘルプ</a>
-    </nav>
+        <a href="/#help">ヘルプ</a>
+    </div>
+    <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
 
     <main>
         <h2>番組表アーカイブ</h2>

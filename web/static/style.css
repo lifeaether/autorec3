@@ -1142,12 +1142,16 @@ button, .btn {
         font-size: 1.1rem;
     }
 
-    /* Drawer icons */
+    /* Drawer icons (data-section for index.html, href for epg.html) */
     .more-drawer a[href="epg.html"]::before          { content: "📚 "; }
-    .more-drawer a[data-section="rules"]::before      { content: "📝 "; }
-    .more-drawer a[data-section="schedules"]::before  { content: "📅 "; }
-    .more-drawer a[data-section="logs"]::before       { content: "📋 "; }
-    .more-drawer a[data-section="help"]::before       { content: "❓ "; }
+    .more-drawer a[data-section="rules"]::before,
+    .more-drawer a[href="/#rules"]::before            { content: "📝 "; }
+    .more-drawer a[data-section="schedules"]::before,
+    .more-drawer a[href="/#schedules"]::before        { content: "📅 "; }
+    .more-drawer a[data-section="logs"]::before,
+    .more-drawer a[href="/#logs"]::before             { content: "📋 "; }
+    .more-drawer a[data-section="help"]::before,
+    .more-drawer a[href="/#help"]::before             { content: "❓ "; }
 
     .more-drawer-backdrop {
         display: none;
