@@ -6,23 +6,39 @@
     <title>autorec - 番組表・録画管理</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <nav>
-        <a href="/" class="logo">autorec</a>
-        <!-- Primary tabs: mobile bottom bar shows these 4 -->
-        <a href="#" data-section="live" class="nav-primary active">ライブ</a>
-        <a href="#" data-section="epg" class="nav-primary">番組表</a>
-        <a href="#" data-section="recordings" class="nav-primary">録画済み</a>
-        <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">その他</a>
-        <!-- Secondary: desktop sidebar shows all, mobile hides these -->
-        <a href="epg.html" class="nav-secondary">アーカイブ</a>
-        <a href="#" data-section="rules" class="nav-secondary">録画予約</a>
-        <a href="#" data-section="schedules" class="nav-secondary">録画予定</a>
-        <a href="#" data-section="logs" class="nav-secondary">ログ</a>
-        <a href="#" data-section="help" class="nav-secondary">ヘルプ</a>
+        <!-- Desktop: Top bar -->
+        <div class="nav-inner">
+            <a href="/" class="logo">autorec</a>
+            <div class="nav-tabs">
+                <a href="#" data-section="live" class="nav-tab active">ライブ</a>
+                <a href="#" data-section="epg" class="nav-tab">番組表</a>
+                <a href="#" data-section="recordings" class="nav-tab">録画済み</a>
+            </div>
+            <div class="nav-actions">
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-trigger" onclick="toggleNavDropdown(event)">管理</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#" data-section="rules">録画予約</a>
+                        <a href="#" data-section="schedules">録画予定</a>
+                        <a href="#" data-section="logs">ログ</a>
+                    </div>
+                </div>
+                <a href="epg.html" class="nav-link">アーカイブ</a>
+                <a href="#" data-section="help" class="nav-link">ヘルプ</a>
+            </div>
+        </div>
+        <!-- Mobile: Bottom bar -->
+        <div class="nav-mobile">
+            <a href="#" data-section="live" class="nav-primary active">ライブ</a>
+            <a href="#" data-section="epg" class="nav-primary">番組表</a>
+            <a href="#" data-section="recordings" class="nav-primary">録画済み</a>
+            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">その他</a>
+        </div>
     </nav>
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
@@ -35,12 +51,15 @@
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
 
     <main>
+      <div class="content-wrapper">
         <!-- 番組表セクション -->
         <div id="section-epg" class="section">
-            <h2>番組表</h2>
-            <div class="toolbar">
-                <div class="btn-group" id="epg-category">
-                    <button class="btn-filter active" data-value="" onclick="setFilter(this, loadEPG)">全ジャンル</button>
+            <div class="section-header">
+                <h2>番組表</h2>
+                <div class="toolbar">
+                    <div class="btn-group" id="epg-category">
+                        <button class="btn-filter active" data-value="" onclick="setFilter(this, loadEPG)">全ジャンル</button>
+                    </div>
                 </div>
             </div>
             <div class="card">
@@ -52,9 +71,11 @@
 
         <!-- 録画予約セクション -->
         <div id="section-rules" class="section">
-            <h2>録画予約</h2>
-            <div class="toolbar">
-                <button class="btn btn-primary btn-add-rule" onclick="showRuleForm(null)">+ キーワード予約</button>
+            <div class="section-header">
+                <h2>録画予約</h2>
+                <div class="toolbar">
+                    <button class="btn btn-primary btn-add-rule" onclick="showRuleForm(null)">+ キーワード予約</button>
+                </div>
             </div>
             <div class="card table-card">
                 <table>
@@ -78,15 +99,17 @@
 
         <!-- 録画予定セクション -->
         <div id="section-schedules" class="section">
-            <h2>録画予定</h2>
-            <div class="toolbar">
-                <div class="btn-group" id="schedule-status">
-                    <button class="btn-filter active" data-value="" onclick="setFilter(this, loadSchedules)">全て</button>
-                    <button class="btn-filter" data-value="scheduled" onclick="setFilter(this, loadSchedules)">予定</button>
-                    <button class="btn-filter" data-value="recording" onclick="setFilter(this, loadSchedules)">録画中</button>
-                    <button class="btn-filter" data-value="done" onclick="setFilter(this, loadSchedules)">完了</button>
-                    <button class="btn-filter" data-value="failed" onclick="setFilter(this, loadSchedules)">失敗</button>
-                    <button class="btn-filter" data-value="skipped" onclick="setFilter(this, loadSchedules)">スキップ</button>
+            <div class="section-header">
+                <h2>録画予定</h2>
+                <div class="toolbar">
+                    <div class="btn-group" id="schedule-status">
+                        <button class="btn-filter active" data-value="" onclick="setFilter(this, loadSchedules)">全て</button>
+                        <button class="btn-filter" data-value="scheduled" onclick="setFilter(this, loadSchedules)">予定</button>
+                        <button class="btn-filter" data-value="recording" onclick="setFilter(this, loadSchedules)">録画中</button>
+                        <button class="btn-filter" data-value="done" onclick="setFilter(this, loadSchedules)">完了</button>
+                        <button class="btn-filter" data-value="failed" onclick="setFilter(this, loadSchedules)">失敗</button>
+                        <button class="btn-filter" data-value="skipped" onclick="setFilter(this, loadSchedules)">スキップ</button>
+                    </div>
                 </div>
             </div>
             <div class="card table-card">
@@ -112,12 +135,14 @@
 
         <!-- 録画済みセクション -->
         <div id="section-recordings" class="section">
-            <h2>録画済みファイル</h2>
-            <div class="toolbar">
-                <input type="text" id="recordings-search" class="desktop-only" placeholder="シリーズ名・ファイル名で検索" oninput="filterRecordings()" style="min-width:250px">
-                <div class="btn-group recordings-initial-filter" id="recordings-initial-filter">
-                    <button class="btn-filter active" data-value="" onclick="filterRecordingsByInitial('', this)">全て</button>
-                    <!-- JS generates initial letter buttons dynamically -->
+            <div class="section-header">
+                <h2>録画済みファイル</h2>
+                <div class="toolbar">
+                    <input type="text" id="recordings-search" class="desktop-only" placeholder="シリーズ名・ファイル名で検索" oninput="filterRecordings()" style="min-width:250px">
+                    <div class="btn-group recordings-initial-filter" id="recordings-initial-filter">
+                        <button class="btn-filter active" data-value="" onclick="filterRecordingsByInitial('', this)">全て</button>
+                        <!-- JS generates initial letter buttons dynamically -->
+                    </div>
                 </div>
             </div>
             <div id="recordings-list">
@@ -127,17 +152,19 @@
 
         <!-- ライブ視聴セクション -->
         <div id="section-live" class="section active">
-            <h2>ライブ視聴</h2>
+            <div class="section-header">
+                <h2>ライブ視聴</h2>
+            </div>
             <div id="live-player-area" style="display:none">
-                <div class="card" style="padding:0;overflow:hidden;margin-bottom:0.75rem">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 1rem;border-bottom:1px solid var(--border)">
-                        <span id="live-player-title" style="font-weight:500"></span>
-                        <div style="display:flex;align-items:center;gap:0.75rem">
+                <div class="live-player-container">
+                    <div class="live-player-bar">
+                        <span id="live-player-title" class="live-player-bar-title"></span>
+                        <div class="live-player-controls">
                             <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
                             <button class="btn btn-danger btn-sm" onclick="stopLive()">停止</button>
                         </div>
                     </div>
-                    <video id="live-video" controls autoplay style="width:100%;max-height:65vh;background:#000;display:block"></video>
+                    <video id="live-video" controls autoplay></video>
                 </div>
                 <div id="live-stream-info" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem"></div>
                 <div id="live-error" style="color:var(--error);margin-bottom:1rem"></div>
@@ -149,13 +176,15 @@
 
         <!-- ログセクション -->
         <div id="section-logs" class="section">
-            <h2>録画ログ</h2>
-            <div class="toolbar">
-                <div class="btn-group" id="log-level">
-                    <button class="btn-filter active" data-value="" onclick="setFilter(this, loadLogs)">全て</button>
-                    <button class="btn-filter" data-value="info" onclick="setFilter(this, loadLogs)">info</button>
-                    <button class="btn-filter" data-value="warn" onclick="setFilter(this, loadLogs)">warn</button>
-                    <button class="btn-filter" data-value="error" onclick="setFilter(this, loadLogs)">error</button>
+            <div class="section-header">
+                <h2>録画ログ</h2>
+                <div class="toolbar">
+                    <div class="btn-group" id="log-level">
+                        <button class="btn-filter active" data-value="" onclick="setFilter(this, loadLogs)">全て</button>
+                        <button class="btn-filter" data-value="info" onclick="setFilter(this, loadLogs)">info</button>
+                        <button class="btn-filter" data-value="warn" onclick="setFilter(this, loadLogs)">warn</button>
+                        <button class="btn-filter" data-value="error" onclick="setFilter(this, loadLogs)">error</button>
+                    </div>
                 </div>
             </div>
             <div class="card table-card">
@@ -183,8 +212,8 @@
             <div class="card">
                 <h3 style="margin-bottom:0.5rem">画面構成</h3>
                 <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:0.75rem">
-                    画面下部のタブ、またはサイドバーから各画面に移動できます。<br>
-                    よく使う3画面がメインタブに、その他の画面は「その他」メニューにまとまっています。
+                    画面上部のタブ、またはモバイルではボトムバーから各画面に移動できます。<br>
+                    よく使う3画面がメインタブに、その他の画面は「管理」メニューや「その他」にまとまっています。
                 </p>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">メインタブ</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
@@ -192,7 +221,7 @@
                     <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組一覧を表示。番組をタップすると詳細が表示され、そこから録画予約もできます</li>
                     <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタで素早く絞り込み、ブラウザ内再生やダウンロードが可能です</li>
                 </ul>
-                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">その他メニュー</h4>
+                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">管理メニュー / その他</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付で横断検索</li>
                     <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画予約</a> — キーワード予約を管理。条件に一致する番組が自動的に録画予定に登録されます</li>
@@ -228,6 +257,7 @@
                 </div>
             </div>
         </div>
+      </div>
     </main>
 
     <!-- 番組詳細ポップアップ -->
@@ -236,6 +266,7 @@
     <!-- キーワード予約 追加/編集モーダル -->
     <div id="rule-modal" class="modal-overlay">
         <div class="modal">
+            <button class="modal-close" onclick="document.getElementById('rule-modal').classList.remove('active')">&times;</button>
             <h3 id="rule-modal-title">キーワード予約</h3>
             <form id="rule-form" onsubmit="event.preventDefault(); saveRule();">
                 <div class="form-group">
@@ -273,9 +304,9 @@
     <!-- 動画再生モーダル -->
     <div id="video-modal" class="modal-overlay">
         <div class="modal" style="max-width:900px">
+            <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');">&times;</button>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
                 <h3 id="video-modal-title">再生</h3>
-                <button class="btn btn-secondary btn-sm" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');">閉じる</button>
             </div>
             <video id="video-player" controls autoplay style="width:100%;max-height:70vh;background:#000"></video>
             <div id="video-seek-container" style="display:none;margin-top:0.5rem">

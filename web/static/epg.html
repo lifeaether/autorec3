@@ -6,23 +6,39 @@
     <title>autorec - 番組表アーカイブ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <nav>
-        <a href="/" class="logo">autorec</a>
-        <!-- Primary tabs: mobile bottom bar shows these 4 -->
-        <a href="/#live" class="nav-primary">ライブ</a>
-        <a href="/#epg" class="nav-primary">番組表</a>
-        <a href="/#recordings" class="nav-primary">録画済み</a>
-        <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">その他</a>
-        <!-- Secondary: desktop sidebar shows all, mobile hides these -->
-        <a href="epg.html" class="nav-secondary active">アーカイブ</a>
-        <a href="/#rules" class="nav-secondary">録画予約</a>
-        <a href="/#schedules" class="nav-secondary">録画予定</a>
-        <a href="/#logs" class="nav-secondary">ログ</a>
-        <a href="/#help" class="nav-secondary">ヘルプ</a>
+        <!-- Desktop: Top bar -->
+        <div class="nav-inner">
+            <a href="/" class="logo">autorec</a>
+            <div class="nav-tabs">
+                <a href="/#live" class="nav-tab">ライブ</a>
+                <a href="/#epg" class="nav-tab">番組表</a>
+                <a href="/#recordings" class="nav-tab">録画済み</a>
+            </div>
+            <div class="nav-actions">
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-trigger" onclick="toggleNavDropdown(event)">管理</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="/#rules">録画予約</a>
+                        <a href="/#schedules">録画予定</a>
+                        <a href="/#logs">ログ</a>
+                    </div>
+                </div>
+                <a href="epg.html" class="nav-link active">アーカイブ</a>
+                <a href="/#help" class="nav-link">ヘルプ</a>
+            </div>
+        </div>
+        <!-- Mobile: Bottom bar -->
+        <div class="nav-mobile">
+            <a href="/#live" class="nav-primary">ライブ</a>
+            <a href="/#epg" class="nav-primary">番組表</a>
+            <a href="/#recordings" class="nav-primary">録画済み</a>
+            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">その他</a>
+        </div>
     </nav>
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
@@ -35,6 +51,7 @@
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
 
     <main>
+      <div class="content-wrapper">
         <h2>番組表アーカイブ</h2>
 
         <!-- 検索フォーム -->
@@ -80,6 +97,7 @@
             <div id="archive-grid"></div>
             <div id="search-pagination" class="pagination"></div>
         </div>
+      </div>
     </main>
 
     <!-- 番組詳細ポップアップ (app.js の showProgrammeDetail 用) -->

@@ -102,12 +102,35 @@ function switchSection(name) {
     // Close more drawer if open
     closeMoreDrawer();
 
+    // Close nav dropdown if open
+    const dropdown = document.querySelector('.nav-dropdown');
+    if (dropdown) dropdown.classList.remove('open');
+
     document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
+    // Also clear active from nav-tab and nav-link (for desktop topbar)
+    document.querySelectorAll('.nav-tab, .nav-link').forEach(el => el.classList.remove('active'));
+    // Clear dropdown menu active
+    document.querySelectorAll('.nav-dropdown-menu a').forEach(el => el.classList.remove('active'));
+
     const section = document.getElementById('section-' + name);
-    const link = document.querySelector(`nav a[data-section="${name}"]`);
     if (section) section.classList.add('active');
-    if (link) link.classList.add('active');
+
+    // Activate all matching links (desktop tab + mobile tab)
+    document.querySelectorAll(`nav a[data-section="${name}"]`).forEach(
+        link => link.classList.add('active')
+    );
+
+    // Highlight dropdown trigger if section is inside the management dropdown
+    const dropdownEl = document.querySelector('.nav-dropdown');
+    if (dropdownEl) {
+        const dropdownSections = ['rules', 'schedules', 'logs'];
+        if (dropdownSections.includes(name)) {
+            dropdownEl.classList.add('has-active');
+        } else {
+            dropdownEl.classList.remove('has-active');
+        }
+    }
 
     if (name === 'epg') loadEPG();
     else if (name === 'rules') loadRules();
@@ -139,6 +162,22 @@ function closeMoreDrawer() {
     if (drawer) drawer.classList.remove('active');
     if (backdrop) backdrop.classList.remove('active');
 }
+
+/* --- Nav Dropdown (desktop management menu) --- */
+
+function toggleNavDropdown(e) {
+    if (e) e.stopPropagation();
+    const dropdown = document.querySelector('.nav-dropdown');
+    if (dropdown) dropdown.classList.toggle('open');
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', (e) => {
+    const dropdown = document.querySelector('.nav-dropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('open');
+    }
+});
 
 function switchFromDrawer(name, e) {
     if (e) e.preventDefault();
