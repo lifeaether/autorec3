@@ -162,15 +162,31 @@
                 <h2>ライブ視聴</h2>
             </div>
             <div id="live-player-area" style="display:none">
-                <div class="live-player-container">
-                    <div class="live-player-bar">
-                        <span id="live-player-title" class="live-player-bar-title"></span>
-                        <div class="live-player-controls">
-                            <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
-                            <button class="btn btn-danger btn-sm" onclick="stopLive()">停止</button>
+                <div class="live-player-with-sidebar">
+                    <div class="live-player-main">
+                        <div class="live-player-container">
+                            <div class="live-player-bar">
+                                <span id="live-player-title" class="live-player-bar-title"></span>
+                                <div class="live-player-controls">
+                                    <select id="jikkyo-mode-select" class="jikkyo-mode-select" onchange="jikkyo.setMode(this.value)">
+                                        <option value="overlay">実況: オーバーレイ</option>
+                                        <option value="sidebar">実況: サイドバー</option>
+                                        <option value="off">実況: OFF</option>
+                                    </select>
+                                    <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
+                                    <button class="btn btn-danger btn-sm" onclick="stopLive()">停止</button>
+                                </div>
+                            </div>
+                            <div class="live-video-wrapper">
+                                <video id="live-video" controls autoplay></video>
+                                <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
+                            </div>
                         </div>
                     </div>
-                    <video id="live-video" controls autoplay></video>
+                    <div id="jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
+                        <div class="jikkyo-sidebar-header">実況コメント</div>
+                        <div id="jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
+                    </div>
                 </div>
                 <div id="live-stream-info" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem"></div>
                 <div id="live-error" style="color:var(--error);margin-bottom:1rem"></div>

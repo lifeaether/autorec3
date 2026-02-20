@@ -629,6 +629,30 @@ def get_recordings(_params):
     return _json_response({"series": series})
 
 
+# --- NX-Jikkyo プロキシ ---
+
+def proxy_jikkyo_channel(jk_id):
+    """GET /api/jikkyo/channels/{jk_id} - NX-Jikkyo チャンネル情報プロキシ (CORS対策)"""
+    import re
+    import urllib.request
+    import urllib.error
+
+    # jk_id バリデーション (jk1〜jk999)
+    if not re.match(r'^jk\d{1,3}$', jk_id):
+        return _error("Invalid jikkyo channel ID")
+
+    url = f"https://nx-jikkyo.tsukumijima.net/api/v1/channels/{jk_id}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "autorec/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = resp.read()
+            return 200, "application/json", data
+    except urllib.error.HTTPError as e:
+        return _json_response({"error": f"NX-Jikkyo returned {e.code}"}, e.code)
+    except Exception:
+        return _json_response({"error": "NX-Jikkyo connection failed"}, 502)
+
+
 # --- ルーティング ---
 
 def handle_request(method, path, params, body=b""):
@@ -682,5 +706,10 @@ def handle_request(method, path, params, body=b""):
         return get_recordings(params)
     if method == "GET" and path == "/api/recordings/duration":
         return get_recording_duration(params)
+
+    # NX-Jikkyo プロキシ
+    if method == "GET" and path.startswith("/api/jikkyo/channels/"):
+        jk_id = path.split("/")[-1]
+        return proxy_jikkyo_channel(jk_id)
 
     return _error("Not found", 404)

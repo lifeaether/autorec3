@@ -1177,6 +1177,315 @@ function closeRecordingPlayer() {
 
 let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
 
+/* --- NX-Jikkyo 実況コメント --- */
+
+const JIKKYO_MAP = {
+    'NHK総合': 'jk1', 'NHK-Eテレ': 'jk2', '日テレ': 'jk4',
+    'テレビ朝日': 'jk5', 'TBS': 'jk6', 'テレビ東京': 'jk7',
+    'フジテレビ': 'jk8', 'TOKYO MX': 'jk9',
+};
+
+const jikkyo = (() => {
+    const JIKKYO_BASE = 'nx-jikkyo.tsukumijima.net';
+    const MAX_OVERLAY = 50;
+    const MAX_SIDEBAR = 200;
+    const LANE_COUNT = 12;
+    const COMMENT_DURATION = 6000; // ms
+    const KEEPSEAT_INTERVAL = 30000; // ms
+    const RETRY_MAX = 3;
+    const RETRY_DELAY = 5000; // ms
+
+    let mode = localStorage.getItem('autorec-jikkyo-mode') || 'overlay';
+    let watchWs = null;
+    let commentWs = null;
+    let keepSeatTimer = null;
+    let threadId = null;
+    let yourPostKey = null;
+    let commentWsUri = null;
+    let currentJkId = null;
+    let generation = 0;  // incremented on each start/cleanup to detect stale handlers
+    let retryCount = 0;
+    let retryTimer = null;
+    let overlayCount = 0;
+    let lanes = new Array(LANE_COUNT).fill(0); // timestamp when lane becomes free
+
+    function _log(msg) {
+        console.log('[jikkyo] ' + msg);
+    }
+
+    function _getOverlay() {
+        return document.getElementById('jikkyo-overlay');
+    }
+
+    function _getSidebar() {
+        return document.getElementById('jikkyo-sidebar');
+    }
+
+    function _getSidebarMessages() {
+        return document.getElementById('jikkyo-sidebar-messages');
+    }
+
+    function _assignLane() {
+        const now = Date.now();
+        for (let i = 0; i < LANE_COUNT; i++) {
+            if (lanes[i] <= now) {
+                lanes[i] = now + COMMENT_DURATION;
+                return i;
+            }
+        }
+        // All lanes busy — pick the one that frees soonest
+        let minIdx = 0;
+        for (let i = 1; i < LANE_COUNT; i++) {
+            if (lanes[i] < lanes[minIdx]) minIdx = i;
+        }
+        lanes[minIdx] = Date.now() + COMMENT_DURATION;
+        return minIdx;
+    }
+
+    function _renderOverlay(text) {
+        const overlay = _getOverlay();
+        if (!overlay) return;
+        if (overlayCount >= MAX_OVERLAY) return;
+
+        const lane = _assignLane();
+        const overlayWidth = overlay.clientWidth;
+        const lineHeight = overlay.clientHeight / LANE_COUNT;
+
+        const span = document.createElement('span');
+        span.className = 'jikkyo-comment';
+        span.textContent = text;
+        span.style.top = (lane * lineHeight) + 'px';
+        span.style.left = overlayWidth + 'px';
+        // Measure text width, then calculate full travel distance
+        span.style.animation = 'none';
+        span.style.visibility = 'hidden';
+        overlay.appendChild(span);
+        const totalDist = overlayWidth + span.offsetWidth;
+        span.style.setProperty('--jikkyo-dist', '-' + totalDist + 'px');
+        span.style.visibility = '';
+        // Trigger reflow then start animation
+        span.offsetHeight;
+        span.style.animation = `jikkyo-flow ${COMMENT_DURATION}ms linear forwards`;
+
+        overlayCount++;
+        span.addEventListener('animationend', () => {
+            span.remove();
+            overlayCount--;
+        });
+    }
+
+    function _renderSidebar(text) {
+        const container = _getSidebarMessages();
+        if (!container) return;
+
+        const div = document.createElement('div');
+        div.className = 'jikkyo-sidebar-msg';
+        div.textContent = text;
+        container.appendChild(div);
+
+        // Trim old messages
+        while (container.children.length > MAX_SIDEBAR) {
+            container.removeChild(container.firstChild);
+        }
+
+        // Auto-scroll to bottom
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function _onComment(text) {
+        if (mode === 'off') return;
+        if (mode === 'overlay') {
+            _renderOverlay(text);
+        }
+        // Always add to sidebar buffer (shown when mode is sidebar)
+        _renderSidebar(text);
+    }
+
+    function _updateUI() {
+        const overlay = _getOverlay();
+        const sidebar = _getSidebar();
+        const select = document.getElementById('jikkyo-mode-select');
+
+        if (select) select.value = mode;
+
+        if (overlay) {
+            overlay.style.display = (mode === 'overlay') ? '' : 'none';
+        }
+        if (sidebar) {
+            sidebar.style.display = (mode === 'sidebar') ? '' : 'none';
+        }
+    }
+
+    function _cleanup() {
+        generation++;
+        if (keepSeatTimer) { clearInterval(keepSeatTimer); keepSeatTimer = null; }
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        if (commentWs) { try { commentWs.close(); } catch(e) {} commentWs = null; }
+        if (watchWs) { try { watchWs.close(); } catch(e) {} watchWs = null; }
+        threadId = null;
+        yourPostKey = null;
+        commentWsUri = null;
+        currentJkId = null;
+        retryCount = 0;
+        overlayCount = 0;
+        lanes.fill(0);
+
+        // Clear overlay
+        const overlay = _getOverlay();
+        if (overlay) overlay.innerHTML = '';
+    }
+
+    function _connectWatch(jkId) {
+        currentJkId = jkId;
+        const gen = generation;
+        const url = `wss://${JIKKYO_BASE}/api/v1/channels/${jkId}/ws/watch`;
+        _log('watch WS connecting: ' + url);
+
+        watchWs = new WebSocket(url);
+
+        watchWs.onopen = () => {
+            if (gen !== generation) return;
+            _log('watch WS connected');
+            retryCount = 0;
+            watchWs.send(JSON.stringify({ type: 'startWatching', data: {} }));
+        };
+
+        watchWs.onmessage = (event) => {
+            if (gen !== generation) return;
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'seat' && msg.data) {
+                    const interval = (msg.data.keepIntervalSec || 30) * 1000;
+                    if (keepSeatTimer) clearInterval(keepSeatTimer);
+                    keepSeatTimer = setInterval(() => {
+                        if (watchWs && watchWs.readyState === WebSocket.OPEN) {
+                            watchWs.send(JSON.stringify({ type: 'keepSeat' }));
+                        }
+                    }, interval);
+                    _log('seat received, keepSeat interval: ' + interval + 'ms');
+                } else if (msg.type === 'room' && msg.data) {
+                    threadId = String(msg.data.threadId);
+                    yourPostKey = msg.data.yourPostKey || '';
+                    if (msg.data.messageServer && msg.data.messageServer.uri) {
+                        commentWsUri = msg.data.messageServer.uri;
+                    } else {
+                        commentWsUri = `wss://${JIKKYO_BASE}/api/v1/channels/${jkId}/ws/comment`;
+                    }
+                    _log('room: threadId=' + threadId + ' uri=' + commentWsUri);
+                    _connectComment();
+                } else if (msg.type === 'ping') {
+                    watchWs.send(JSON.stringify({ type: 'pong' }));
+                } else if (msg.type === 'disconnect') {
+                    _log('disconnect: ' + (msg.data && msg.data.reason));
+                    _cleanup();
+                } else if (msg.type === 'error') {
+                    _log('error: ' + (msg.data && msg.data.message));
+                }
+            } catch (e) {
+                _log('watch WS parse error: ' + e);
+            }
+        };
+
+        watchWs.onerror = () => { _log('watch WS error'); };
+
+        watchWs.onclose = () => {
+            if (gen !== generation) return; // stale handler — ignore
+            _log('watch WS closed');
+            if (currentJkId && retryCount < RETRY_MAX) {
+                retryCount++;
+                _log('retry ' + retryCount + '/' + RETRY_MAX);
+                const jk = currentJkId;
+                _cleanup();
+                retryTimer = setTimeout(() => _connectWatch(jk), RETRY_DELAY);
+            }
+        };
+    }
+
+    function _connectComment() {
+        if (!threadId || !commentWsUri) return;
+        const gen = generation;
+        _log('comment WS connecting: ' + commentWsUri);
+
+        commentWs = new WebSocket(commentWsUri);
+
+        commentWs.onopen = () => {
+            if (gen !== generation) return;
+            _log('comment WS connected, subscribing to thread ' + threadId);
+            // niwavided protocol: send subscription as a single JSON array
+            const subscription = [
+                { ping: { content: 'rs:0' } },
+                { ping: { content: 'ps:0' } },
+                { thread: {
+                    version: '20061206',
+                    thread: threadId,
+                    threadkey: yourPostKey || '',
+                    user_id: '',
+                    res_from: -100,
+                } },
+                { ping: { content: 'pf:0' } },
+                { ping: { content: 'rf:0' } },
+            ];
+            commentWs.send(JSON.stringify(subscription));
+        };
+
+        commentWs.onmessage = (event) => {
+            if (gen !== generation) return;
+            try {
+                const msg = JSON.parse(event.data);
+                // niwavided format: {"chat": {"content": "...", ...}}
+                if (msg.chat && msg.chat.content) {
+                    _onComment(msg.chat.content);
+                }
+                // ping and thread messages are server acks — do NOT echo back
+            } catch (e) {
+                // Ignore parse errors
+            }
+        };
+
+        commentWs.onerror = () => { _log('comment WS error'); };
+        commentWs.onclose = () => {
+            if (gen !== generation) return;
+            _log('comment WS closed');
+        };
+    }
+
+    return {
+        start(channelName) {
+            this.stop();
+            const jkId = JIKKYO_MAP[channelName];
+            if (!jkId) {
+                _log('no jikkyo mapping for: ' + channelName);
+                return;
+            }
+            _log('starting for ' + channelName + ' → ' + jkId);
+            _updateUI();
+            try {
+                _connectWatch(jkId);
+            } catch (e) {
+                _log('connection error: ' + e);
+            }
+        },
+
+        stop() {
+            _cleanup();
+        },
+
+        setMode(newMode) {
+            mode = newMode;
+            localStorage.setItem('autorec-jikkyo-mode', mode);
+            _updateUI();
+        },
+
+        getMode() {
+            return mode;
+        },
+
+        initUI() {
+            _updateUI();
+        },
+    };
+})();
+
 function initLiveSection() {
     loadLiveChannelGrid();
 }
@@ -1288,9 +1597,16 @@ function startLive(chNum, chName) {
     // 番組情報を定期更新
     if (liveNowTimer) clearInterval(liveNowTimer);
     liveNowTimer = setInterval(loadLiveChannelGrid, 60000);
+
+    // NX-Jikkyo 実況コメント開始
+    jikkyo.initUI();
+    jikkyo.start(chName);
 }
 
 function stopLive(keepGrid) {
+    // NX-Jikkyo 実況コメント停止
+    jikkyo.stop();
+
     if (livePlayer) {
         livePlayer.destroy();
         livePlayer = null;

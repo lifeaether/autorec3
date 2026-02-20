@@ -1673,6 +1673,26 @@ button, .btn {
         max-height: 40vh;
     }
 
+    /* --- Jikkyo: stack vertically on mobile --- */
+    .live-player-with-sidebar {
+        flex-direction: column;
+    }
+
+    .jikkyo-sidebar {
+        width: 100%;
+        border-left: 1px solid var(--border);
+        border-radius: 0 0 var(--radius-md) var(--radius-md);
+        border-top: none;
+    }
+
+    .jikkyo-sidebar-messages {
+        max-height: 200px;
+    }
+
+    .jikkyo-comment {
+        font-size: 0.95rem;
+    }
+
     /* --- Filter buttons: wider padding --- */
     .btn-filter {
         padding: 0.5rem 1.1rem;
@@ -1698,6 +1718,124 @@ button, .btn {
     .btn-add-rule {
         width: 100%;
     }
+}
+
+/* ===== Jikkyo (NX-Jikkyo comment overlay & sidebar) ===== */
+
+/* Layout: video + sidebar side-by-side */
+.live-player-with-sidebar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1rem;
+}
+
+.live-player-main {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Video wrapper for overlay positioning */
+.live-video-wrapper {
+    position: relative;
+    background: #000;
+}
+
+/* Overlay */
+.jikkyo-overlay {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.jikkyo-comment {
+    position: absolute;
+    white-space: nowrap;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
+    text-shadow:
+        -1px -1px 0 #000, 1px -1px 0 #000,
+        -1px  1px 0 #000, 1px  1px 0 #000,
+        0 0 4px rgba(0, 0, 0, 0.6);
+    line-height: 1.3;
+    pointer-events: none;
+    will-change: transform;
+    animation: jikkyo-flow 6s linear forwards;
+}
+
+@keyframes jikkyo-flow {
+    from { transform: translateX(0); }
+    to   { transform: translateX(var(--jikkyo-dist, -200%)); }
+}
+
+/* Sidebar */
+.jikkyo-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.jikkyo-sidebar-header {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+    flex-shrink: 0;
+}
+
+.jikkyo-sidebar-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem 0;
+    max-height: 65vh;
+}
+
+.jikkyo-sidebar-msg {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--text);
+    word-break: break-all;
+    animation: fadeInUp 0.15s ease-out;
+}
+
+.jikkyo-sidebar-msg:hover {
+    background: var(--accent-light);
+}
+
+/* Mode select */
+.jikkyo-mode-select {
+    width: auto;
+    min-width: 0;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-height: auto;
+    height: 32px;
+}
+
+.jikkyo-mode-select:hover,
+.jikkyo-mode-select:focus {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: none;
 }
 
 /* ===== Responsive: Small mobile ===== */
