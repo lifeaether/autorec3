@@ -456,10 +456,10 @@ function showProgrammeDetail(el, idx) {
         <div class="desc">${escapeHtml(p.description || '')}</div>
         <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="directSchedule(${idx})">
-                この番組を録画する
+                録画予定に追加
             </button>
             <button class="btn btn-secondary btn-sm" onclick="quickAddRule('${escapeHtml(p.title)}')">
-                このキーワードで予約作成
+                録画ルールを作成
             </button>
         </div>
     `;
@@ -517,7 +517,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/* --- 録画予約 --- */
+/* --- 録画ルール --- */
 
 async function loadRules() {
     const tbody = document.getElementById('rules-table');
@@ -525,8 +525,8 @@ async function loadRules() {
     try {
         const data = await API.get('/api/rules');
         if (!data.rules || data.rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
-            if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">予約なし</p>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
+            if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">ルールなし</p>';
             return;
         }
         tbody.innerHTML = data.rules.map(r => `
@@ -569,7 +569,7 @@ async function loadRules() {
 function showRuleForm(rule) {
     const overlay = document.getElementById('rule-modal');
     const form = document.getElementById('rule-form');
-    document.getElementById('rule-modal-title').textContent = rule ? 'キーワード予約 編集' : 'キーワード予約';
+    document.getElementById('rule-modal-title').textContent = rule ? '録画ルール 編集' : '録画ルール';
     form.dataset.ruleId = rule ? rule.id : '';
 
     form.elements['rule-name'].value = rule ? rule.name : '';
@@ -606,7 +606,7 @@ async function editRule(id) {
 }
 
 async function deleteRule(id, name) {
-    if (!confirm(`予約「${name}」を削除しますか?`)) return;
+    if (!confirm(`ルール「${name}」を削除しますか?`)) return;
     try {
         await API.del(`/api/rules/${id}`);
         loadRules();
@@ -631,7 +631,7 @@ async function saveRule() {
     };
 
     if (!data.name) {
-        alert('予約名を入力してください');
+        alert('ルール名を入力してください');
         return;
     }
 
@@ -1308,7 +1308,7 @@ async function init() {
         });
     }
 
-    // キーワード予約プレビュー: debounce 付き input イベント
+    // 録画ルールプレビュー: debounce 付き input イベント
     let previewTimer = null;
     const ruleKeyword = document.getElementById('rule-keyword');
     if (ruleKeyword) {

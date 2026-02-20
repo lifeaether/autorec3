@@ -25,7 +25,7 @@
                     <option value="low">低画質</option>
                     <option value="lowest">最低画質</option>
                 </select>
-                <a href="#" data-section="rules" class="nav-link">録画予約</a>
+                <a href="#" data-section="rules" class="nav-link">録画ルール</a>
                 <a href="#" data-section="schedules" class="nav-link">録画予定</a>
                 <a href="#" data-section="logs" class="nav-link">ログ</a>
                 <a href="epg.html" class="nav-link">アーカイブ</a>
@@ -37,7 +37,7 @@
             <a href="#" data-section="live" class="nav-primary active">ライブ</a>
             <a href="#" data-section="epg" class="nav-primary">番組表</a>
             <a href="#" data-section="recordings" class="nav-primary">録画済み</a>
-            <a href="#" data-section="rules" class="nav-primary">録画予約</a>
+            <a href="#" data-section="rules" class="nav-primary">録画ルール</a>
             <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">メニュー</a>
         </div>
     </nav>
@@ -67,12 +67,12 @@
             </div>
         </div>
 
-        <!-- 録画予約セクション -->
+        <!-- 録画ルールセクション -->
         <div id="section-rules" class="section">
             <div class="section-header">
-                <h2>録画予約</h2>
+                <h2>録画ルール</h2>
                 <div class="toolbar">
-                    <button class="btn btn-primary btn-add-rule" onclick="showRuleForm(null)">+ キーワード予約</button>
+                    <button class="btn btn-primary btn-add-rule" onclick="showRuleForm(null)">+ 録画ルール</button>
                 </div>
             </div>
             <div class="card table-card">
@@ -80,7 +80,7 @@
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>予約名</th>
+                            <th>ルール名</th>
                             <th>キーワード</th>
                             <th>ジャンル</th>
                             <th>状態</th>
@@ -120,7 +120,7 @@
                             <th>開始</th>
                             <th>終了</th>
                             <th>状態</th>
-                            <th>予約名</th>
+                            <th>ルール名</th>
                         </tr>
                     </thead>
                     <tbody id="schedules-table">
@@ -216,14 +216,14 @@
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">メインタブ</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてテレビをリアルタイム視聴します (同時最大2ストリーム)</li>
-                    <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組一覧を表示。番組をタップすると詳細が表示され、そこから録画予約もできます</li>
+                    <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組一覧を表示。番組をタップすると詳細が表示され、そこから録画予定への追加や録画ルールの作成ができます</li>
                     <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタで素早く絞り込み、ブラウザ内再生やダウンロードが可能です</li>
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">管理メニュー / その他</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付で横断検索</li>
-                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画予約</a> — キーワード予約を管理。条件に一致する番組が自動的に録画予定に登録されます</li>
-                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画予定</a> — 予約にマッチした番組の録画スケジュール一覧。状態でフィルタできます</li>
+                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワードやジャンルで録画条件を管理。条件に一致する番組が自動的に録画予定に登録されます</li>
+                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画予定</a> — ルールにマッチした番組や直接追加した番組の録画スケジュール一覧。状態でフィルタできます</li>
                     <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴</li>
                 </ul>
             </div>
@@ -232,8 +232,8 @@
                 <h3 style="margin-bottom:0.5rem">録画の流れ</h3>
                 <ol style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><strong>EPG取得</strong> — cron で1日2回自動実行され、番組表データがDBに蓄積されます</li>
-                    <li><strong>予約登録</strong> — <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画予約</a>でキーワード条件を設定するか、<a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>から番組を直接録画予定に追加します</li>
-                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行され、予約に一致する番組が<a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent)">録画予定</a>に登録されます</li>
+                    <li><strong>ルール登録</strong> — <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a>でキーワード条件を設定するか、<a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>から番組を直接録画予定に追加します</li>
+                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行され、ルールに一致する番組が<a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent)">録画予定</a>に登録されます</li>
                     <li><strong>録画実行</strong> — 番組開始の1分前に自動的に録画が開始されます</li>
                     <li><strong>完了</strong> — 録画完了後、<a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent)">録画済み</a>に表示されます。Discord 等で通知も送信されます</li>
                 </ol>
@@ -242,15 +242,15 @@
             <div class="card">
                 <h3 style="margin-bottom:0.5rem">予約方法</h3>
                 <div style="font-size:0.9rem;line-height:1.8">
-                    <p style="margin-bottom:0.5rem"><strong>方法1: キーワード予約 (自動)</strong></p>
+                    <p style="margin-bottom:0.5rem"><strong>方法1: 録画ルール (自動)</strong></p>
                     <p style="margin-bottom:0.75rem;padding-left:1rem">
-                        <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画予約</a> →「+ キーワード予約」で条件を登録します。<br>
+                        <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a> →「+ 録画ルール」で条件を登録します。<br>
                         キーワード (部分一致) やジャンルを指定すると、条件に合う番組が自動的に録画予定に追加されます。
                     </p>
-                    <p style="margin-bottom:0.5rem"><strong>方法2: 番組表から直接予約</strong></p>
+                    <p style="margin-bottom:0.5rem"><strong>方法2: 番組表から直接追加</strong></p>
                     <p style="padding-left:1rem">
                         <a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>で番組をタップすると詳細が表示されます。<br>
-                        「この番組を録画する」で1番組だけ直接録画、「このキーワードで予約作成」でキーワード予約に追加できます。
+                        「録画予定に追加」で1番組だけ直接録画予定に追加、「録画ルールを作成」でルールに追加できます。
                     </p>
                 </div>
             </div>
@@ -261,14 +261,14 @@
     <!-- 番組詳細ポップアップ -->
     <div id="programme-detail" class="programme-detail"></div>
 
-    <!-- キーワード予約 追加/編集モーダル -->
+    <!-- 録画ルール 追加/編集モーダル -->
     <div id="rule-modal" class="modal-overlay">
         <div class="modal">
             <button class="modal-close" onclick="document.getElementById('rule-modal').classList.remove('active')">&times;</button>
-            <h3 id="rule-modal-title">キーワード予約</h3>
+            <h3 id="rule-modal-title">録画ルール</h3>
             <form id="rule-form" onsubmit="event.preventDefault(); saveRule();">
                 <div class="form-group">
-                    <label for="rule-name">予約名 *</label>
+                    <label for="rule-name">ルール名 *</label>
                     <input type="text" name="rule-name" id="rule-name" required placeholder="例: NHKニュース">
                 </div>
                 <div class="form-group">
