@@ -1169,12 +1169,48 @@ button, .btn {
     50% { opacity: 0.3; }
 }
 
-/* ===== Quality toggle ===== */
-.quality-toggle.active {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-    color: white !important;
-    border-color: #d97706 !important;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+/* ===== Nav quality select ===== */
+.nav-quality-select {
+    width: auto;
+    min-width: 0;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-height: auto;
+    height: 32px;
+}
+
+.nav-quality-select:hover,
+.nav-quality-select:focus {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: none;
+}
+
+/* ===== Drawer quality row (mobile) ===== */
+.drawer-quality-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1.25rem;
+    color: var(--text);
+    font-size: 0.95rem;
+    min-height: 48px;
+}
+
+.drawer-quality-row select {
+    width: auto;
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    min-height: auto;
+    font-size: 0.9rem;
+    border-radius: var(--radius-sm);
 }
 
 /* ===== Seek bar ===== */

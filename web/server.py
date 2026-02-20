@@ -28,6 +28,14 @@ QUALITY_PRESETS = {
         ],
         "audio": ["-c:a", "aac", "-b:a", "64k", "-ac", "2"],
     },
+    "lowest": {
+        "video": [
+            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+            "-b:v", "400k", "-maxrate", "450k", "-bufsize", "600k",
+            "-vf", "scale=480:-2",
+        ],
+        "audio": ["-c:a", "aac", "-b:a", "48k", "-ac", "1"],
+    },
 }
 DEFAULT_QUALITY = "high"
 

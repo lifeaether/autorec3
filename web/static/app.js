@@ -95,8 +95,9 @@ let streamQuality = localStorage.getItem('autorec-stream-quality') || 'high';
 function setStreamQuality(quality) {
     streamQuality = quality;
     localStorage.setItem('autorec-stream-quality', quality);
-    document.querySelectorAll('.quality-toggle').forEach(btn => {
-        btn.classList.toggle('active', quality === 'low');
+    // 両方の select を同期
+    document.querySelectorAll('#nav-quality-select, #drawer-quality-select').forEach(sel => {
+        sel.value = quality;
     });
     // ライブ再生中なら再起動
     if (livePlayer && liveCurrentCh) {
@@ -110,10 +111,6 @@ function setStreamQuality(quality) {
         const currentTime = recordingBaseTime + (document.getElementById('video-player').currentTime || 0);
         startRecordingStream(currentTime);
     }
-}
-
-function toggleStreamQuality() {
-    setStreamQuality(streamQuality === 'high' ? 'low' : 'high');
 }
 
 /* --- ナビゲーション --- */
@@ -1330,9 +1327,9 @@ async function init() {
         });
     }
 
-    // 品質トグル初期化
-    document.querySelectorAll('.quality-toggle').forEach(btn => {
-        btn.classList.toggle('active', streamQuality === 'low');
+    // 品質セレクター初期化
+    document.querySelectorAll('#nav-quality-select, #drawer-quality-select').forEach(sel => {
+        sel.value = streamQuality;
     });
 
     // 初期セクション表示 (hash があればそのセクションを開く)
