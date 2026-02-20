@@ -218,48 +218,66 @@
             <div class="card">
                 <h3 style="margin-bottom:0.5rem">画面構成</h3>
                 <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:0.75rem">
-                    画面上部のタブ、またはモバイルではボトムバーから各画面に移動できます。<br>
-                    よく使う3画面がメインタブに、その他の画面は「管理」メニューや「その他」にまとまっています。
+                    デスクトップでは上部のタブバー、モバイルではボトムバーから各画面に移動できます。
                 </p>
-                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">メインタブ</h4>
+                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">視聴</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてテレビをリアルタイム視聴します (同時最大2ストリーム)</li>
-                    <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組一覧を表示。番組をタップすると詳細が表示され、そこから録画予定への追加や録画ルールの作成ができます</li>
-                    <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタで素早く絞り込み、ブラウザ内再生やダウンロードが可能です</li>
+                    <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてリアルタイム視聴 (同時最大2ストリーム)。画質はナビバー右上またはメニューから変更できます</li>
+                    <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組を表示。タップで詳細を開き、録画予約や録画ルール作成ができます</li>
                 </ul>
-                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">管理メニュー / その他</h4>
+                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">録画</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付で横断検索</li>
-                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワードやジャンルで録画条件を管理。条件に一致する番組が自動的に録画予定に登録されます</li>
-                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — ルールにマッチした番組や直接追加した番組の録画スケジュール一覧。状態でフィルタできます</li>
-                    <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴</li>
+                    <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタやキーワード検索で絞り込み、ブラウザ内再生やダウンロードが可能です</li>
+                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — 録画スケジュールの一覧。予定・録画中・完了・失敗などの状態でフィルタできます</li>
+                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワードやジャンルで自動録画の条件を設定。ルールを削除・無効化すると、紐付く未実行の録画予定も自動で取り消されます</li>
+                </ul>
+                <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">その他 (···メニュー内)</h4>
+                <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
+                    <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴。レベルでフィルタ可能</li>
+                    <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付・チャンネルで横断検索</li>
                 </ul>
             </div>
 
             <div class="card">
                 <h3 style="margin-bottom:0.5rem">録画の流れ</h3>
                 <ol style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><strong>EPG取得</strong> — cron で1日2回自動実行され、番組表データがDBに蓄積されます</li>
-                    <li><strong>ルール登録</strong> — <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a>でキーワード条件を設定するか、<a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>から番組を直接録画予定に追加します</li>
-                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行され、ルールに一致する番組が<a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent)">録画予定</a>に登録されます</li>
-                    <li><strong>録画実行</strong> — 番組開始の1分前に自動的に録画が開始されます</li>
-                    <li><strong>完了</strong> — 録画完了後、<a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent)">録画済み</a>に表示されます。Discord 等で通知も送信されます</li>
+                    <li><strong>EPG取得</strong> — cron で1時間ごとに自動実行 (録画中は自動スキップ)。番組表データがDBに蓄積されます</li>
+                    <li><strong>録画予約</strong> — <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a>でキーワード条件を設定するか、<a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>から番組を直接追加します</li>
+                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行。ルールに一致する番組が<a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent)">録画一覧</a>に登録されます</li>
+                    <li><strong>録画実行</strong> — 番組開始の直前に cron から自動的に録画が開始されます</li>
+                    <li><strong>完了</strong> — 録画完了後、<a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent)">録画済み</a>に表示されます。Discord等の通知も送信されます</li>
                 </ol>
             </div>
 
             <div class="card">
                 <h3 style="margin-bottom:0.5rem">予約方法</h3>
                 <div style="font-size:0.9rem;line-height:1.8">
-                    <p style="margin-bottom:0.5rem"><strong>方法1: 録画ルール (自動)</strong></p>
+                    <p style="margin-bottom:0.5rem"><strong>方法1: 録画ルールで自動録画</strong></p>
                     <p style="margin-bottom:0.75rem;padding-left:1rem">
-                        <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a> →「+ 録画ルール」で条件を登録します。<br>
-                        キーワード (部分一致) やジャンルを指定すると、条件に合う番組が自動的に録画予定に追加されます。
+                        <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a> →「+ 録画ルール」で条件を登録。<br>
+                        キーワード (部分一致) やジャンルを指定すると、一致する番組が自動的に録画予定に追加されます。<br>
+                        ルール作成時にマッチする番組のプレビューを確認できます。
                     </p>
-                    <p style="margin-bottom:0.5rem"><strong>方法2: 番組表から直接追加</strong></p>
+                    <p style="margin-bottom:0.5rem"><strong>方法2: 番組表から直接予約</strong></p>
                     <p style="padding-left:1rem">
-                        <a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>で番組をタップすると詳細が表示されます。<br>
-                        「録画予約」で1番組だけ直接録画予約、「録画ルールを作成」でルールに追加できます。
+                        <a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>で番組をタップ →「録画予約」で1番組だけ直接予約。<br>
+                        「録画ルールを作成」を押すと、その番組名をキーワードにしたルールを作成できます。
                     </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">画質設定</h3>
+                <div style="font-size:0.9rem;line-height:1.8">
+                    <p>
+                        デスクトップではナビバー右側のセレクト、モバイルではメニュー内の「画質」から3段階で切り替えられます。<br>
+                        ライブ視聴中・録画再生中に変更すると、即座に画質が切り替わります。
+                    </p>
+                    <ul style="padding-left:1.5rem;margin-top:0.5rem">
+                        <li><strong>高画質</strong> — 元の解像度でトランスコード</li>
+                        <li><strong>低画質</strong> — 640p / 800kbps。回線が遅い環境向け</li>
+                        <li><strong>最低画質</strong> — 480p / 400kbps。モバイル回線向け</li>
+                    </ul>
                 </div>
             </div>
         </div>
