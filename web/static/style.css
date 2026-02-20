@@ -1133,6 +1133,16 @@ button, .btn {
     overflow: hidden;
 }
 
+.live-ch-programme .desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
 .live-ch-progress {
     width: 100%;
     height: 3px;

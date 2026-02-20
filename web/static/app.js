@@ -1172,6 +1172,7 @@ async function loadLiveChannelGrid() {
             html += `<div class="live-ch-programme">`;
             html += `<div class="time">${formatTime(prog.start_time)} - ${formatTime(prog.end_time)}</div>`;
             html += `<div class="title">${escapeHtml(prog.title)}</div>`;
+            if (prog.description) html += `<div class="desc">${escapeHtml(prog.description)}</div>`;
             html += `</div>`;
             html += `<div class="live-ch-progress"><div class="live-ch-progress-bar" style="width:${pct.toFixed(1)}%"></div></div>`;
         } else {
