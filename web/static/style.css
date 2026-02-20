@@ -580,6 +580,39 @@ button, .btn {
     font-size: 0.8rem;
 }
 
+/* ===== Button Group (filter) ===== */
+.btn-group {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.btn-filter {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-filter:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+}
+
+.btn-filter.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(232, 120, 106, 0.25);
+}
+
 /* ===== Toolbar ===== */
 .toolbar {
     display: flex;

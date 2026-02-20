@@ -27,9 +27,9 @@
         <div id="section-epg" class="section active">
             <h2>番組表</h2>
             <div class="toolbar">
-                <select id="epg-category" onchange="loadEPG()">
-                    <option value="">全ジャンル</option>
-                </select>
+                <div class="btn-group" id="epg-category">
+                    <button class="btn-filter active" data-value="" onclick="setFilter(this, loadEPG)">全ジャンル</button>
+                </div>
             </div>
             <div class="card">
                 <div id="epg-table" style="overflow-x:auto">
@@ -67,14 +67,14 @@
         <div id="section-schedules" class="section">
             <h2>録画予定</h2>
             <div class="toolbar">
-                <select id="schedule-status" onchange="loadSchedules()">
-                    <option value="">全て</option>
-                    <option value="scheduled">予定</option>
-                    <option value="recording">録画中</option>
-                    <option value="done">完了</option>
-                    <option value="failed">失敗</option>
-                    <option value="skipped">スキップ</option>
-                </select>
+                <div class="btn-group" id="schedule-status">
+                    <button class="btn-filter active" data-value="" onclick="setFilter(this, loadSchedules)">全て</button>
+                    <button class="btn-filter" data-value="scheduled" onclick="setFilter(this, loadSchedules)">予定</button>
+                    <button class="btn-filter" data-value="recording" onclick="setFilter(this, loadSchedules)">録画中</button>
+                    <button class="btn-filter" data-value="done" onclick="setFilter(this, loadSchedules)">完了</button>
+                    <button class="btn-filter" data-value="failed" onclick="setFilter(this, loadSchedules)">失敗</button>
+                    <button class="btn-filter" data-value="skipped" onclick="setFilter(this, loadSchedules)">スキップ</button>
+                </div>
             </div>
             <div class="card">
                 <table>
@@ -111,9 +111,9 @@
         <div id="section-live" class="section">
             <h2>ライブ視聴</h2>
             <div class="toolbar">
-                <select id="live-channel" style="min-width:200px">
-                    <option value="">チャンネルを選択</option>
-                </select>
+                <div class="btn-group" id="live-channel">
+                    <button class="btn-filter" data-value="" disabled style="color:var(--text-muted)">読み込み中...</button>
+                </div>
                 <button id="live-start-btn" class="btn btn-primary" onclick="startLive()">視聴開始</button>
                 <button id="live-stop-btn" class="btn btn-danger" onclick="stopLive()" style="display:none">停止</button>
                 <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
@@ -133,12 +133,12 @@
         <div id="section-logs" class="section">
             <h2>録画ログ</h2>
             <div class="toolbar">
-                <select id="log-level" onchange="loadLogs()">
-                    <option value="">全て</option>
-                    <option value="info">info</option>
-                    <option value="warn">warn</option>
-                    <option value="error">error</option>
-                </select>
+                <div class="btn-group" id="log-level">
+                    <button class="btn-filter active" data-value="" onclick="setFilter(this, loadLogs)">全て</button>
+                    <button class="btn-filter" data-value="info" onclick="setFilter(this, loadLogs)">info</button>
+                    <button class="btn-filter" data-value="warn" onclick="setFilter(this, loadLogs)">warn</button>
+                    <button class="btn-filter" data-value="error" onclick="setFilter(this, loadLogs)">error</button>
+                </div>
             </div>
             <div class="card">
                 <table>

@@ -120,7 +120,7 @@ function switchSection(name) {
 window._programmes = [];
 
 async function loadEPG() {
-    const category = document.getElementById('epg-category').value;
+    const category = getFilterValue('epg-category');
     const d = new Date();
     const now = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
 
@@ -139,8 +139,10 @@ async function loadEPG() {
 /* 現在時刻線の更新タイマー */
 let _epgNowTimer = null;
 
-function renderEPGTable(programmes) {
-    const container = document.getElementById('epg-table');
+function renderEPGGrid(programmes, container, options) {
+    const showNowLine = options && options.showNowLine !== undefined ? options.showNowLine : true;
+    const autoScroll = options && options.autoScroll !== undefined ? options.autoScroll : true;
+
     if (!programmes || programmes.length === 0) {
         container.innerHTML = '<p style="color:var(--text-muted)">番組データがありません</p>';
         return;
@@ -192,8 +194,22 @@ function renderEPGTable(programmes) {
 
     // グリッド時間範囲を計算
     const now = new Date();
-    let gridStart = new Date(now); gridStart.setMinutes(0, 0, 0);
-    let gridEnd = new Date(now); gridEnd.setHours(gridEnd.getHours() + 6, 0, 0, 0);
+    let gridStart, gridEnd;
+
+    if (showNowLine) {
+        // メイン番組表: 現在正時から開始
+        gridStart = new Date(now); gridStart.setMinutes(0, 0, 0);
+        gridEnd = new Date(now); gridEnd.setHours(gridEnd.getHours() + 6, 0, 0, 0);
+    } else {
+        // アーカイブ: 最初の番組の正時から開始
+        const earliest = parsed.reduce((min, p) => p.startDate < min ? p.startDate : min, parsed[0].startDate);
+        gridStart = new Date(earliest.getFullYear(), earliest.getMonth(), earliest.getDate(), earliest.getHours(), 0, 0);
+        const latest = parsed.reduce((max, p) => p.endDate > max ? p.endDate : max, parsed[0].endDate);
+        gridEnd = new Date(latest);
+        if (gridEnd.getMinutes() > 0 || gridEnd.getSeconds() > 0) {
+            gridEnd.setHours(gridEnd.getHours() + 1, 0, 0, 0);
+        }
+    }
 
     parsed.forEach(p => {
         if (p.startDate < gridStart) gridStart = new Date(p.startDate.getFullYear(), p.startDate.getMonth(), p.startDate.getDate(), p.startDate.getHours(), 0, 0);
@@ -322,31 +338,41 @@ function renderEPGTable(programmes) {
         updateCornerDate();
     });
 
-    // 現在時刻線 & 自動スクロール
-    const updateNowLine = () => {
-        const n = new Date();
-        const px = timeToPx(n);
-        grid.querySelectorAll('.epg-now-line').forEach(el => el.remove());
-        if (px < 0 || px > totalPx) return;
+    if (showNowLine) {
+        // 現在時刻線 & 自動スクロール
+        const updateNowLine = () => {
+            const n = new Date();
+            const px = timeToPx(n);
+            grid.querySelectorAll('.epg-now-line').forEach(el => el.remove());
+            if (px < 0 || px > totalPx) return;
 
-        grid.querySelectorAll('.epg-channel-body, .epg-time-axis-body').forEach(body => {
-            const line = document.createElement('div');
-            line.className = 'epg-now-line';
-            line.style.top = px + 'px';
-            body.appendChild(line);
-        });
-    };
-    updateNowLine();
+            grid.querySelectorAll('.epg-channel-body, .epg-time-axis-body').forEach(body => {
+                const line = document.createElement('div');
+                line.className = 'epg-now-line';
+                line.style.top = px + 'px';
+                body.appendChild(line);
+            });
+        };
+        updateNowLine();
 
-    // 現在位置へ自動スクロール
-    const nowPx = timeToPx(now);
-    if (nowPx > 0 && nowPx < totalPx) {
-        grid.scrollTop = Math.max(0, nowPx - 60);
+        // 60秒ごとに現在時刻線を更新
+        _epgNowTimer = setInterval(updateNowLine, 60000);
     }
-    updateCornerDate();
 
-    // 60秒ごとに現在時刻線を更新
-    _epgNowTimer = setInterval(updateNowLine, 60000);
+    if (autoScroll) {
+        // 現在位置へ自動スクロール
+        const nowPx = timeToPx(now);
+        if (nowPx > 0 && nowPx < totalPx) {
+            grid.scrollTop = Math.max(0, nowPx - 60);
+        }
+    }
+
+    updateCornerDate();
+}
+
+function renderEPGTable(programmes) {
+    const container = document.getElementById('epg-table');
+    renderEPGGrid(programmes, container, { showNowLine: true, autoScroll: true });
 }
 
 /* 番組詳細表示 */
@@ -609,10 +635,23 @@ async function directSchedule(idx) {
     }
 }
 
+/* --- フィルタボタン --- */
+
+function setFilter(btn, callback) {
+    btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    callback();
+}
+
+function getFilterValue(id) {
+    const active = document.querySelector(`#${id} .btn-filter.active`);
+    return active ? active.dataset.value : '';
+}
+
 /* --- 録画スケジュール --- */
 
 async function loadSchedules() {
-    const status = document.getElementById('schedule-status').value;
+    const status = getFilterValue('schedule-status');
     let url = '/api/schedules?limit=200';
     if (status) url += `&status=${status}`;
 
@@ -642,7 +681,7 @@ async function loadSchedules() {
 /* --- ログ --- */
 
 async function loadLogs() {
-    const level = document.getElementById('log-level').value;
+    const level = getFilterValue('log-level');
     let url = '/api/logs?limit=200';
     if (level) url += `&level=${level}`;
 
@@ -866,20 +905,19 @@ function closeRecordingPlayer() {
 /* --- ライブ視聴機能 --- */
 
 function initLiveSection() {
-    const select = document.getElementById('live-channel');
-    if (select && select.options.length <= 1 && channels.length > 0) {
+    const group = document.getElementById('live-channel');
+    if (group && !group.dataset.loaded && channels.length > 0) {
+        let html = '';
         channels.forEach(ch => {
-            const opt = document.createElement('option');
-            opt.value = ch.number;
-            opt.textContent = ch.name;
-            select.appendChild(opt);
+            html += `<button class="btn-filter" data-value="${escapeHtml(ch.number)}" onclick="setFilter(this)">${escapeHtml(ch.name)}</button>`;
         });
+        group.innerHTML = html;
+        group.dataset.loaded = '1';
     }
 }
 
 function startLive() {
-    const select = document.getElementById('live-channel');
-    const ch = select.value;
+    const ch = getFilterValue('live-channel');
     if (!ch) {
         alert('チャンネルを選択してください');
         return;
@@ -896,7 +934,7 @@ function startLive() {
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-start-btn').style.display = 'none';
     document.getElementById('live-stop-btn').style.display = '';
-    select.disabled = true;
+    document.querySelectorAll('#live-channel .btn-filter').forEach(b => b.disabled = true);
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
 
@@ -937,7 +975,8 @@ function startLive() {
     });
 
     // 番組情報を取得 (チャンネル名で検索)
-    const chName = select.options[select.selectedIndex].textContent;
+    const activeBtn = document.querySelector('#live-channel .btn-filter.active');
+    const chName = activeBtn ? activeBtn.textContent : '';
     loadLiveNowPlaying(chName);
     liveNowTimer = setInterval(() => loadLiveNowPlaying(chName), 60000);
 }
@@ -955,7 +994,7 @@ function stopLive() {
     // UI リセット
     document.getElementById('live-start-btn').style.display = '';
     document.getElementById('live-stop-btn').style.display = 'none';
-    document.getElementById('live-channel').disabled = false;
+    document.querySelectorAll('#live-channel .btn-filter').forEach(b => b.disabled = false);
     document.getElementById('live-status').textContent = '';
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-error').textContent = '';
@@ -989,6 +1028,9 @@ async function loadLiveNowPlaying(channelName) {
 /* --- 初期化 --- */
 
 async function init() {
+    // epg.html など別ページから app.js を読み込んだ場合はメインUI初期化をスキップ
+    if (!document.getElementById('epg-table')) return;
+
     // ナビゲーションイベント (API失敗時もナビが動くよう先に登録)
     document.querySelectorAll('nav a[data-section]').forEach(a => {
         a.addEventListener('click', (e) => {
@@ -1061,13 +1103,13 @@ async function init() {
         });
 
         categories = catData.categories || [];
-        const catSelect = document.getElementById('epg-category');
-        if (catSelect) {
-            let catOpts = '<option value="">全ジャンル</option>';
+        const catGroup = document.getElementById('epg-category');
+        if (catGroup) {
+            let catBtns = '<button class="btn-filter active" data-value="" onclick="setFilter(this, loadEPG)">全ジャンル</button>';
             categories.forEach(cat => {
-                catOpts += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+                catBtns += `<button class="btn-filter" data-value="${escapeHtml(cat)}" onclick="setFilter(this, loadEPG)">${escapeHtml(cat)}</button>`;
             });
-            catSelect.innerHTML = catOpts;
+            catGroup.innerHTML = catBtns;
         }
 
         renderEPGTable(epgData.programmes);
