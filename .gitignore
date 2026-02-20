@@ -1,4 +1,8 @@
 db/*.sqlite
+db/*.sqlite-shm
+db/*.sqlite-wal
 log/
+conf/autorec.conf
+conf/channels.conf
 __pycache__/
 *.pyc

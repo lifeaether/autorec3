@@ -55,19 +55,21 @@ else
     echo "SKIP: autorec.sqlite は既に存在します"
 fi
 
-# 設定ファイル確認
+# 設定ファイル確認・作成
 echo ""
 echo "--- 設定ファイル確認 ---"
 if [ -f "$AUTOREC_DIR/conf/autorec.conf" ]; then
     echo "OK: autorec.conf"
 else
-    echo "警告: conf/autorec.conf が見つかりません"
+    cp "$AUTOREC_DIR/conf/autorec.conf.example" "$AUTOREC_DIR/conf/autorec.conf"
+    echo "作成: autorec.conf (.example からコピー — 環境に合わせて編集してください)"
 fi
 
 if [ -f "$AUTOREC_DIR/conf/channels.conf" ]; then
     echo "OK: channels.conf"
 else
-    echo "警告: conf/channels.conf が見つかりません"
+    cp "$AUTOREC_DIR/conf/channels.conf.example" "$AUTOREC_DIR/conf/channels.conf"
+    echo "作成: channels.conf (.example からコピー — 受信可能なチャンネルを設定してください)"
 fi
 
 # シェルスクリプトに実行権限付与

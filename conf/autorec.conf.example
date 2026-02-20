@@ -1,0 +1,14 @@
+# 録画先ディレクトリ
+RECORD_DIR="/mnt/data"
+# 録画開始オフセット (番組開始の何秒前に録画開始するか)
+START_OFFSET=1
+# 録画終了オフセット (番組終了の何秒後に録画停止するか)
+END_OFFSET=0
+# 通知 (空欄で無効)
+DISCORD_WEBHOOK=""
+LINE_NOTIFY_TOKEN=""
+# Web UIポート
+WEB_PORT=8080
+# DBパス
+EPG_DB="$AUTOREC_DIR/db/epg.sqlite"
+AUTOREC_DB="$AUTOREC_DIR/db/autorec.sqlite"

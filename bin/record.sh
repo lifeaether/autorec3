@@ -9,7 +9,7 @@ AUTOREC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$AUTOREC_DIR/conf/autorec.conf"
 
 AUTOREC_DB="${AUTOREC_DB:-$AUTOREC_DIR/db/autorec.sqlite}"
-RECORD_DIR="${RECORD_DIR:-/media/datb}"
+RECORD_DIR="${RECORD_DIR:-/mnt/data}"
 START_OFFSET="${START_OFFSET:-1}"
 END_OFFSET="${END_OFFSET:-0}"
 
