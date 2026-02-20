@@ -1,4 +1,4 @@
-/* autorec Web UI - Coral Consumer App Theme */
+/* autorec Web UI - Coral Consumer App Theme (Mobile-first) */
 
 :root {
     /* Core palette — warm coral/peach */
@@ -35,6 +35,7 @@
 
     /* Layout */
     --nav-width: 220px;
+    --bottom-nav-height: 60px;
 }
 
 /* ===== Reset ===== */
@@ -81,7 +82,7 @@ body {
     display: flex;
 }
 
-/* ===== Sidebar Navigation ===== */
+/* ===== Sidebar Navigation (Desktop default) ===== */
 nav {
     background: var(--bg-nav);
     backdrop-filter: blur(14px);
@@ -123,6 +124,7 @@ nav a {
     display: flex;
     align-items: center;
     white-space: nowrap;
+    min-height: 44px;
 }
 
 nav a:hover {
@@ -137,9 +139,13 @@ nav a.active {
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* Push help link to the bottom */
-nav a[data-section="help"],
-nav a[href="/#help"] {
+/* Desktop: "More" button is hidden, all items visible */
+nav .nav-more-btn {
+    display: none;
+}
+
+/* Push help link to the bottom (desktop sidebar) */
+nav a.nav-secondary[data-section="help"] {
     margin-top: auto;
 }
 
@@ -153,6 +159,7 @@ nav a[data-section="recordings"]::before { content: "🎬 "; }
 nav a[data-section="live"]::before       { content: "🔴 "; }
 nav a[data-section="logs"]::before       { content: "📋 "; }
 nav a[data-section="help"]::before       { content: "❓ "; }
+nav .nav-more-btn::before               { content: "☰ "; }
 
 /* index.html — archive link (href-based) */
 nav a[href="epg.html"]::before           { content: "📚 "; }
@@ -165,6 +172,15 @@ nav a[href="/#recordings"]::before       { content: "🎬 "; }
 nav a[href="/#live"]::before             { content: "🔴 "; }
 nav a[href="/#logs"]::before             { content: "📋 "; }
 nav a[href="/#help"]::before             { content: "❓ "; }
+
+/* ===== More Drawer (mobile, hidden on desktop) ===== */
+.more-drawer {
+    display: none;
+}
+
+.more-drawer-backdrop {
+    display: none;
+}
 
 /* ===== Main content — offset by sidebar ===== */
 main {
@@ -222,6 +238,77 @@ h3 {
     box-shadow: var(--shadow-md);
 }
 
+/* ===== Card Lists (mobile alternative to tables) ===== */
+.card-list {
+    display: none;
+}
+
+.schedule-card,
+.log-card,
+.rule-card {
+    background: var(--bg-card);
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.schedule-card:first-child,
+.log-card:first-child,
+.rule-card:first-child {
+    border-top: 1px solid var(--border);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.schedule-card:last-child,
+.log-card:last-child,
+.rule-card:last-child {
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.schedule-title,
+.rule-title {
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+}
+
+.schedule-meta,
+.rule-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.log-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+}
+
+.log-time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.log-message {
+    font-size: 0.85rem;
+    color: var(--text);
+    word-break: break-all;
+}
+
+.log-programme {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
+.rule-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
 /* ===== Tables ===== */
 table {
     width: 100%;
@@ -273,8 +360,12 @@ table tr:last-child td {
 /* ===== Hide ID column in rules and schedules tables ===== */
 #section-rules > .card > table th:first-child,
 #section-rules > .card > table td:first-child,
+#section-rules > .table-card > table th:first-child,
+#section-rules > .table-card > table td:first-child,
 #section-schedules > .card > table th:first-child,
-#section-schedules > .card > table td:first-child {
+#section-schedules > .card > table td:first-child,
+#section-schedules > .table-card > table th:first-child,
+#section-schedules > .table-card > table td:first-child {
     display: none;
 }
 
@@ -497,6 +588,7 @@ input, select, textarea {
     font-family: inherit;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     color-scheme: light;
+    min-height: 44px;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -513,10 +605,11 @@ input::placeholder, textarea::placeholder {
 /* Checkbox styling */
 input[type="checkbox"] {
     width: auto;
+    min-height: auto;
     accent-color: var(--accent);
 }
 
-/* ===== Buttons ===== */
+/* ===== Buttons — touch-optimized ===== */
 button, .btn {
     padding: 0.65rem 1.4rem;
     border: none;
@@ -528,7 +621,9 @@ button, .btn {
     transition: all var(--transition-fast);
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
+    min-height: 44px;
 }
 
 .btn-primary {
@@ -576,11 +671,12 @@ button, .btn {
 }
 
 .btn-sm {
-    padding: 0.35rem 0.75rem;
+    padding: 0.4rem 0.85rem;
     font-size: 0.8rem;
+    min-height: 44px;
 }
 
-/* ===== Button Group (filter) ===== */
+/* ===== Button Group (filter) — touch-optimized ===== */
 .btn-group {
     display: flex;
     gap: 0.35rem;
@@ -588,7 +684,7 @@ button, .btn {
 }
 
 .btn-filter {
-    padding: 0.4rem 0.9rem;
+    padding: 0.5rem 0.9rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-pill);
     background: var(--bg-card);
@@ -597,6 +693,7 @@ button, .btn {
     font-weight: 400;
     cursor: pointer;
     transition: all var(--transition-fast);
+    min-height: 44px;
 }
 
 .btn-filter:hover {
@@ -611,6 +708,16 @@ button, .btn {
     border-color: var(--accent);
     font-weight: 500;
     box-shadow: 0 2px 6px rgba(232, 120, 106, 0.25);
+}
+
+/* ===== Recordings Initial Filter ===== */
+.recordings-initial-filter {
+    display: none;
+}
+
+/* ===== Desktop-only elements ===== */
+.desktop-only {
+    display: block;
 }
 
 /* ===== Toolbar ===== */
@@ -747,6 +854,10 @@ button, .btn {
     line-height: 1.7;
 }
 
+.programme-detail .btn {
+    min-height: 44px;
+}
+
 /* ===== Pagination ===== */
 .pagination {
     display: flex;
@@ -765,6 +876,7 @@ button, .btn {
     cursor: pointer;
     border-radius: var(--radius-sm);
     transition: background var(--transition-fast);
+    min-height: 48px;
 }
 
 .recordings-series-header:hover {
@@ -814,6 +926,7 @@ button, .btn {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    min-height: 72px;
 }
 
 .live-ch-card:hover {
@@ -897,6 +1010,7 @@ button, .btn {
     outline: none;
     border: none;
     padding: 0;
+    min-height: auto;
 }
 
 #video-seek-bar::-webkit-slider-thumb {
@@ -920,12 +1034,16 @@ button, .btn {
     box-shadow: 0 1px 4px rgba(232, 120, 106, 0.3);
 }
 
-/* ===== Responsive: Tablet — sidebar → bottom tab bar ===== */
+/* ========================================================
+   RESPONSIVE: Mobile (max-width: 768px)
+   — 4-tab bottom bar, drawer, card lists, bottom sheet
+   ======================================================== */
 @media (max-width: 768px) {
     body {
         display: block;
     }
 
+    /* --- Bottom Tab Bar: 4 primary tabs only --- */
     nav {
         position: fixed;
         top: auto;
@@ -933,15 +1051,15 @@ button, .btn {
         left: 0;
         right: 0;
         width: 100%;
-        height: auto;
+        height: var(--bottom-nav-height);
         flex-direction: row;
         border-right: none;
         border-top: 1px solid var(--border);
-        padding: 0.3rem 0.25rem;
+        padding: 0.2rem 0;
         gap: 0;
-        overflow-x: auto;
-        overflow-y: hidden;
-        justify-content: space-around;
+        overflow: visible;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
         z-index: 100;
     }
 
@@ -949,14 +1067,26 @@ button, .btn {
         display: none;
     }
 
+    /* Hide secondary nav items (they live in the drawer) */
+    nav .nav-secondary {
+        display: none;
+    }
+
+    /* Show the "More" button on mobile */
+    nav .nav-more-btn {
+        display: flex;
+    }
+
     nav a {
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         font-size: 0.65rem;
-        padding: 0.35rem 0.4rem;
+        padding: 0.3rem 0.2rem;
         gap: 0.1rem;
-        border-radius: var(--radius-sm);
+        border-radius: 0;
         flex-shrink: 0;
+        min-height: 48px;
     }
 
     nav a::before {
@@ -969,17 +1099,78 @@ button, .btn {
         background: var(--accent-light);
     }
 
-    /* Reset help link margin for row layout */
-    nav a[data-section="help"],
-    nav a[href="/#help"] {
-        margin-top: 0;
+    /* --- More Drawer --- */
+    .more-drawer {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        bottom: var(--bottom-nav-height);
+        left: 0;
+        right: 0;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        z-index: 99;
+        transform: translateY(100%);
+        transition: transform 0.25s ease;
+        padding: 0.5rem 0;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
 
+    .more-drawer.active {
+        transform: translateY(0);
+    }
+
+    .more-drawer a {
+        display: flex;
+        align-items: center;
+        padding: 0.85rem 1.25rem;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.95rem;
+        min-height: 48px;
+        transition: background var(--transition-fast);
+    }
+
+    .more-drawer a:hover,
+    .more-drawer a:active {
+        background: var(--accent-light);
+    }
+
+    .more-drawer a::before {
+        margin-right: 0.5rem;
+        font-size: 1.1rem;
+    }
+
+    /* Drawer icons */
+    .more-drawer a[href="epg.html"]::before          { content: "📚 "; }
+    .more-drawer a[data-section="rules"]::before      { content: "📝 "; }
+    .more-drawer a[data-section="schedules"]::before  { content: "📅 "; }
+    .more-drawer a[data-section="logs"]::before       { content: "📋 "; }
+    .more-drawer a[data-section="help"]::before       { content: "❓ "; }
+
+    .more-drawer-backdrop {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: var(--bottom-nav-height);
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 98;
+    }
+
+    .more-drawer-backdrop.active {
+        display: block;
+    }
+
+    /* --- Main content --- */
     main {
         margin-left: 0;
-        padding: 1.25rem 1rem 80px;
+        padding: 1.25rem 1rem calc(var(--bottom-nav-height) + 16px);
     }
 
+    /* --- Toolbar --- */
     .toolbar {
         flex-direction: column;
         align-items: stretch;
@@ -989,6 +1180,26 @@ button, .btn {
         width: 100%;
     }
 
+    /* --- Tables: hide on mobile, show card lists --- */
+    .table-card {
+        display: none;
+    }
+
+    .card-list {
+        display: block;
+    }
+
+    /* --- Desktop-only elements hidden --- */
+    .desktop-only {
+        display: none;
+    }
+
+    /* --- Recordings initial filter: show on mobile --- */
+    .recordings-initial-filter {
+        display: flex;
+    }
+
+    /* --- Table fallback for non-card sections --- */
     table {
         font-size: 0.8rem;
     }
@@ -997,17 +1208,20 @@ button, .btn {
         padding: 0.5rem 0.6rem;
     }
 
+    /* --- Cards --- */
     .card {
         border-radius: var(--radius-sm);
         padding: 1.25rem;
     }
 
+    /* --- Modal --- */
     .modal {
         width: 95%;
         border-radius: var(--radius-md);
         padding: 1.5rem;
     }
 
+    /* --- EPG adjustments --- */
     .epg-channel, .epg-header-cell {
         min-width: 90px;
         max-width: 150px;
@@ -1020,13 +1234,67 @@ button, .btn {
     .epg-prog-title {
         -webkit-line-clamp: 2;
     }
+
+    /* --- Programme detail → Bottom Sheet --- */
+    .programme-detail.active {
+        position: fixed;
+        bottom: var(--bottom-nav-height);
+        left: 0;
+        right: 0;
+        top: auto;
+        max-width: 100%;
+        width: 100%;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        max-height: 60vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+        padding: 1.5rem 1.25rem;
+        animation: bottomSheetIn 0.25s ease-out;
+    }
+
+    @keyframes bottomSheetIn {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    .programme-detail .btn {
+        min-height: 48px;
+        font-size: 0.9rem;
+    }
+
+    /* --- Recordings: larger touch targets --- */
+    .recordings-series-header {
+        min-height: 56px;
+        padding: 0.85rem 1rem;
+    }
+
+    .recordings-files .btn,
+    .recordings-files .btn-sm {
+        min-height: 44px;
+        padding: 0.45rem 0.9rem;
+    }
+
+    /* --- Live channel cards: more padding --- */
+    .live-ch-card {
+        padding: 1.1rem 1.25rem;
+        min-height: 72px;
+    }
+
+    /* --- Add rule button: full width --- */
+    .btn-add-rule {
+        width: 100%;
+    }
 }
 
 /* ===== Responsive: Small mobile ===== */
 @media (max-width: 480px) {
     nav a {
         font-size: 0.6rem;
-        padding: 0.3rem 0.25rem;
+        padding: 0.25rem 0.15rem;
     }
 
     nav a::before {
@@ -1061,7 +1329,7 @@ button, .btn {
     }
 
     main {
-        padding: 0.75rem 0.75rem 75px;
+        padding: 0.75rem 0.75rem calc(var(--bottom-nav-height) + 10px);
     }
 
     .card {

@@ -99,6 +99,9 @@ function switchSection(name) {
     // セクション切替時、ライブ視聴中なら停止
     if (name !== 'live' && livePlayer) stopLive();
 
+    // Close more drawer if open
+    closeMoreDrawer();
+
     document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('nav a[data-section]').forEach(el => el.classList.remove('active'));
     const section = document.getElementById('section-' + name);
@@ -112,6 +115,35 @@ function switchSection(name) {
     else if (name === 'recordings') loadRecordings();
     else if (name === 'live') initLiveSection();
     else if (name === 'logs') loadLogs();
+}
+
+/* --- More Drawer (mobile) --- */
+
+function toggleMoreDrawer(e) {
+    if (e) e.preventDefault();
+    const drawer = document.getElementById('more-drawer');
+    const backdrop = document.getElementById('more-drawer-backdrop');
+    if (!drawer) return;
+    const isActive = drawer.classList.contains('active');
+    if (isActive) {
+        closeMoreDrawer();
+    } else {
+        drawer.classList.add('active');
+        if (backdrop) backdrop.classList.add('active');
+    }
+}
+
+function closeMoreDrawer() {
+    const drawer = document.getElementById('more-drawer');
+    const backdrop = document.getElementById('more-drawer-backdrop');
+    if (drawer) drawer.classList.remove('active');
+    if (backdrop) backdrop.classList.remove('active');
+}
+
+function switchFromDrawer(name, e) {
+    if (e) e.preventDefault();
+    closeMoreDrawer();
+    switchSection(name);
 }
 
 /* --- 番組表 (メイン) --- */
@@ -381,6 +413,7 @@ let _detailHideTimer = null;
 function showProgrammeDetail(el, idx) {
     const p = window._programmes[idx];
     const detail = document.getElementById('programme-detail');
+    const isMobile = window.innerWidth < 768;
 
     // 非表示タイマーをキャンセル
     if (_detailHideTimer) { clearTimeout(_detailHideTimer); _detailHideTimer = null; }
@@ -392,7 +425,7 @@ function showProgrammeDetail(el, idx) {
             ${p.category ? ' | ' + escapeHtml(p.category) : ''}
         </div>
         <div class="desc">${escapeHtml(p.description || '')}</div>
-        <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="directSchedule(${idx})">
                 この番組を録画する
             </button>
@@ -401,14 +434,21 @@ function showProgrammeDetail(el, idx) {
             </button>
         </div>
     `;
-    const rect = el.getBoundingClientRect();
-    // 右側にはみ出す場合は左に寄せる、下にはみ出す場合は上に表示
-    let top = rect.bottom + 5;
-    let left = rect.left;
-    if (top + 250 > window.innerHeight) top = Math.max(5, rect.top - 260);
-    if (left + 400 > window.innerWidth) left = Math.max(5, window.innerWidth - 410);
-    detail.style.top = top + 'px';
-    detail.style.left = left + 'px';
+
+    if (isMobile) {
+        // Bottom sheet: CSS handles positioning via .programme-detail.active
+        detail.style.top = '';
+        detail.style.left = '';
+    } else {
+        // Desktop: popup near the element
+        const rect = el.getBoundingClientRect();
+        let top = rect.bottom + 5;
+        let left = rect.left;
+        if (top + 250 > window.innerHeight) top = Math.max(5, rect.top - 260);
+        if (left + 400 > window.innerWidth) left = Math.max(5, window.innerWidth - 410);
+        detail.style.top = top + 'px';
+        detail.style.left = left + 'px';
+    }
     detail.classList.add('active');
 }
 
@@ -452,10 +492,12 @@ document.addEventListener('click', (e) => {
 
 async function loadRules() {
     const tbody = document.getElementById('rules-table');
+    const cardsEl = document.getElementById('rules-cards');
     try {
         const data = await API.get('/api/rules');
         if (!data.rules || data.rules.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">予約なし</td></tr>';
+            if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">予約なし</p>';
             return;
         }
         tbody.innerHTML = data.rules.map(r => `
@@ -471,8 +513,27 @@ async function loadRules() {
                 </td>
             </tr>
         `).join('');
+
+        // Card list for mobile
+        if (cardsEl) {
+            cardsEl.innerHTML = data.rules.map(r => `
+                <div class="rule-card">
+                    <div class="rule-title">${escapeHtml(r.name)}</div>
+                    <div class="rule-meta">
+                        キーワード: ${escapeHtml(r.keyword || '*')}
+                        ${r.category ? ' | ジャンル: ' + escapeHtml(r.category) : ''}
+                        | ${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}
+                    </div>
+                    <div class="rule-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')">削除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -656,10 +717,12 @@ async function loadSchedules() {
     if (status) url += `&status=${status}`;
 
     const tbody = document.getElementById('schedules-table');
+    const cardsEl = document.getElementById('schedules-cards');
     try {
         const data = await API.get(url);
         if (!data.schedules || data.schedules.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">スケジュールなし</td></tr>';
+            if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">スケジュールなし</p>';
             return;
         }
         tbody.innerHTML = data.schedules.map(s => `
@@ -673,8 +736,21 @@ async function loadSchedules() {
                 <td>${escapeHtml(s.rule_name || '-')}</td>
             </tr>
         `).join('');
+
+        // Card list for mobile
+        if (cardsEl) {
+            cardsEl.innerHTML = data.schedules.map(s => `
+                <div class="schedule-card">
+                    <div class="schedule-title">${escapeHtml(s.title)}</div>
+                    <div class="schedule-meta">${escapeHtml(s.channel)} | ${formatDateTime(s.start_time)} - ${formatTime(s.end_time)}</div>
+                    ${statusBadge(s.status)}
+                    ${s.rule_name ? ' <span style="font-size:0.8rem;color:var(--text-muted)">' + escapeHtml(s.rule_name) + '</span>' : ''}
+                </div>
+            `).join('');
+        }
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -686,10 +762,12 @@ async function loadLogs() {
     if (level) url += `&level=${level}`;
 
     const tbody = document.getElementById('logs-table');
+    const cardsEl = document.getElementById('logs-cards');
     try {
         const data = await API.get(url);
         if (!data.logs || data.logs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">ログなし</td></tr>';
+            if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">ログなし</p>';
             return;
         }
         tbody.innerHTML = data.logs.map(l => `
@@ -701,8 +779,23 @@ async function loadLogs() {
                 <td>${escapeHtml(l.message)}</td>
             </tr>
         `).join('');
+
+        // Card list for mobile
+        if (cardsEl) {
+            cardsEl.innerHTML = data.logs.map(l => `
+                <div class="log-card">
+                    <div class="log-header">
+                        ${levelBadge(l.level)}
+                        <span class="log-time">${formatDateTime(l.timestamp)}</span>
+                    </div>
+                    <div class="log-message">${escapeHtml(l.message)}</div>
+                    ${(l.schedule_title || l.schedule_channel) ? '<div class="log-programme">' + escapeHtml(l.schedule_title || '') + (l.schedule_channel ? ' / ' + escapeHtml(l.schedule_channel) : '') + '</div>' : ''}
+                </div>
+            `).join('');
+        }
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -738,6 +831,120 @@ function renderRecordings(series) {
         html += `<span style="margin-left:auto;color:var(--text-muted);font-size:0.85rem">${s.file_count} ファイル / ${formatFileSize(s.total_size)}</span>`;
         html += `</div>`;
         html += `<div class="recordings-files" id="series-files-${idx}" style="display:none">`;
+        html += `<table><thead><tr><th>ファイル名</th><th>サイズ</th><th>更新日時</th><th>操作</th></tr></thead><tbody>`;
+        s.files.forEach(f => {
+            const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
+            html += `<tr>`;
+            html += `<td class="recordings-filename">${escapeHtml(f.name)}</td>`;
+            html += `<td style="white-space:nowrap">${formatFileSize(f.size)}</td>`;
+            html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
+            html += `<td style="white-space:nowrap">`;
+            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1" style="text-decoration:none;display:inline-block">DL</a>`;
+            html += `</td></tr>`;
+        });
+        html += `</tbody></table></div></div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Generate initial letter filter pills
+    buildRecordingsInitialFilter(recordingsData);
+}
+
+/* --- 録画済み頭文字フィルタ --- */
+
+function getInitialChar(name) {
+    if (!name) return '';
+    const ch = name.charAt(0);
+    // Hiragana/Katakana grouping by row
+    const code = ch.charCodeAt(0);
+    // Katakana → Hiragana normalization
+    const hira = (code >= 0x30A1 && code <= 0x30F6) ? String.fromCharCode(code - 0x60) : ch;
+    const hiraCode = hira.charCodeAt(0);
+    // Japanese hiragana rows
+    if (hiraCode >= 0x3041 && hiraCode <= 0x304A) return 'あ';
+    if (hiraCode >= 0x304B && hiraCode <= 0x3054) return 'か';
+    if (hiraCode >= 0x3055 && hiraCode <= 0x305E) return 'さ';
+    if (hiraCode >= 0x305F && hiraCode <= 0x3069) return 'た';
+    if (hiraCode >= 0x306A && hiraCode <= 0x306E) return 'な';
+    if (hiraCode >= 0x306F && hiraCode <= 0x307D) return 'は';
+    if (hiraCode >= 0x307E && hiraCode <= 0x3082) return 'ま';
+    if (hiraCode >= 0x3083 && hiraCode <= 0x3088) return 'や';
+    if (hiraCode >= 0x3089 && hiraCode <= 0x308D) return 'ら';
+    if (hiraCode >= 0x308E && hiraCode <= 0x3093) return 'わ';
+    // CJK (kanji) - group by first char as-is, or general "漢"
+    if (hiraCode >= 0x4E00 && hiraCode <= 0x9FFF) return ch;
+    // Latin
+    if (/[a-zA-Z]/.test(ch)) return 'A-Z';
+    if (/[0-9]/.test(ch)) return '0-9';
+    return ch;
+}
+
+function buildRecordingsInitialFilter(series) {
+    const filterEl = document.getElementById('recordings-initial-filter');
+    if (!filterEl) return;
+
+    // Collect unique initials
+    const initials = new Set();
+    series.forEach(s => {
+        const initial = getInitialChar(s.name);
+        if (initial) initials.add(initial);
+    });
+
+    // Desired order
+    const jpOrder = ['あ','か','さ','た','な','は','ま','や','ら','わ'];
+    const sorted = [];
+    jpOrder.forEach(c => { if (initials.has(c)) sorted.push(c); });
+    // Kanji and other chars
+    initials.forEach(c => {
+        if (!jpOrder.includes(c) && c !== 'A-Z' && c !== '0-9') sorted.push(c);
+    });
+    if (initials.has('A-Z')) sorted.push('A-Z');
+    if (initials.has('0-9')) sorted.push('0-9');
+
+    let html = '<button class="btn-filter active" data-value="" onclick="filterRecordingsByInitial(\'\', this)">全て</button>';
+    sorted.forEach(c => {
+        html += `<button class="btn-filter" data-value="${escapeHtml(c)}" onclick="filterRecordingsByInitial('${escapeHtml(c)}', this)">${escapeHtml(c)}</button>`;
+    });
+    filterEl.innerHTML = html;
+}
+
+function filterRecordingsByInitial(initial, btn) {
+    // Update active state
+    if (btn) {
+        btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    if (!initial) {
+        renderRecordingsFiltered(recordingsData);
+        return;
+    }
+
+    const filtered = recordingsData.filter(s => getInitialChar(s.name) === initial);
+    renderRecordingsFiltered(filtered);
+}
+
+function renderRecordingsFiltered(series) {
+    // Render without re-generating the filter pills
+    const container = document.getElementById('recordings-list');
+    if (!series || series.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted)">該当する録画がありません</p>';
+        return;
+    }
+
+    let html = '';
+    series.forEach((s, idx) => {
+        // Use global index for toggle
+        const globalIdx = recordingsData.indexOf(s);
+        html += `<div class="card" style="padding:0;margin-bottom:0.5rem">`;
+        html += `<div class="recordings-series-header" onclick="toggleSeries(${globalIdx})">`;
+        html += `<span class="recordings-series-arrow" id="series-arrow-${globalIdx}">&#9654;</span>`;
+        html += `<strong>${escapeHtml(s.name)}</strong>`;
+        html += `<span style="margin-left:auto;color:var(--text-muted);font-size:0.85rem">${s.file_count} ファイル / ${formatFileSize(s.total_size)}</span>`;
+        html += `</div>`;
+        html += `<div class="recordings-files" id="series-files-${globalIdx}" style="display:none">`;
         html += `<table><thead><tr><th>ファイル名</th><th>サイズ</th><th>更新日時</th><th>操作</th></tr></thead><tbody>`;
         s.files.forEach(f => {
             const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
@@ -1092,7 +1299,7 @@ async function init() {
     }
 
     // 初期セクション表示 (hash があればそのセクションを開く)
-    const initialSection = location.hash.replace('#', '') || 'epg';
+    const initialSection = location.hash.replace('#', '') || 'live';
     switchSection(initialSection);
 
     // チャンネル一覧と番組表を並列取得
