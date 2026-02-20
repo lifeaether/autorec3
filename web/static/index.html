@@ -156,6 +156,7 @@
                         <span id="live-player-title" class="live-player-bar-title"></span>
                         <div class="live-player-controls">
                             <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
+                            <button class="btn btn-secondary btn-sm quality-toggle" onclick="toggleStreamQuality()">低画質</button>
                             <button class="btn btn-danger btn-sm" onclick="stopLive()">停止</button>
                         </div>
                     </div>
@@ -302,6 +303,7 @@
             <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');">&times;</button>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
                 <h3 id="video-modal-title">再生</h3>
+                <button class="btn btn-secondary btn-sm quality-toggle" onclick="toggleStreamQuality()">低画質</button>
             </div>
             <video id="video-player" controls autoplay style="width:100%;max-height:70vh;background:#000"></video>
             <div id="video-seek-container" style="display:none;margin-top:0.5rem">

@@ -15,6 +15,22 @@ import api
 
 STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
 
+QUALITY_PRESETS = {
+    "high": {
+        "video": ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"],
+        "audio": ["-c:a", "aac", "-b:a", "128k"],
+    },
+    "low": {
+        "video": [
+            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+            "-b:v", "800k", "-maxrate", "900k", "-bufsize", "1200k",
+            "-vf", "scale=640:-2",
+        ],
+        "audio": ["-c:a", "aac", "-b:a", "64k", "-ac", "2"],
+    },
+}
+DEFAULT_QUALITY = "high"
+
 # conf からポートを読み込み
 WEB_PORT = 8080
 _conf_path = os.path.join(AUTOREC_DIR, "conf", "autorec.conf")
@@ -35,6 +51,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
+
+    def _get_quality_args(self, params):
+        quality = params.get("quality", [DEFAULT_QUALITY])[0]
+        preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS[DEFAULT_QUALITY])
+        return preset["video"] + preset["audio"]
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -225,11 +246,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ]
         if ss:
             cmd += ["-ss", ss]
-        cmd += [
-            "-i", file_path,
-            "-c:v", "libx264", "-preset", "ultrafast",
-            "-tune", "zerolatency",
-            "-c:a", "aac", "-b:a", "128k",
+        quality_args = self._get_quality_args(params)
+        cmd += ["-i", file_path] + quality_args + [
             "-f", "mpegts",
             "-mpegts_flags", "+resend_headers",
             "pipe:1",
@@ -303,22 +321,17 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             return
 
         # ffmpeg でトランスコード (MPEG-2 → H.264, ブラウザ MSE 互換)
+        quality_args = self._get_quality_args(params)
+        ffmpeg_cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-analyzeduration", "500000", "-probesize", "1000000",
+            "-fflags", "+nobuffer", "-i", "pipe:0",
+        ] + quality_args + [
+            "-f", "mpegts", "-mpegts_flags", "+resend_headers", "pipe:1",
+        ]
         try:
             ffmpeg = subprocess.Popen(
-                [
-                    "ffmpeg",
-                    "-hide_banner", "-loglevel", "error",
-                    "-analyzeduration", "500000",
-                    "-probesize", "1000000",
-                    "-fflags", "+nobuffer",
-                    "-i", "pipe:0",
-                    "-c:v", "libx264", "-preset", "ultrafast",
-                    "-tune", "zerolatency",
-                    "-c:a", "aac", "-b:a", "128k",
-                    "-f", "mpegts",
-                    "-mpegts_flags", "+resend_headers",
-                    "pipe:1",
-                ],
+                ffmpeg_cmd,
                 stdin=recpt1.stdout,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,

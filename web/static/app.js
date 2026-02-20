@@ -90,6 +90,32 @@ function formatFileSize(bytes) {
 let livePlayer = null;    // mpegts.Player
 let liveNowTimer = null;  // 番組情報更新用 interval
 
+let streamQuality = localStorage.getItem('autorec-stream-quality') || 'high';
+
+function setStreamQuality(quality) {
+    streamQuality = quality;
+    localStorage.setItem('autorec-stream-quality', quality);
+    document.querySelectorAll('.quality-toggle').forEach(btn => {
+        btn.classList.toggle('active', quality === 'low');
+    });
+    // ライブ再生中なら再起動
+    if (livePlayer && liveCurrentCh) {
+        const ch = liveCurrentCh;
+        const title = document.getElementById('live-player-title').textContent;
+        stopLive(true);
+        startLive(ch, title);
+    }
+    // 録画再生中なら現在位置から再起動
+    if (recordingPlayer && recordingPath) {
+        const currentTime = recordingBaseTime + (document.getElementById('video-player').currentTime || 0);
+        startRecordingStream(currentTime);
+    }
+}
+
+function toggleStreamQuality() {
+    setStreamQuality(streamQuality === 'high' ? 'low' : 'high');
+}
+
 /* --- ナビゲーション --- */
 
 let channels = [];
@@ -1065,7 +1091,7 @@ function startRecordingStream(seekTime) {
 
     recordingBaseTime = seekTime;
 
-    let url = `/recordings/transcode?path=${encodeURIComponent(recordingPath)}`;
+    let url = `/recordings/transcode?path=${encodeURIComponent(recordingPath)}&quality=${streamQuality}`;
     if (seekTime > 0) url += `&ss=${seekTime}`;
 
     recordingPlayer = mpegts.createPlayer({
@@ -1195,7 +1221,7 @@ function startLive(chNum, chName) {
     livePlayer = mpegts.createPlayer({
         type: 'mpegts',
         isLive: true,
-        url: `/live/stream?ch=${chNum}`,
+        url: `/live/stream?ch=${chNum}&quality=${streamQuality}`,
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
@@ -1303,6 +1329,11 @@ async function init() {
             previewTimer = setTimeout(previewRule, 300);
         });
     }
+
+    // 品質トグル初期化
+    document.querySelectorAll('.quality-toggle').forEach(btn => {
+        btn.classList.toggle('active', streamQuality === 'low');
+    });
 
     // 初期セクション表示 (hash があればそのセクションを開く)
     const initialSection = location.hash.replace('#', '') || 'live';
