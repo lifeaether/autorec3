@@ -1288,7 +1288,8 @@ button, .btn {
         left: 0;
         right: 0;
         width: 100%;
-        height: var(--bottom-nav-height);
+        height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
         border-bottom: none;
         border-top: 1px solid var(--border);
         box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.06);
@@ -1396,7 +1397,7 @@ button, .btn {
 
     /* --- Main content --- */
     main {
-        padding: 1.25rem 1rem calc(var(--bottom-nav-height) + 16px);
+        padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1rem calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
     }
 
     /* --- Section header: not sticky on mobile --- */
@@ -1474,11 +1475,12 @@ button, .btn {
 
     /* --- EPG fullscreen: mobile overrides --- */
     .section-epg-fullscreen {
-        margin: -1.25rem -1rem calc((var(--bottom-nav-height) + 16px) * -1);
+        margin: calc(-1.25rem - env(safe-area-inset-top, 0px)) -1rem calc((var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) * -1);
+        padding-top: env(safe-area-inset-top, 0px);
     }
 
     .section-epg-fullscreen .epg-grid {
-        max-height: calc(100vh - var(--bottom-nav-height) - 35px);
+        max-height: calc(100vh - var(--bottom-nav-height) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 35px);
     }
 
     /* --- EPG adjustments --- */
@@ -1638,11 +1640,12 @@ button, .btn {
     }
 
     main {
-        padding: 0.75rem 0.75rem calc(var(--bottom-nav-height) + 10px);
+        padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 10px);
     }
 
     .section-epg-fullscreen {
-        margin: -0.75rem -0.75rem calc((var(--bottom-nav-height) + 10px) * -1);
+        margin: calc(-0.75rem - env(safe-area-inset-top, 0px)) -0.75rem calc((var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 10px) * -1);
+        padding-top: env(safe-area-inset-top, 0px);
     }
 
     .card {
