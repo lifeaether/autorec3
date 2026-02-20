@@ -164,9 +164,12 @@ def search_programmes(params):
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
+    sort = params.get("sort", [""])[0]
+    order = "ASC" if sort == "asc" else "DESC"
+
     conn = _get_db(EPG_DB)
     rows = conn.execute(
-        f"SELECT * FROM programme {where} ORDER BY start_time DESC LIMIT ? OFFSET ?",
+        f"SELECT * FROM programme {where} ORDER BY start_time {order} LIMIT ? OFFSET ?",
         args + [limit, offset],
     ).fetchall()
     total = conn.execute(
@@ -502,6 +505,27 @@ def get_now_playing(params):
     return _json_response({"now_playing": None})
 
 
+def get_now_playing_all(_params):
+    """GET /api/live/now-all - 全チャンネルの放送中番組"""
+    conn = _get_db(EPG_DB)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    rows = conn.execute(
+        "SELECT event_id, channel, title, description, start_time, end_time, category FROM programme "
+        "WHERE start_time <= ? AND end_time > ? "
+        "ORDER BY channel, start_time DESC",
+        (now, now),
+    ).fetchall()
+
+    by_channel = {}
+    for r in rows:
+        d = dict(r)
+        ch = d["channel"]
+        if ch not in by_channel:
+            by_channel[ch] = d
+
+    return _json_response({"now_playing": by_channel, "timestamp": now})
+
+
 def get_recording_duration(params):
     """GET /api/recordings/duration?path=<path> - ffprobe で再生時間を取得"""
     rel_path = params.get("path", [""])[0]
@@ -623,6 +647,8 @@ def handle_request(method, path, params, body=b""):
         return get_live_status(params)
     if method == "GET" and path == "/api/live/now":
         return get_now_playing(params)
+    if method == "GET" and path == "/api/live/now-all":
+        return get_now_playing_all(params)
 
     # 録画済みファイル
     if method == "GET" and path == "/api/recordings":
