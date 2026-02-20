@@ -1374,6 +1374,11 @@ async function init() {
         }
 
         renderEPGTable(epgData.programmes);
+
+        // チャンネルデータ取得完了後、ライブセクション表示中ならグリッド再描画
+        if (document.getElementById('section-live').classList.contains('active')) {
+            loadLiveChannelGrid();
+        }
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
             `<p style="color:var(--danger)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
