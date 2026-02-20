@@ -156,10 +156,6 @@ nav .logo {
     transition: color var(--transition-fast);
 }
 
-.nav-tab::before {
-    display: none !important;
-}
-
 .nav-tab:hover {
     color: var(--text);
 }
@@ -204,10 +200,6 @@ nav .logo {
     transition: color var(--transition-fast);
 }
 
-.nav-link::before {
-    display: none !important;
-}
-
 .nav-link:hover {
     color: var(--text);
 }
@@ -220,36 +212,6 @@ nav .logo {
 /* Mobile bottom bar (hidden on desktop) */
 .nav-mobile {
     display: none;
-}
-
-/* ===== Nav Icons (CSS ::before with emoji) ===== */
-
-/* index.html — data-section attributes */
-nav a[data-section="epg"]::before        { content: "\01F4FA "; }
-nav a[data-section="rules"]::before      { content: "\01F4DD "; }
-nav a[data-section="schedules"]::before  { content: "\01F4C5 "; }
-nav a[data-section="recordings"]::before { content: "\01F3AC "; }
-nav a[data-section="live"]::before       { content: "\01F534 "; }
-nav a[data-section="logs"]::before       { content: "\01F4CB "; }
-nav a[data-section="help"]::before       { content: "\2753 "; }
-.nav-more-btn::before                    { content: "\2630 "; }
-
-/* index.html — archive link (href-based) */
-nav a[href="epg.html"]::before           { content: "\01F4DA "; }
-
-/* epg.html — href-based links */
-nav a[href="/#epg"]::before              { content: "\01F4FA "; }
-nav a[href="/#rules"]::before            { content: "\01F4DD "; }
-nav a[href="/#schedules"]::before        { content: "\01F4C5 "; }
-nav a[href="/#recordings"]::before       { content: "\01F3AC "; }
-nav a[href="/#live"]::before             { content: "\01F534 "; }
-nav a[href="/#logs"]::before             { content: "\01F4CB "; }
-nav a[href="/#help"]::before             { content: "\2753 "; }
-
-/* Desktop: hide emoji on nav-tab and nav-link (text only) */
-.nav-tab::before,
-.nav-link::before {
-    display: none !important;
 }
 
 /* ===== More Drawer (mobile, hidden on desktop) ===== */
@@ -1425,26 +1387,19 @@ button, .btn {
     .nav-mobile a,
     .nav-mobile .nav-more-btn {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
         color: var(--text-muted);
         text-decoration: none;
-        font-size: 0.7rem;
+        font-size: 0.8rem;
+        font-weight: 500;
         padding: 0.3rem 0.2rem;
-        gap: 0.1rem;
         min-height: 52px;
         transition: color var(--transition-fast), background var(--transition-fast);
         cursor: pointer;
         border: none;
         background: none;
         font-family: inherit;
-    }
-
-    .nav-mobile a::before,
-    .nav-mobile .nav-more-btn::before {
-        font-size: 1.2rem;
-        display: inline !important;
     }
 
     .nav-mobile a.active {
@@ -1491,27 +1446,13 @@ button, .btn {
         background: var(--accent-light);
     }
 
-    .more-drawer a::before {
-        margin-right: 0.5rem;
-        font-size: 1.1rem;
-    }
-
     .drawer-divider {
         height: 1px;
         background: var(--border);
         margin: 0.25rem 1.25rem;
     }
 
-    /* Drawer icons (data-section for index.html, href for epg.html) */
-    .more-drawer a[href="epg.html"]::before          { content: "\01F4DA "; }
-    .more-drawer a[data-section="rules"]::before,
-    .more-drawer a[href="/#rules"]::before            { content: "\01F4DD "; }
-    .more-drawer a[data-section="schedules"]::before,
-    .more-drawer a[href="/#schedules"]::before        { content: "\01F4C5 "; }
-    .more-drawer a[data-section="logs"]::before,
-    .more-drawer a[href="/#logs"]::before             { content: "\01F4CB "; }
-    .more-drawer a[data-section="help"]::before,
-    .more-drawer a[href="/#help"]::before             { content: "\2753 "; }
+    /* Drawer icons — disabled (text only) */
 
     .more-drawer-backdrop {
         display: none;
@@ -1765,11 +1706,6 @@ button, .btn {
     .nav-mobile .nav-more-btn {
         font-size: 0.65rem;
         padding: 0.25rem 0.15rem;
-    }
-
-    .nav-mobile a::before,
-    .nav-mobile .nav-more-btn::before {
-        font-size: 1rem;
     }
 
     h2 {
