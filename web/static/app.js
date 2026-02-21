@@ -1325,7 +1325,15 @@ const jikkyo = (() => {
         }
         if (sidebar) {
             sidebar.style.display = (mode === 'sidebar') ? '' : 'none';
+            if (mode === 'sidebar') _syncSidebarHeight();
         }
+    }
+
+    function _syncSidebarHeight() {
+        const container = document.querySelector('.live-player-container');
+        const sidebar = _getSidebar();
+        if (!container || !sidebar) return;
+        sidebar.style.height = container.offsetHeight + 'px';
     }
 
     function _cleanup() {
@@ -1500,6 +1508,9 @@ const jikkyo = (() => {
 
         initUI() {
             _updateUI();
+            window.addEventListener('resize', () => {
+                if (mode === 'sidebar') _syncSidebarHeight();
+            });
         },
     };
 })();
@@ -1552,6 +1563,7 @@ const jikkyoPip = (() => {
         pipVideo.muted = true;
         pipVideo.playsInline = true;
         pipVideo.autoplay = true;
+        pipVideo.style.cssText = 'display:block;width:100%;background:#000';
         wrapper.insertBefore(pipVideo, wrapper.firstChild);
 
         // Canvas captureStream → pipVideo

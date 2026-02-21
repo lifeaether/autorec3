@@ -1669,26 +1669,34 @@ button, .btn {
         font-size: 0.9rem;
     }
 
+    /* --- Live player: full width on mobile --- */
+    .live-player-container {
+        border-radius: 0;
+        box-shadow: none;
+        margin-bottom: 0;
+    }
+
     /* --- Live video max height --- */
     #live-video, #live-canvas {
-        max-height: 40vh;
+        max-height: 45vh;
         object-fit: contain;
     }
 
     /* --- Jikkyo: stack vertically on mobile --- */
     .live-player-with-sidebar {
         flex-direction: column;
+        margin-bottom: 0;
     }
 
     .jikkyo-sidebar {
-        width: 100%;
-        border-left: 1px solid var(--border);
-        border-radius: 0 0 var(--radius-md) var(--radius-md);
-        border-top: none;
+        width: 100% !important;
+        height: auto !important;
+        border: none;
+        border-radius: 0;
     }
 
     .jikkyo-sidebar-messages {
-        max-height: 200px;
+        max-height: 35vh;
     }
 
     .jikkyo-comment {
@@ -1800,7 +1808,6 @@ button, .btn {
     flex: 1;
     overflow-y: auto;
     padding: 0.25rem 0;
-    max-height: 65vh;
 }
 
 .jikkyo-sidebar-msg {
@@ -1894,4 +1901,5 @@ button, .btn {
     .card {
         padding: 1rem;
     }
+
 }
