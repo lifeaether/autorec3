@@ -1281,15 +1281,12 @@ const jikkyo = (() => {
         const div = document.createElement('div');
         div.className = 'jikkyo-sidebar-msg';
         div.textContent = text;
-        container.appendChild(div);
+        container.insertBefore(div, container.firstChild);
 
         // Trim old messages
         while (container.children.length > MAX_SIDEBAR) {
-            container.removeChild(container.firstChild);
+            container.removeChild(container.lastChild);
         }
-
-        // Auto-scroll to bottom
-        container.scrollTop = container.scrollHeight;
     }
 
     function _onComment(text) {
