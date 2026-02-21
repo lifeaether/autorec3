@@ -1512,9 +1512,16 @@ const jikkyo = (() => {
     };
 })();
 
-/* --- Canvas PiP (実況コメント付き Picture-in-Picture) --- */
+/* --- Canvas 合成表示 + PiP --- */
+// Canvas で映像+コメントを合成してページ内に表示。
+// Mac: displayVideo (Canvas 合成) で PiP → コメント付き PiP
+// iOS: live-video 直接で PiP → バックグラウンド再生対応 (コメントなし)
 
 const jikkyoPip = (() => {
+    // iOS/iPadOS 判定 (Mac Safari と区別)
+    const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     const COMMENT_DURATION = 6000;
     const FONT_SIZE = 28;
     const LANE_COUNT = 12;
@@ -1524,7 +1531,7 @@ const jikkyoPip = (() => {
 
     let canvas = null;
     let ctx = null;
-    let pipVideo = null;       // PiP 用 (Canvas captureStream を受ける)
+    let displayVideo = null;   // Canvas 合成映像の表示用 (ページ内表示)
     let animFrameId = null;
     let isRendering = false;
 
@@ -1535,7 +1542,7 @@ const jikkyoPip = (() => {
         const wrapper = document.querySelector('.live-video-wrapper');
         if (!srcVideo || !wrapper) return;
 
-        // Canvas: 非表示コンポジタ (映像+コメント合成用、DOM 内に配置して captureStream を有効化)
+        // Canvas: 非表示コンポジタ (映像+コメント合成用)
         canvas = document.createElement('canvas');
         canvas.width = CANVAS_W;
         canvas.height = CANVAS_H;
@@ -1543,68 +1550,61 @@ const jikkyoPip = (() => {
         document.body.appendChild(canvas);
         ctx = canvas.getContext('2d');
 
-        // live-video を非表示にする (音声ソース + Canvas の映像ソースとして維持)
-        // iOS の自動 PiP を確実に抑止
-        srcVideo.disablePictureInPicture = true;
-        if (srcVideo.autoPictureInPicture !== undefined) srcVideo.autoPictureInPicture = false;
-        srcVideo.style.display = 'none';
+        // live-video を非表示にする (Canvas の映像ソース + PiP ソースとして維持)
+        // display:none ではなく位置で隠す (PiP での利用を可能にするため)
+        srcVideo.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none';
 
         // DOM オーバーレイは Canvas 描画に統合されるため非表示
         const overlay = document.getElementById('jikkyo-overlay');
         if (overlay) overlay.style.display = 'none';
 
-        // pipVideo: メイン映像表示 + PiP ソース
-        // live-video の代わりにフルサイズ表示。iOS ネイティブ PiP もこの video を対象にする
-        pipVideo = document.createElement('video');
-        pipVideo.id = 'live-canvas';
-        pipVideo.muted = true;
-        pipVideo.playsInline = true;
-        pipVideo.autoplay = true;
-        pipVideo.style.cssText = 'display:block;width:100%;background:#000';
-        wrapper.insertBefore(pipVideo, wrapper.firstChild);
+        // displayVideo: Canvas 合成映像のページ内表示用 (Mac では PiP ソースも兼ねる)
+        displayVideo = document.createElement('video');
+        displayVideo.id = 'live-canvas';
+        displayVideo.muted = true;
+        displayVideo.playsInline = true;
+        displayVideo.autoplay = true;
+        if (_isIOS) displayVideo.disablePictureInPicture = true;
+        displayVideo.style.cssText = 'display:block;width:100%;background:#000';
+        wrapper.insertBefore(displayVideo, wrapper.firstChild);
 
-        // Canvas captureStream → pipVideo
-        pipVideo.srcObject = canvas.captureStream(30);
-        pipVideo.play().catch(() => {});
+        // Canvas captureStream → displayVideo
+        displayVideo.srcObject = canvas.captureStream(30);
+        displayVideo.play().catch(() => {});
     }
 
     function _renderFrame() {
         if (!isRendering) return;
         const srcVideo = document.getElementById('live-video');
 
-        if (!srcVideo || srcVideo.readyState < 2) {
-            animFrameId = requestAnimationFrame(_renderFrame);
-            return;
-        }
+        if (srcVideo && srcVideo.readyState >= 2) {
+            ctx.drawImage(srcVideo, 0, 0, CANVAS_W, CANVAS_H);
 
-        // 映像フレーム描画 (drawImage が表示アスペクト比を補正)
-        ctx.drawImage(srcVideo, 0, 0, CANVAS_W, CANVAS_H);
+            const comments = jikkyo.getMode() === 'overlay' ? jikkyo.getActiveComments() : [];
+            if (comments.length > 0) {
+                const now = Date.now();
+                const lineHeight = CANVAS_H / LANE_COUNT;
+                ctx.font = `bold ${FONT_SIZE}px "Noto Sans JP", sans-serif`;
+                ctx.textBaseline = 'top';
 
-        // コメント描画 (overlay モード時のみ)
-        const comments = jikkyo.getMode() === 'overlay' ? jikkyo.getActiveComments() : [];
-        if (comments.length > 0) {
-            const now = Date.now();
-            const lineHeight = CANVAS_H / LANE_COUNT;
-            ctx.font = `bold ${FONT_SIZE}px "Noto Sans JP", sans-serif`;
-            ctx.textBaseline = 'top';
+                for (let i = 0; i < comments.length; i++) {
+                    const c = comments[i];
+                    const elapsed = now - c.startTime;
+                    if (elapsed > COMMENT_DURATION) continue;
+                    const progress = elapsed / COMMENT_DURATION;
 
-            for (let i = 0; i < comments.length; i++) {
-                const c = comments[i];
-                const elapsed = now - c.startTime;
-                if (elapsed > COMMENT_DURATION) continue;
-                const progress = elapsed / COMMENT_DURATION;
+                    if (!c.textWidth) c.textWidth = ctx.measureText(c.text).width;
 
-                if (!c.textWidth) c.textWidth = ctx.measureText(c.text).width;
+                    const x = CANVAS_W - (CANVAS_W + c.textWidth) * progress;
+                    const y = c.lane * lineHeight;
 
-                const x = CANVAS_W - (CANVAS_W + c.textWidth) * progress;
-                const y = c.lane * lineHeight;
-
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 3;
-                ctx.lineJoin = 'round';
-                ctx.strokeText(c.text, x, y);
-                ctx.fillStyle = '#fff';
-                ctx.fillText(c.text, x, y);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 3;
+                    ctx.lineJoin = 'round';
+                    ctx.strokeText(c.text, x, y);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(c.text, x, y);
+                }
             }
         }
 
@@ -1626,33 +1626,35 @@ const jikkyoPip = (() => {
     }
 
     return {
-        // startLive() から呼ばれる: Canvas 表示 + 描画ループ開始
         warmUp() {
             _setup();
             _startRenderLoop();
         },
 
         async toggle() {
-            if (!pipVideo) return;
-
             if (document.pictureInPictureElement) {
                 document.exitPictureInPicture().catch(() => {});
                 return;
             }
 
-            try {
-                if (pipVideo.paused) pipVideo.play().catch(() => {});
+            // Mac: displayVideo (Canvas 合成、コメント付き) で PiP
+            // iOS: live-video 直接で PiP (バックグラウンド再生対応)
+            const pipTarget = (_isIOS || !displayVideo)
+                ? document.getElementById('live-video')
+                : displayVideo;
+            if (!pipTarget) return;
 
-                await pipVideo.requestPictureInPicture();
+            try {
+                await pipTarget.requestPictureInPicture();
 
                 const btn = document.getElementById('pip-btn');
                 if (btn) btn.classList.add('active');
 
-                pipVideo.addEventListener('leavepictureinpicture', () => {
+                pipTarget.addEventListener('leavepictureinpicture', () => {
                     const b = document.getElementById('pip-btn');
                     if (b) b.classList.remove('active');
                     // ブラウザが PiP 終了時に pause するため再生を再開
-                    if (pipVideo.paused) pipVideo.play().catch(() => {});
+                    if (pipTarget.paused) pipTarget.play().catch(() => {});
                 }, { once: true });
             } catch (e) {
                 const errEl = document.getElementById('live-error');
@@ -1672,22 +1674,20 @@ const jikkyoPip = (() => {
             this.exit();
             _stopRenderLoop();
 
-            // pipVideo 除去
-            if (pipVideo) {
-                pipVideo.pause();
-                pipVideo.srcObject = null;
-                if (pipVideo.parentNode) pipVideo.parentNode.removeChild(pipVideo);
-                pipVideo = null;
+            if (displayVideo) {
+                displayVideo.pause();
+                displayVideo.srcObject = null;
+                if (displayVideo.parentNode) displayVideo.parentNode.removeChild(displayVideo);
+                displayVideo = null;
             }
 
-            // Canvas 除去 + live-video を復元
             if (canvas) {
                 if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
                 canvas = null;
                 ctx = null;
             }
             const srcVideo = document.getElementById('live-video');
-            if (srcVideo) srcVideo.style.display = '';
+            if (srcVideo) srcVideo.style.cssText = '';
             const overlay = document.getElementById('jikkyo-overlay');
             if (overlay) overlay.style.display = '';
         },
@@ -1696,7 +1696,6 @@ const jikkyoPip = (() => {
             return 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
         },
 
-        // Canvas 描画ループが実行中か (DOM オーバーレイ抑止判定用)
         isActive() {
             return isRendering;
         },
