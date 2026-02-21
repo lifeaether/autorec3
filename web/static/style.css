@@ -14,7 +14,6 @@
     --success: #2d8a4e;
     --warning: #c4850a;
     --error: #d93025;
-    --danger: #d93025;
     --border: #e5e0da;
     --table-stripe: #f7f4f0;
 
@@ -24,7 +23,7 @@
     --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.10);
 
     /* Glow effects */
-    --glow-blue: 0 0 15px rgba(212, 96, 58, 0.10);
+    --glow-accent: 0 0 15px rgba(212, 96, 58, 0.10);
     --glow-red: 0 0 10px rgba(217, 48, 37, 0.25);
 
     /* Radii — rounder for consumer feel */
@@ -89,11 +88,6 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     display: block;
-}
-
-/* CRT / TV scanline overlay — disabled for light theme */
-body::after {
-    display: none;
 }
 
 /* ===== Top Bar Navigation (Desktop default) ===== */
@@ -394,14 +388,6 @@ th {
     top: 0;
 }
 
-th:first-child {
-    border-radius: 0;
-}
-
-th:last-child {
-    border-radius: 0;
-}
-
 tr:nth-child(even) {
     background: var(--table-stripe);
 }
@@ -432,7 +418,7 @@ table tr:last-child td {
     border-radius: var(--radius-sm);
     background: var(--bg-card);
     overflow: hidden;
-    box-shadow: var(--glow-blue);
+    box-shadow: var(--glow-accent);
 }
 
 .epg-header {
@@ -559,7 +545,7 @@ table tr:last-child td {
 
 .epg-programme:hover {
     background: #f0ece7;
-    box-shadow: var(--glow-blue);
+    box-shadow: var(--glow-accent);
     z-index: 2;
 }
 
@@ -1851,10 +1837,6 @@ button, .btn {
     /* --- Live player bar --- */
     .live-player-bar {
         padding: 0.5rem 0.75rem;
-    }
-
-    .live-player-bar-right .btn {
-        font-size: 0.9rem;
     }
 
     /* --- Video controls: mobile adjustments --- */

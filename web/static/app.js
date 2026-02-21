@@ -66,8 +66,9 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+function nowTimestamp() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
 }
 
 function statusBadge(status) {
@@ -182,8 +183,7 @@ window._programmes = [];
 
 async function loadEPG() {
     const category = getFilterValue('epg-category');
-    const d = new Date();
-    const now = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+    const now = nowTimestamp();
 
     let url = `/api/programmes?limit=10000&active_after=${encodeURIComponent(now)}`;
     if (category) url += `&category=${encodeURIComponent(category)}`;
@@ -193,7 +193,7 @@ async function loadEPG() {
         renderEPGTable(data.programmes);
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
-            `<p style="color:var(--danger)">番組表の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+            `<p style="color:var(--error)">番組表の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -561,8 +561,8 @@ async function loadRules() {
             `).join('');
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
-        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -785,8 +785,8 @@ async function loadSchedules() {
             `).join('');
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
-        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -830,8 +830,8 @@ async function loadLogs() {
             `).join('');
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
-        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--danger)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -847,17 +847,11 @@ async function loadRecordings() {
         renderRecordings(recordingsData);
     } catch (err) {
         container.innerHTML =
-            `<p style="color:var(--danger)">録画一覧の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+            `<p style="color:var(--error)">録画一覧の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
-function renderRecordings(series) {
-    const container = document.getElementById('recordings-list');
-    if (!series || series.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted)">録画ファイルがありません</p>';
-        return;
-    }
-
+function _buildSeriesHtml(series) {
     let html = '';
     series.forEach((s, idx) => {
         html += `<div class="card" style="padding:0;margin-bottom:0.5rem">`;
@@ -895,10 +889,16 @@ function renderRecordings(series) {
         html += `</div>`;
         html += `</div></div>`;
     });
+    return html;
+}
 
-    container.innerHTML = html;
-
-    // Generate initial letter filter pills
+function renderRecordings(series) {
+    const container = document.getElementById('recordings-list');
+    if (!series || series.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted)">録画ファイルがありません</p>';
+    } else {
+        container.innerHTML = _buildSeriesHtml(series);
+    }
     buildRecordingsInitialFilter(recordingsData);
 }
 
@@ -977,54 +977,12 @@ function filterRecordingsByInitial(initial, btn) {
 }
 
 function renderRecordingsFiltered(series) {
-    // Render without re-generating the filter pills
     const container = document.getElementById('recordings-list');
     if (!series || series.length === 0) {
         container.innerHTML = '<p style="color:var(--text-muted)">該当する録画がありません</p>';
         return;
     }
-
-    let html = '';
-    series.forEach((s, idx) => {
-        // Use global index for toggle
-        const globalIdx = recordingsData.indexOf(s);
-        html += `<div class="card" style="padding:0;margin-bottom:0.5rem">`;
-        html += `<div class="recordings-series-header" onclick="toggleSeries(${globalIdx})">`;
-        html += `<span class="recordings-series-arrow" id="series-arrow-${globalIdx}">&#9654;</span>`;
-        html += `<strong>${escapeHtml(s.name)}</strong>`;
-        html += `<span style="margin-left:auto;color:var(--text-muted);font-size:0.85rem">${s.file_count} ファイル / ${formatFileSize(s.total_size)}</span>`;
-        html += `</div>`;
-        html += `<div class="recordings-files" id="series-files-${globalIdx}" style="display:none">`;
-        html += `<table><thead><tr><th>ファイル名</th><th>サイズ</th><th>更新日時</th><th>操作</th></tr></thead><tbody>`;
-        s.files.forEach(f => {
-            const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
-            html += `<tr>`;
-            html += `<td class="recordings-filename">${escapeHtml(f.name)}</td>`;
-            html += `<td style="white-space:nowrap">${formatFileSize(f.size)}</td>`;
-            html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
-            html += `<td style="white-space:nowrap">`;
-            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
-            html += `</td></tr>`;
-        });
-        html += `</tbody></table>`;
-        // Mobile card layout
-        html += `<div class="recordings-file-card">`;
-        s.files.forEach(f => {
-            const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
-            html += `<div class="recordings-file-card-item">`;
-            html += `<div class="recordings-file-card-name">${escapeHtml(f.name)}</div>`;
-            html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
-            html += `<div class="recordings-file-card-actions">`;
-            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button>`;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
-            html += `</div></div>`;
-        });
-        html += `</div>`;
-        html += `</div></div>`;
-    });
-
-    container.innerHTML = html;
+    container.innerHTML = _buildSeriesHtml(series);
 }
 
 function toggleSeries(idx) {
@@ -1185,13 +1143,13 @@ const JIKKYO_MAP = {
     'フジテレビ': 'jk8', 'TOKYO MX': 'jk9',
 };
 
+const COMMENT_DURATION = 6000; // ms — コメント表示時間
+const LANE_COUNT = 12;         // コメントレーン数
+
 const jikkyo = (() => {
     const JIKKYO_BASE = 'nx-jikkyo.tsukumijima.net';
     const MAX_OVERLAY = 50;
     const MAX_SIDEBAR = 200;
-    const LANE_COUNT = 12;
-    const COMMENT_DURATION = 6000; // ms
-    const KEEPSEAT_INTERVAL = 30000; // ms
     const RETRY_MAX = 3;
     const RETRY_DELAY = 5000; // ms
 
@@ -1522,10 +1480,7 @@ const jikkyoPip = (() => {
     const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    const COMMENT_DURATION = 6000;
     const FONT_SIZE = 28;
-    const LANE_COUNT = 12;
-
     const CANVAS_W = 960;
     const CANVAS_H = 540;
 
@@ -1719,21 +1674,19 @@ const liveControls = (() => {
     let hideTimer = null;
     let eventsAttached = false;
 
-    function _getAudioVideo() {
-        return document.getElementById('live-video');
-    }
+    function _getLiveVideo() { return document.getElementById('live-video'); }
 
     function _updatePlayIcon() {
         const btn = document.getElementById('lc-play');
         if (!btn) return;
-        const video = _getAudioVideo();
+        const video = _getLiveVideo();
         btn.innerHTML = (video && video.paused) ? ICONS.play : ICONS.pause;
     }
 
     function _updateVolumeIcon() {
         const btn = document.getElementById('lc-mute');
         if (!btn) return;
-        const video = _getAudioVideo();
+        const video = _getLiveVideo();
         const muted = video && (video.muted || video.volume === 0);
         btn.innerHTML = muted ? ICONS.volumeOff : ICONS.volumeOn;
     }
@@ -1792,7 +1745,7 @@ const liveControls = (() => {
             _updateFullscreenIcon();
             _updatePipIcon();
 
-            const video = _getAudioVideo();
+            const video = _getLiveVideo();
             if (video) {
                 video.addEventListener('play', _updatePlayIcon);
                 video.addEventListener('pause', _updatePlayIcon);
@@ -1829,7 +1782,7 @@ const liveControls = (() => {
         },
 
         togglePlay() {
-            const video = _getAudioVideo();
+            const video = _getLiveVideo();
             if (!video) return;
             if (video.paused) video.play().catch(() => {});
             else video.pause();
@@ -1837,14 +1790,14 @@ const liveControls = (() => {
         },
 
         toggleMute() {
-            const video = _getAudioVideo();
+            const video = _getLiveVideo();
             if (!video) return;
             video.muted = !video.muted;
             _showControls();
         },
 
         setVolume(val) {
-            const video = _getAudioVideo();
+            const video = _getLiveVideo();
             if (!video) return;
             video.volume = parseFloat(val);
             if (parseFloat(val) > 0 && video.muted) video.muted = false;
@@ -1934,12 +1887,7 @@ function startLive(chNum, chName) {
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
 
-    // カードのハイライト更新
-    document.querySelectorAll('.live-ch-card').forEach(c => c.classList.remove('playing'));
-    document.querySelectorAll('.live-ch-card').forEach(c => {
-        if (c.onclick && c.onclick.toString().includes(`'${chNum}'`)) c.classList.add('playing');
-    });
-    // より確実なハイライト: grid 再描画で反映
+    // カードのハイライト: grid 再描画で反映
     loadLiveChannelGrid();
 
     const videoEl = document.getElementById('live-video');
@@ -2089,8 +2037,7 @@ async function init() {
     switchSection(initialSection);
 
     // チャンネル一覧と番組表を並列取得
-    const d = new Date();
-    const now = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+    const now = nowTimestamp();
     try {
         const [chData, epgData, catData] = await Promise.all([
             API.get('/api/channels'),
@@ -2130,7 +2077,7 @@ async function init() {
         }
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
-            `<p style="color:var(--danger)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+            `<p style="color:var(--error)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 

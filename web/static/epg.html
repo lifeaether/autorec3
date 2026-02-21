@@ -208,7 +208,7 @@
                 }
                 document.getElementById('search-pagination').innerHTML = paginationHtml;
             } catch (err) {
-                container.innerHTML = `<p style="color:var(--danger)">検索に失敗しました: ${escapeHtml(err.message)}</p>`;
+                container.innerHTML = `<p style="color:var(--error)">検索に失敗しました: ${escapeHtml(err.message)}</p>`;
             }
         }
 
