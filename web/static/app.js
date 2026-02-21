@@ -1305,7 +1305,7 @@ const jikkyo = (() => {
         activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION);
 
         if (mode === 'off') return;
-        if (mode === 'overlay') {
+        if (mode === 'overlay' && !jikkyoPip.isActive()) {
             _renderOverlay(text, lane);
         }
         // Always add to sidebar buffer (shown when mode is sidebar)
@@ -1320,7 +1320,8 @@ const jikkyo = (() => {
         if (select) select.value = mode;
 
         if (overlay) {
-            overlay.style.display = (mode === 'overlay') ? '' : 'none';
+            // Canvas 描画中は DOM オーバーレイを使わない (Canvas が描画を担当)
+            overlay.style.display = (mode === 'overlay' && !jikkyoPip.isActive()) ? '' : 'none';
         }
         if (sidebar) {
             sidebar.style.display = (mode === 'sidebar') ? '' : 'none';
@@ -1570,8 +1571,8 @@ const jikkyoPip = (() => {
         // 映像フレーム描画 (drawImage が表示アスペクト比を補正)
         ctx.drawImage(srcVideo, 0, 0, CANVAS_W, CANVAS_H);
 
-        // コメント描画
-        const comments = jikkyo.getActiveComments();
+        // コメント描画 (overlay モード時のみ)
+        const comments = jikkyo.getMode() === 'overlay' ? jikkyo.getActiveComments() : [];
         if (comments.length > 0) {
             const now = Date.now();
             const lineHeight = CANVAS_H / LANE_COUNT;
@@ -1641,6 +1642,8 @@ const jikkyoPip = (() => {
                 pipVideo.addEventListener('leavepictureinpicture', () => {
                     const b = document.getElementById('pip-btn');
                     if (b) b.classList.remove('active');
+                    // ブラウザが PiP 終了時に pause するため再生を再開
+                    if (pipVideo.paused) pipVideo.play().catch(() => {});
                 }, { once: true });
             } catch (e) {
                 const errEl = document.getElementById('live-error');
@@ -1682,6 +1685,11 @@ const jikkyoPip = (() => {
 
         isSupported() {
             return 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+        },
+
+        // Canvas 描画ループが実行中か (DOM オーバーレイ抑止判定用)
+        isActive() {
+            return isRendering;
         },
     };
 })();
