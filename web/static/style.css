@@ -1061,10 +1061,38 @@ button, .btn {
     font-weight: 500;
 }
 
-.live-player-controls {
+.live-player-bar-right {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+#live-status {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.live-close-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    min-height: auto;
+}
+
+.live-close-btn:hover {
+    background: rgba(0, 0, 0, 0.12);
+    color: var(--text);
 }
 
 #live-video, #live-canvas {
@@ -1073,6 +1101,177 @@ button, .btn {
     background: #000;
     display: block;
     object-fit: contain;
+}
+
+/* Video controls overlay */
+.live-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 2rem 0.75rem 0.5rem;
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.75));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+}
+
+.live-controls.visible {
+    opacity: 1;
+}
+
+.lc-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+    min-height: auto;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.lc-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.lc-btn:active {
+    background: rgba(255, 255, 255, 0.25);
+    transform: none;
+}
+
+.lc-btn svg {
+    flex-shrink: 0;
+}
+
+.lc-volume {
+    width: 80px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    outline: none;
+    border: none;
+    padding: 0;
+    min-height: auto;
+    cursor: pointer;
+}
+
+.lc-volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.lc-volume::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.lc-spacer {
+    flex: 1;
+}
+
+/* Jikkyo select inside controls overlay */
+.live-controls .jikkyo-mode-select {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    height: 30px;
+    font-size: 0.75rem;
+    padding: 0 0.4rem;
+}
+
+.live-controls .jikkyo-mode-select:hover,
+.live-controls .jikkyo-mode-select:focus {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+    box-shadow: none;
+}
+
+.live-controls .jikkyo-mode-select option {
+    background: #333;
+    color: #fff;
+}
+
+/* Fullscreen mode */
+.live-player-container:fullscreen,
+.live-player-container:-webkit-full-screen {
+    background: #000;
+}
+
+.live-player-container:fullscreen .live-player-bar,
+.live-player-container:-webkit-full-screen .live-player-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+    border-bottom: none;
+    padding: 0.75rem 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.live-player-container:fullscreen .live-player-bar-title,
+.live-player-container:-webkit-full-screen .live-player-bar-title {
+    color: #fff;
+}
+
+.live-player-container:fullscreen #live-status,
+.live-player-container:-webkit-full-screen #live-status {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.live-player-container:fullscreen .live-close-btn,
+.live-player-container:-webkit-full-screen .live-close-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.live-player-container:fullscreen .live-close-btn:hover,
+.live-player-container:-webkit-full-screen .live-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.live-player-container:fullscreen.controls-visible .live-player-bar,
+.live-player-container:-webkit-full-screen.controls-visible .live-player-bar {
+    opacity: 1;
+}
+
+.live-player-container:fullscreen .live-video-wrapper,
+.live-player-container:-webkit-full-screen .live-video-wrapper {
+    height: 100%;
+}
+
+.live-player-container:fullscreen #live-video,
+.live-player-container:fullscreen #live-canvas,
+.live-player-container:-webkit-full-screen #live-video,
+.live-player-container:-webkit-full-screen #live-canvas {
+    max-height: 100%;
+    height: 100%;
 }
 
 .live-channel-grid {
@@ -1162,18 +1361,17 @@ button, .btn {
 
 .live-indicator {
     display: inline-block;
-    width: 10px;
-    height: 10px;
-    background: var(--error);
+    width: 7px;
+    height: 7px;
+    background: var(--success);
     border-radius: 50%;
     margin-right: 4px;
-    box-shadow: var(--glow-red);
-    animation: livePulse 1.5s ease-in-out infinite;
+    animation: livePulse 2s ease-in-out infinite;
 }
 
 @keyframes livePulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    50% { opacity: 0.4; }
 }
 
 /* ===== Nav quality select ===== */
@@ -1653,20 +1851,29 @@ button, .btn {
         gap: 0.85rem;
     }
 
-    /* --- Live player bar: vertical stacking --- */
+    /* --- Live player bar --- */
     .live-player-bar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.5rem;
-        padding: 0.75rem 1rem;
+        padding: 0.5rem 0.75rem;
     }
 
-    .live-player-controls {
-        justify-content: space-between;
-    }
-
-    .live-player-controls .btn {
+    .live-player-bar-right .btn {
         font-size: 0.9rem;
+    }
+
+    /* --- Video controls: mobile adjustments --- */
+    .lc-volume {
+        display: none;
+    }
+
+    .lc-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    .live-controls .jikkyo-mode-select {
+        font-size: 0.7rem;
+        padding: 0 0.3rem;
+        height: 28px;
     }
 
     /* --- Live player: full width on mobile --- */
@@ -1825,9 +2032,8 @@ button, .btn {
 
 /* PiP button active state */
 #pip-btn.active {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(212, 96, 58, 0.25);
 }
 
 /* Mode select */

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=9">
+    <link rel="stylesheet" href="/style.css?v=10">
 </head>
 <body>
     <nav>
@@ -164,23 +164,30 @@
             <div id="live-player-area" style="display:none">
                 <div class="live-player-with-sidebar">
                     <div class="live-player-main">
-                        <div class="live-player-container">
+                        <div class="live-player-container" id="live-player-container">
                             <div class="live-player-bar">
                                 <span id="live-player-title" class="live-player-bar-title"></span>
-                                <div class="live-player-controls">
-                                    <select id="jikkyo-mode-select" class="jikkyo-mode-select" onchange="jikkyo.setMode(this.value)">
+                                <div class="live-player-bar-right">
+                                    <span id="live-status"></span>
+                                    <button class="live-close-btn" onclick="stopLive()" title="視聴を終了">&times;</button>
+                                </div>
+                            </div>
+                            <div class="live-video-wrapper" id="live-video-wrapper">
+                                <video id="live-video" autoplay playsinline disablepictureinpicture></video>
+                                <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
+                                <div id="live-controls" class="live-controls">
+                                    <button class="lc-btn" id="lc-play" onclick="liveControls.togglePlay()" title="再生/一時停止"></button>
+                                    <button class="lc-btn" id="lc-mute" onclick="liveControls.toggleMute()" title="ミュート"></button>
+                                    <input type="range" id="lc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="liveControls.setVolume(this.value)">
+                                    <div class="lc-spacer"></div>
+                                    <select id="jikkyo-mode-select" class="jikkyo-mode-select lc-select" onchange="jikkyo.setMode(this.value)">
                                         <option value="overlay">実況: オーバーレイ</option>
                                         <option value="sidebar">実況: サイドバー</option>
                                         <option value="off">実況: OFF</option>
                                     </select>
-                                    <button id="pip-btn" class="btn btn-secondary btn-sm" onclick="jikkyoPip.toggle()" style="display:none">PiP</button>
-                                    <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
-                                    <button class="btn btn-danger btn-sm" onclick="stopLive()">停止</button>
+                                    <button class="lc-btn" id="pip-btn" onclick="jikkyoPip.toggle()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
+                                    <button class="lc-btn" id="lc-fullscreen" onclick="liveControls.toggleFullscreen()" title="フルスクリーン"></button>
                                 </div>
-                            </div>
-                            <div class="live-video-wrapper">
-                                <video id="live-video" controls autoplay playsinline disablepictureinpicture></video>
-                                <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
                             </div>
                         </div>
                     </div>
@@ -360,7 +367,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
-    <script src="/app.js?v=9"></script>
+    <script src="/app.js?v=10"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
