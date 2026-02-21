@@ -1138,9 +1138,14 @@ let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
 /* --- NX-Jikkyo 実況コメント --- */
 
 const JIKKYO_MAP = {
+    // 地上波
     'NHK総合': 'jk1', 'NHK-Eテレ': 'jk2', '日テレ': 'jk4',
     'テレビ朝日': 'jk5', 'TBS': 'jk6', 'テレビ東京': 'jk7',
     'フジテレビ': 'jk8', 'TOKYO MX': 'jk9',
+    // BS
+    'NHK BS': 'jk101', 'BS日テレ': 'jk141', 'BSフジ': 'jk181',
+    'BS11': 'jk211', 'BS12 トゥエルビ': 'jk222',
+    'BS松竹東急': 'jk260', 'BSよしもと': 'jk265',
 };
 
 const COMMENT_DURATION = 6000; // ms — コメント表示時間
