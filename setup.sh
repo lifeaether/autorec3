@@ -72,10 +72,17 @@ else
     echo "作成: channels.conf (.example からコピー — 受信可能なチャンネルを設定してください)"
 fi
 
+if [ -f "$AUTOREC_DIR/conf/jikkyo-map.conf" ]; then
+    echo "OK: jikkyo-map.conf"
+else
+    cp "$AUTOREC_DIR/conf/jikkyo-map.conf.example" "$AUTOREC_DIR/conf/jikkyo-map.conf"
+    echo "作成: jikkyo-map.conf (.example からコピー)"
+fi
+
 # シェルスクリプトに実行権限付与
 echo ""
 echo "--- 実行権限設定 ---"
-chmod +x "$AUTOREC_DIR"/bin/*.sh 2>/dev/null || true
+chmod +x "$AUTOREC_DIR"/bin/*.sh "$AUTOREC_DIR"/bin/*.py 2>/dev/null || true
 chmod +x "$AUTOREC_DIR"/setup.sh
 echo "OK: 実行権限設定完了"
 

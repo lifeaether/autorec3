@@ -4,5 +4,6 @@ db/*.sqlite-wal
 log/
 conf/autorec.conf
 conf/channels.conf
+conf/jikkyo-map.conf
 __pycache__/
 *.pyc

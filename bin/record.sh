@@ -109,6 +109,23 @@ log_msg "info" "保存先: $OUTPUT_FILE"
 # ステータスを recording に更新
 sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'recording' WHERE id = $SCHEDULE_ID;"
 
+# 実況コメント並行録画 (失敗しても録画に影響しない)
+JIKKYO_PID=""
+JIKKYO_FILE="${OUTPUT_FILE%.ts}.nicojk"
+JIKKYO_MAP_FILE="$AUTOREC_DIR/conf/jikkyo-map.conf"
+if [ -f "$JIKKYO_MAP_FILE" ]; then
+    JK_ID=$(awk -v name="$CHANNEL" '{
+        if ($0 ~ /^#/ || $0 ~ /^$/) next
+        n=""; for(i=2;i<=NF;i++) n=n (i>2?" ":"") $i
+        if (n == name) { print $1; exit }
+    }' "$JIKKYO_MAP_FILE")
+    if [ -n "$JK_ID" ]; then
+        log_msg "info" "実況コメント録画開始: $JK_ID"
+        python3 "$AUTOREC_DIR/bin/jikkyo-rec.py" "$JK_ID" "$DURATION" "$JIKKYO_FILE" 2>&1 &
+        JIKKYO_PID=$!
+    fi
+fi
+
 # recpt1 で録画実行
 if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
     # 成功
@@ -117,10 +134,26 @@ if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
     sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'done' WHERE id = $SCHEDULE_ID;"
     log_msg "info" "録画完了: $TITLE (${FILE_SIZE_MB}MB)"
 
+    # 実況コメント停止・結果ログ
+    if [ -n "$JIKKYO_PID" ]; then
+        kill "$JIKKYO_PID" 2>/dev/null || true
+        wait "$JIKKYO_PID" 2>/dev/null || true
+        if [ -f "$JIKKYO_FILE" ] && [ -s "$JIKKYO_FILE" ]; then
+            JIKKYO_LINES=$(wc -l < "$JIKKYO_FILE")
+            log_msg "info" "実況コメント: ${JIKKYO_LINES}行 保存済み"
+        else
+            log_msg "info" "実況コメント: データなし"
+        fi
+    fi
+
     # 通知
     "$AUTOREC_DIR/bin/notify.sh" "録画完了" "$TITLE ($CHANNEL) - ${FILE_SIZE_MB}MB" || true
 else
-    # 失敗
+    # 失敗 — 実況コメントも停止
+    if [ -n "$JIKKYO_PID" ]; then
+        kill "$JIKKYO_PID" 2>/dev/null || true
+        wait "$JIKKYO_PID" 2>/dev/null || true
+    fi
     sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'failed' WHERE id = $SCHEDULE_ID;"
     log_msg "error" "録画失敗: $TITLE (ch=$CH_NUM)"
 

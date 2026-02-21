@@ -1,0 +1,19 @@
+# jk_id	チャンネル名 (channels.conf の表示名と一致させること)
+# 地上波
+# jk1	NHK総合
+# jk2	NHK-Eテレ
+# jk4	日テレ
+# jk5	テレビ朝日
+# jk6	TBS
+# jk7	テレビ東京
+# jk8	フジテレビ
+# jk9	TOKYO MX
+
+# BS
+# jk101	NHK BS
+# jk141	BS日テレ
+# jk181	BSフジ
+# jk211	BS11
+# jk222	BS12 トゥエルビ
+# jk236	BS松竹東急
+# jk265	BSよしもと
