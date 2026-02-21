@@ -1067,11 +1067,12 @@ button, .btn {
     gap: 0.75rem;
 }
 
-#live-video {
+#live-video, #live-canvas {
     width: 100%;
     max-height: 65vh;
     background: #000;
     display: block;
+    object-fit: contain;
 }
 
 .live-channel-grid {
@@ -1669,8 +1670,9 @@ button, .btn {
     }
 
     /* --- Live video max height --- */
-    #live-video {
+    #live-video, #live-canvas {
         max-height: 40vh;
+        object-fit: contain;
     }
 
     /* --- Jikkyo: stack vertically on mobile --- */
@@ -1812,6 +1814,13 @@ button, .btn {
 
 .jikkyo-sidebar-msg:hover {
     background: var(--accent-light);
+}
+
+/* PiP button active state */
+#pip-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
 }
 
 /* Mode select */

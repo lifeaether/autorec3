@@ -1208,6 +1208,7 @@ const jikkyo = (() => {
     let retryTimer = null;
     let overlayCount = 0;
     let lanes = new Array(LANE_COUNT).fill(0); // timestamp when lane becomes free
+    let activeComments = []; // Canvas PiP 用コメントデータ
 
     function _log(msg) {
         console.log('[jikkyo] ' + msg);
@@ -1242,12 +1243,11 @@ const jikkyo = (() => {
         return minIdx;
     }
 
-    function _renderOverlay(text) {
+    function _renderOverlay(text, lane) {
         const overlay = _getOverlay();
         if (!overlay) return;
         if (overlayCount >= MAX_OVERLAY) return;
 
-        const lane = _assignLane();
         const overlayWidth = overlay.clientWidth;
         const lineHeight = overlay.clientHeight / LANE_COUNT;
 
@@ -1293,9 +1293,20 @@ const jikkyo = (() => {
     }
 
     function _onComment(text) {
+        const lane = _assignLane();
+
+        // Always track for Canvas PiP regardless of mode
+        activeComments.push({
+            text,
+            lane,
+            startTime: Date.now(),
+            textWidth: 0,
+        });
+        activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION);
+
         if (mode === 'off') return;
         if (mode === 'overlay') {
-            _renderOverlay(text);
+            _renderOverlay(text, lane);
         }
         // Always add to sidebar buffer (shown when mode is sidebar)
         _renderSidebar(text);
@@ -1329,6 +1340,7 @@ const jikkyo = (() => {
         retryCount = 0;
         overlayCount = 0;
         lanes.fill(0);
+        activeComments = [];
 
         // Clear overlay
         const overlay = _getOverlay();
@@ -1480,8 +1492,194 @@ const jikkyo = (() => {
             return mode;
         },
 
+        getActiveComments() {
+            activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION);
+            return activeComments;
+        },
+
         initUI() {
             _updateUI();
+        },
+    };
+})();
+
+/* --- Canvas PiP (実況コメント付き Picture-in-Picture) --- */
+
+const jikkyoPip = (() => {
+    const COMMENT_DURATION = 6000;
+    const FONT_SIZE = 28;
+    const LANE_COUNT = 12;
+
+    const CANVAS_W = 960;
+    const CANVAS_H = 540;
+
+    let canvas = null;
+    let ctx = null;
+    let pipVideo = null;       // PiP 用 (Canvas captureStream を受ける)
+    let animFrameId = null;
+    let isRendering = false;
+
+    function _setup() {
+        if (canvas) return;
+
+        const srcVideo = document.getElementById('live-video');
+        const wrapper = document.querySelector('.live-video-wrapper');
+        if (!srcVideo || !wrapper) return;
+
+        // Canvas をメイン映像表示として live-video-wrapper に挿入
+        canvas = document.createElement('canvas');
+        canvas.id = 'live-canvas';
+        canvas.width = CANVAS_W;
+        canvas.height = CANVAS_H;
+        wrapper.insertBefore(canvas, wrapper.firstChild);
+        ctx = canvas.getContext('2d');
+
+        // live-video を非表示にする (音声ソース + Canvas の映像ソースとして維持)
+        srcVideo.style.display = 'none';
+
+        // DOM オーバーレイは Canvas 描画に統合されるため非表示
+        const overlay = document.getElementById('jikkyo-overlay');
+        if (overlay) overlay.style.display = 'none';
+
+        // PiP 用 video (Canvas captureStream を受ける、非表示だがビューポート内)
+        pipVideo = document.createElement('video');
+        pipVideo.muted = true;
+        pipVideo.playsInline = true;
+        pipVideo.autoplay = true;
+        pipVideo.width = CANVAS_W;
+        pipVideo.height = CANVAS_H;
+        pipVideo.style.cssText = 'position:absolute;left:0;bottom:0;width:160px;height:90px;opacity:0.01;pointer-events:none;z-index:-1';
+        wrapper.appendChild(pipVideo);
+
+        // Canvas captureStream → pipVideo
+        pipVideo.srcObject = canvas.captureStream(30);
+        pipVideo.play().catch(() => {});
+    }
+
+    function _renderFrame() {
+        if (!isRendering) return;
+        const srcVideo = document.getElementById('live-video');
+
+        if (!srcVideo || srcVideo.readyState < 2) {
+            animFrameId = requestAnimationFrame(_renderFrame);
+            return;
+        }
+
+        // 映像フレーム描画 (drawImage が表示アスペクト比を補正)
+        ctx.drawImage(srcVideo, 0, 0, CANVAS_W, CANVAS_H);
+
+        // コメント描画
+        const comments = jikkyo.getActiveComments();
+        if (comments.length > 0) {
+            const now = Date.now();
+            const lineHeight = CANVAS_H / LANE_COUNT;
+            ctx.font = `bold ${FONT_SIZE}px "Noto Sans JP", sans-serif`;
+            ctx.textBaseline = 'top';
+
+            for (let i = 0; i < comments.length; i++) {
+                const c = comments[i];
+                const elapsed = now - c.startTime;
+                if (elapsed > COMMENT_DURATION) continue;
+                const progress = elapsed / COMMENT_DURATION;
+
+                if (!c.textWidth) c.textWidth = ctx.measureText(c.text).width;
+
+                const x = CANVAS_W - (CANVAS_W + c.textWidth) * progress;
+                const y = c.lane * lineHeight;
+
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.lineJoin = 'round';
+                ctx.strokeText(c.text, x, y);
+                ctx.fillStyle = '#fff';
+                ctx.fillText(c.text, x, y);
+            }
+        }
+
+        animFrameId = requestAnimationFrame(_renderFrame);
+    }
+
+    function _startRenderLoop() {
+        if (isRendering) return;
+        isRendering = true;
+        animFrameId = requestAnimationFrame(_renderFrame);
+    }
+
+    function _stopRenderLoop() {
+        isRendering = false;
+        if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+    }
+
+    return {
+        // startLive() から呼ばれる: Canvas 表示 + 描画ループ開始
+        warmUp() {
+            _setup();
+            _startRenderLoop();
+        },
+
+        async toggle() {
+            if (!pipVideo) return;
+
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture().catch(() => {});
+                return;
+            }
+
+            try {
+                if (pipVideo.paused) pipVideo.play().catch(() => {});
+
+                await pipVideo.requestPictureInPicture();
+
+                const btn = document.getElementById('pip-btn');
+                if (btn) btn.classList.add('active');
+
+                pipVideo.addEventListener('leavepictureinpicture', () => {
+                    const b = document.getElementById('pip-btn');
+                    if (b) b.classList.remove('active');
+                }, { once: true });
+            } catch (e) {
+                const errEl = document.getElementById('live-error');
+                if (errEl) errEl.textContent = 'PiP を開けませんでした: ' + e.message;
+            }
+        },
+
+        exit() {
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture().catch(() => {});
+            }
+            const btn = document.getElementById('pip-btn');
+            if (btn) btn.classList.remove('active');
+        },
+
+        cleanup() {
+            this.exit();
+            _stopRenderLoop();
+
+            // pipVideo 除去
+            if (pipVideo) {
+                pipVideo.pause();
+                pipVideo.srcObject = null;
+                if (pipVideo.parentNode) pipVideo.parentNode.removeChild(pipVideo);
+                pipVideo = null;
+            }
+
+            // Canvas 除去 + live-video を復元
+            if (canvas) {
+                if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+                canvas = null;
+                ctx = null;
+            }
+            const srcVideo = document.getElementById('live-video');
+            if (srcVideo) srcVideo.style.display = '';
+            const overlay = document.getElementById('jikkyo-overlay');
+            if (overlay) overlay.style.display = '';
+        },
+
+        isSupported() {
+            return 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
         },
     };
 })();
@@ -1601,9 +1799,19 @@ function startLive(chNum, chName) {
     // NX-Jikkyo 実況コメント開始
     jikkyo.initUI();
     jikkyo.start(chName);
+
+    // PiP ボタン表示
+    if (jikkyoPip.isSupported()) {
+        document.getElementById('pip-btn').style.display = '';
+        jikkyoPip.warmUp();
+    }
 }
 
 function stopLive(keepGrid) {
+    // Canvas PiP 停止
+    jikkyoPip.cleanup();
+    document.getElementById('pip-btn').style.display = 'none';
+
     // NX-Jikkyo 実況コメント停止
     jikkyo.stop();
 

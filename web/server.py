@@ -85,7 +85,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         """静的ファイルに Cache-Control ヘッダを追加"""
         parsed = urlparse(self.path)
         if not parsed.path.startswith("/api/") and not parsed.path.startswith("/recordings/") and not parsed.path.startswith("/live/"):
-            self.send_header("Cache-Control", "max-age=300")
+            self.send_header("Cache-Control", "no-cache, must-revalidate")
         super().end_headers()
 
     def do_POST(self):

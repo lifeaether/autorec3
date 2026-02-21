@@ -173,12 +173,13 @@
                                         <option value="sidebar">実況: サイドバー</option>
                                         <option value="off">実況: OFF</option>
                                     </select>
+                                    <button id="pip-btn" class="btn btn-secondary btn-sm" onclick="jikkyoPip.toggle()" style="display:none">PiP</button>
                                     <span id="live-status" style="color:var(--text-muted);font-size:0.85rem"></span>
                                     <button class="btn btn-danger btn-sm" onclick="stopLive()">停止</button>
                                 </div>
                             </div>
                             <div class="live-video-wrapper">
-                                <video id="live-video" controls autoplay></video>
+                                <video id="live-video" controls autoplay disablepictureinpicture></video>
                                 <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
                             </div>
                         </div>
