@@ -1041,11 +1041,8 @@ button, .btn {
 
 /* Hero player container */
 .live-player-container {
-    border-radius: var(--radius-md);
     overflow: hidden;
     background: #000;
-    box-shadow: 0 0 40px rgba(212, 96, 58, 0.08), var(--shadow-lg);
-    margin-bottom: 1rem;
 }
 
 .live-player-bar {
@@ -1878,8 +1875,6 @@ button, .btn {
 
     /* --- Live player: full width on mobile --- */
     .live-player-container {
-        border-radius: 0;
-        box-shadow: none;
         margin-bottom: 0;
     }
 
@@ -1893,13 +1888,15 @@ button, .btn {
     .live-player-with-sidebar {
         flex-direction: column;
         margin-bottom: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     .jikkyo-sidebar {
         width: 100% !important;
         height: auto !important;
-        border: none;
-        border-radius: 0;
+        border-left: none;
+        border-top: 1px solid var(--border);
     }
 
     .jikkyo-sidebar-messages {
@@ -1944,6 +1941,9 @@ button, .btn {
     display: flex;
     gap: 0;
     margin-bottom: 1rem;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(212, 96, 58, 0.08), var(--shadow-lg);
 }
 
 .live-player-main {
@@ -1993,9 +1993,7 @@ button, .btn {
     width: 280px;
     flex-shrink: 0;
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-left: none;
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
