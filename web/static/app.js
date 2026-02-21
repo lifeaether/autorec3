@@ -1831,19 +1831,38 @@ async function loadLiveChannelGrid() {
     const grid = document.getElementById('live-channel-grid');
     if (!grid || channels.length === 0) return;
 
-    let nowPlaying = {};
-    try {
-        const data = await API.get('/api/live/now-all');
-        nowPlaying = data.now_playing || {};
-    } catch { /* EPGデータなしでも続行 */ }
+    // EPG と実況勢いを並列フェッチ
+    const [nowResult, forceResult] = await Promise.allSettled([
+        API.get('/api/live/now-all'),
+        API.get('/api/jikkyo/force'),
+    ]);
+
+    const nowPlaying = nowResult.status === 'fulfilled' ? (nowResult.value.now_playing || {}) : {};
+    const forceMap = forceResult.status === 'fulfilled' ? (forceResult.value.force || {}) : {};
 
     const now = new Date();
     let html = '';
     channels.forEach(ch => {
         const prog = nowPlaying[ch.name];
         const isPlaying = liveCurrentCh === ch.number;
+        const jkId = JIKKYO_MAP[ch.name];
+        const forceInfo = jkId ? forceMap[jkId] : null;
+
         html += `<div class="live-ch-card${isPlaying ? ' playing' : ''}" onclick="startLive('${escapeHtml(ch.number)}', '${escapeHtml(ch.name)}')">`;
-        html += `<div class="live-ch-name">${escapeHtml(ch.name)}</div>`;
+
+        // ヘッダー: チャンネル名 + 勢いバッジ
+        if (forceInfo && forceInfo.force != null) {
+            const cls = forceInfo.force >= 100 ? 'hot' : forceInfo.force >= 30 ? 'warm' : '';
+            html += `<div class="live-ch-header">`;
+            html += `<div class="live-ch-name">${escapeHtml(ch.name)}</div>`;
+            html += `<div class="live-ch-force${cls ? ' ' + cls : ''}">`;
+            html += `<span class="live-ch-force-value">${forceInfo.force}</span>`;
+            html += `<span class="live-ch-force-unit">/min</span>`;
+            html += `</div></div>`;
+        } else {
+            html += `<div class="live-ch-name">${escapeHtml(ch.name)}</div>`;
+        }
+
         if (prog) {
             const start = new Date(prog.start_time.replace(' ', 'T'));
             const end = new Date(prog.end_time.replace(' ', 'T'));

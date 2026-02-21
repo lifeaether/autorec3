@@ -653,6 +653,46 @@ def proxy_jikkyo_channel(jk_id):
         return _json_response({"error": "NX-Jikkyo connection failed"}, 502)
 
 
+_jikkyo_force_cache = {"data": None, "expires": 0}
+
+def get_jikkyo_force(_params):
+    """GET /api/jikkyo/force - 全チャンネルの実況勢い"""
+    import time as _time
+    import urllib.request
+    import urllib.error
+
+    now = _time.time()
+    if _jikkyo_force_cache["data"] is not None and now < _jikkyo_force_cache["expires"]:
+        return _json_response(_jikkyo_force_cache["data"])
+
+    try:
+        req = urllib.request.Request(
+            "https://nx-jikkyo.tsukumijima.net/api/v1/channels",
+            headers={"User-Agent": "autorec/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            channels_data = json.loads(resp.read())
+    except Exception:
+        if _jikkyo_force_cache["data"] is not None:
+            return _json_response(_jikkyo_force_cache["data"])
+        return _json_response({"force": {}})
+
+    force = {}
+    for ch in channels_data:
+        for t in ch.get("threads", []):
+            if t.get("status") == "ACTIVE":
+                force[ch["id"]] = {
+                    "force": t.get("jikkyo_force"),
+                    "viewers": t.get("viewers"),
+                }
+                break
+
+    result = {"force": force}
+    _jikkyo_force_cache["data"] = result
+    _jikkyo_force_cache["expires"] = now + 60
+    return _json_response(result)
+
+
 # --- ルーティング ---
 
 def handle_request(method, path, params, body=b""):
@@ -708,6 +748,8 @@ def handle_request(method, path, params, body=b""):
         return get_recording_duration(params)
 
     # NX-Jikkyo プロキシ
+    if method == "GET" and path == "/api/jikkyo/force":
+        return get_jikkyo_force(params)
     if method == "GET" and path.startswith("/api/jikkyo/channels/"):
         jk_id = path.split("/")[-1]
         return proxy_jikkyo_channel(jk_id)

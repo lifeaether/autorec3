@@ -1342,6 +1342,35 @@ button, .btn {
     font-style: italic;
 }
 
+.live-ch-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.live-ch-force {
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.live-ch-force-value {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.live-ch-force-unit {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.live-ch-force.warm .live-ch-force-value { color: var(--warning); }
+.live-ch-force.hot .live-ch-force-value  { color: var(--accent); font-weight: 700; }
+
 .live-indicator {
     display: inline-block;
     width: 7px;
