@@ -1526,30 +1526,32 @@ const jikkyoPip = (() => {
         const wrapper = document.querySelector('.live-video-wrapper');
         if (!srcVideo || !wrapper) return;
 
-        // Canvas をメイン映像表示として live-video-wrapper に挿入
+        // Canvas: 非表示コンポジタ (映像+コメント合成用、DOM 内に配置して captureStream を有効化)
         canvas = document.createElement('canvas');
-        canvas.id = 'live-canvas';
         canvas.width = CANVAS_W;
         canvas.height = CANVAS_H;
-        wrapper.insertBefore(canvas, wrapper.firstChild);
+        canvas.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;pointer-events:none';
+        document.body.appendChild(canvas);
         ctx = canvas.getContext('2d');
 
         // live-video を非表示にする (音声ソース + Canvas の映像ソースとして維持)
+        // iOS の自動 PiP を確実に抑止
+        srcVideo.disablePictureInPicture = true;
+        if (srcVideo.autoPictureInPicture !== undefined) srcVideo.autoPictureInPicture = false;
         srcVideo.style.display = 'none';
 
         // DOM オーバーレイは Canvas 描画に統合されるため非表示
         const overlay = document.getElementById('jikkyo-overlay');
         if (overlay) overlay.style.display = 'none';
 
-        // PiP 用 video (Canvas captureStream を受ける、非表示だがビューポート内)
+        // pipVideo: メイン映像表示 + PiP ソース
+        // live-video の代わりにフルサイズ表示。iOS ネイティブ PiP もこの video を対象にする
         pipVideo = document.createElement('video');
+        pipVideo.id = 'live-canvas';
         pipVideo.muted = true;
         pipVideo.playsInline = true;
         pipVideo.autoplay = true;
-        pipVideo.width = CANVAS_W;
-        pipVideo.height = CANVAS_H;
-        pipVideo.style.cssText = 'position:absolute;left:0;bottom:0;width:160px;height:90px;opacity:0.01;pointer-events:none;z-index:-1';
-        wrapper.appendChild(pipVideo);
+        wrapper.insertBefore(pipVideo, wrapper.firstChild);
 
         // Canvas captureStream → pipVideo
         pipVideo.srcObject = canvas.captureStream(30);
