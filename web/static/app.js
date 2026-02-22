@@ -525,7 +525,7 @@ async function loadRules() {
     try {
         const data = await API.get('/api/rules');
         if (!data.rules || data.rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
             if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">ルールなし</p>';
             return;
         }
@@ -534,6 +534,7 @@ async function loadRules() {
                 <td>${r.id}</td>
                 <td>${escapeHtml(r.name)}</td>
                 <td>${escapeHtml(r.keyword || '*')}</td>
+                <td>${escapeHtml(r.channel || '-')}</td>
                 <td>${escapeHtml(r.category || '-')}</td>
                 <td>${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}</td>
                 <td>
@@ -550,6 +551,7 @@ async function loadRules() {
                     <div class="rule-title">${escapeHtml(r.name)}</div>
                     <div class="rule-meta">
                         キーワード: ${escapeHtml(r.keyword || '*')}
+                        ${r.channel ? ' | CH: ' + escapeHtml(r.channel) : ''}
                         ${r.category ? ' | ジャンル: ' + escapeHtml(r.category) : ''}
                         | ${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}
                     </div>
@@ -561,7 +563,7 @@ async function loadRules() {
             `).join('');
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
         if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
@@ -575,6 +577,15 @@ function showRuleForm(rule) {
     form.elements['rule-name'].value = rule ? rule.name : '';
     form.elements['rule-keyword'].value = rule ? (rule.keyword || '') : '';
     form.elements['rule-enabled'].checked = rule ? !!rule.enabled : true;
+
+    // チャンネル select を生成・値セット
+    const chSelect = document.getElementById('rule-channel');
+    let chOpts = '<option value="">指定なし</option>';
+    channels.forEach(ch => {
+        chOpts += `<option value="${escapeHtml(ch.name)}">${escapeHtml(ch.name)}</option>`;
+    });
+    chSelect.innerHTML = chOpts;
+    chSelect.value = rule ? (rule.channel || '') : '';
 
     // カテゴリ select を生成・値セット
     const catSelect = document.getElementById('rule-category');
@@ -624,7 +635,7 @@ async function saveRule() {
     const data = {
         name: form.elements['rule-name'].value,
         keyword: form.elements['rule-keyword'].value || null,
-        channel: null,
+        channel: document.getElementById('rule-channel').value || null,
         category: document.getElementById('rule-category').value || null,
         time_from: null,
         time_to: null,
@@ -660,12 +671,13 @@ async function saveRule() {
 
 async function previewRule() {
     const keyword = document.getElementById('rule-keyword').value.trim();
+    const channel = document.getElementById('rule-channel').value;
     const category = document.getElementById('rule-category').value;
     const preview = document.getElementById('rule-preview');
     const countEl = document.getElementById('rule-preview-count');
     const tableEl = document.getElementById('rule-preview-table');
 
-    if (!keyword && !category) {
+    if (!keyword && !channel && !category) {
         preview.style.display = 'none';
         tableEl.innerHTML = '';
         countEl.textContent = '0';
@@ -678,6 +690,7 @@ async function previewRule() {
     try {
         let searchUrl = `/api/programmes/search?limit=30`;
         if (keyword) searchUrl += `&keyword=${encodeURIComponent(keyword)}`;
+        if (channel) searchUrl += `&channel=${encodeURIComponent(channel)}`;
         if (category) searchUrl += `&category=${encodeURIComponent(category)}`;
         const data = await API.get(searchUrl);
         const programmes = data.programmes || [];
@@ -2450,6 +2463,15 @@ async function init() {
         ruleKeyword.addEventListener('input', () => {
             clearTimeout(previewTimer);
             previewTimer = setTimeout(previewRule, 500);
+        });
+    }
+
+    // チャンネル変更時もプレビュー更新
+    const ruleChannel = document.getElementById('rule-channel');
+    if (ruleChannel) {
+        ruleChannel.addEventListener('change', () => {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(previewRule, 300);
         });
     }
 
