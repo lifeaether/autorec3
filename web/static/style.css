@@ -2237,3 +2237,16 @@ button, .btn {
     }
 
 }
+
+/* ===== ライブ録画ボタン ===== */
+
+#lc-record.recording {
+    color: #ff3b30;
+    background: rgba(255, 59, 48, 0.25);
+    animation: recordPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes recordPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}

@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import threading
 import time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -38,6 +39,40 @@ QUALITY_PRESETS = {
     },
 }
 DEFAULT_QUALITY = "high"
+
+
+def _relay_thread(recpt1_stdout, ffmpeg_write_fd, rec_ref, stop_event):
+    """recpt1 stdout → ffmpeg stdin に転送しつつ、録画時はファイルにも書き出す"""
+    CHUNK = 188 * 64  # TSパケット境界に揃えた 12032 bytes
+    try:
+        while not stop_event.is_set():
+            data = recpt1_stdout.read(CHUNK)
+            if not data:
+                break
+            try:
+                os.write(ffmpeg_write_fd, data)
+            except OSError:
+                break
+            f = rec_ref.get("file")
+            if f is not None:
+                try:
+                    f.write(data)
+                except Exception:
+                    rec_ref["file"] = None
+                    rec_ref["path"] = None
+    finally:
+        try:
+            os.close(ffmpeg_write_fd)
+        except OSError:
+            pass
+        f = rec_ref.get("file")
+        if f is not None:
+            try:
+                f.close()
+            except OSError:
+                pass
+            rec_ref["file"] = None
+
 
 # conf からポートを読み込み
 WEB_PORT = 8080
@@ -341,24 +376,34 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ] + quality_args + [
             "-f", "mpegts", "-mpegts_flags", "+resend_headers", "pipe:1",
         ]
+        r_fd, w_fd = os.pipe()
         try:
             ffmpeg = subprocess.Popen(
                 ffmpeg_cmd,
-                stdin=recpt1.stdout,
+                stdin=r_fd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
         except FileNotFoundError:
+            os.close(r_fd)
+            os.close(w_fd)
             recpt1.terminate()
             recpt1.wait()
             self.send_error(503, "ffmpeg not found (live playback requires ffmpeg for transcoding)")
             return
+        os.close(r_fd)
 
-        # recpt1 stdout を親プロセスから閉じる (pipe 連携用)
-        recpt1.stdout.close()
+        rec_ref = {"file": None, "path": None}
+        stop_event = threading.Event()
+        relay = threading.Thread(
+            target=_relay_thread,
+            args=(recpt1.stdout, w_fd, rec_ref, stop_event),
+            daemon=True,
+        )
+        relay.start()
 
         # ストリーム登録 (上限チェック)
-        stream_id = api.register_live_stream(ch, channel_name, recpt1.pid)
+        stream_id = api.register_live_stream(ch, channel_name, recpt1.pid, rec_ref)
         if stream_id is None:
             recpt1.terminate()
             ffmpeg.terminate()
@@ -393,6 +438,24 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             # クライアント切断
             pass
         finally:
+            stop_event.set()
+            # 録画ファイルのクローズ
+            f = rec_ref.get("file")
+            if f is not None:
+                try:
+                    f.close()
+                except OSError:
+                    pass
+                rec_ref["file"] = None
+            # jikkyo-rec.py の停止
+            jikkyo_proc = rec_ref.get("jikkyo_proc")
+            if jikkyo_proc:
+                jikkyo_proc.terminate()
+                try:
+                    jikkyo_proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    jikkyo_proc.kill()
+                rec_ref["jikkyo_proc"] = None
             # recpt1 と ffmpeg を終了
             recpt1.terminate()
             ffmpeg.terminate()
@@ -406,6 +469,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             except subprocess.TimeoutExpired:
                 recpt1.kill()
                 recpt1.wait()
+            relay.join(timeout=5)
             api.unregister_live_stream(stream_id)
 
     def do_OPTIONS(self):

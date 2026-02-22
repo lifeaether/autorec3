@@ -3,6 +3,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 import threading
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs
@@ -464,7 +465,7 @@ def _get_valid_channels():
     return result
 
 
-def register_live_stream(channel_num, channel_name, pid):
+def register_live_stream(channel_num, channel_name, pid, rec_ref=None):
     """登録成功時 stream_id を返す。上限超過時は None"""
     with _live_lock:
         if len(_live_streams) >= MAX_LIVE_STREAMS:
@@ -475,6 +476,7 @@ def register_live_stream(channel_num, channel_name, pid):
             "channel_name": channel_name,
             "pid": pid,
             "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "_rec_ref": rec_ref,
         }
         return stream_id
 
@@ -488,10 +490,21 @@ def unregister_live_stream(stream_id):
 def get_live_status(_params):
     """GET /api/live/status"""
     with _live_lock:
-        streams = [
-            {"stream_id": sid, **info}
-            for sid, info in _live_streams.items()
-        ]
+        streams = []
+        for sid, info in _live_streams.items():
+            s = {"stream_id": sid}
+            for k, v in info.items():
+                if k == "_rec_ref":
+                    continue
+                s[k] = v
+            rec_ref = info.get("_rec_ref")
+            if rec_ref:
+                s["recording"] = rec_ref.get("file") is not None
+                s["recording_path"] = rec_ref.get("path")
+            else:
+                s["recording"] = False
+                s["recording_path"] = None
+            streams.append(s)
     return _json_response({
         "active_streams": len(streams),
         "max_streams": MAX_LIVE_STREAMS,
@@ -538,6 +551,136 @@ def get_now_playing_all(_params):
             by_channel[ch] = d
 
     return _json_response({"now_playing": by_channel, "timestamp": now})
+
+
+def _get_jikkyo_map():
+    """jikkyo-map.conf → {channel_name: jk_id}"""
+    result = {}
+    path = os.path.join(AUTOREC_DIR, "conf", "jikkyo-map.conf")
+    if os.path.exists(path):
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split(None, 1)
+                if len(parts) >= 2:
+                    result[parts[1]] = parts[0]  # name → jk_id
+    return result
+
+
+def start_live_recording(body):
+    """POST /api/live/record/start - ライブ録画開始"""
+    data = _parse_json_body(body)
+    if not data:
+        return _error("Invalid JSON body")
+
+    channel = data.get("channel")
+    if not channel:
+        return _error("channel is required")
+
+    # チャンネル番号でストリームを検索
+    rec_ref = None
+    channel_name = None
+    with _live_lock:
+        for info in _live_streams.values():
+            if info["channel"] == channel:
+                rec_ref = info.get("_rec_ref")
+                channel_name = info.get("channel_name")
+                break
+
+    if rec_ref is None:
+        return _error("このチャンネルのライブストリームが見つかりません", 404)
+
+    if rec_ref.get("file") is not None:
+        return _error("既に録画中です", 409)
+
+    # 保存先ディレクトリ作成
+    output_dir = os.path.join(RECORD_DIR, "ライブ録画")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # ファイル名: YYYYMMDD_HHMMSS_チャンネル名.ts
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{channel_name}.ts"
+    output_path = os.path.join(output_dir, filename)
+
+    try:
+        rec_ref["path"] = output_path
+        rec_ref["file"] = open(output_path, "wb")
+    except Exception as e:
+        rec_ref["file"] = None
+        rec_ref["path"] = None
+        return _error(f"ファイルの作成に失敗しました: {e}", 500)
+
+    # 実況コメント保存 (対応チャンネルのみ)
+    jikkyo_map = _get_jikkyo_map()
+    jk_id = jikkyo_map.get(channel_name)
+    jikkyo_proc = None
+    if jk_id:
+        nicojk_path = output_path.replace(".ts", ".nicojk")
+        try:
+            jikkyo_proc = subprocess.Popen(
+                [sys.executable, os.path.join(AUTOREC_DIR, "bin", "jikkyo-rec.py"),
+                 jk_id, "86400", nicojk_path],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass  # コメント保存失敗は無視
+    rec_ref["jikkyo_proc"] = jikkyo_proc
+
+    rel_path = f"ライブ録画/{filename}"
+    return _json_response({"status": "recording", "path": rel_path})
+
+
+def stop_live_recording(body):
+    """POST /api/live/record/stop - ライブ録画停止"""
+    data = _parse_json_body(body)
+    if not data:
+        return _error("Invalid JSON body")
+
+    channel = data.get("channel")
+    if not channel:
+        return _error("channel is required")
+
+    # チャンネル番号でストリームを検索
+    rec_ref = None
+    with _live_lock:
+        for info in _live_streams.values():
+            if info["channel"] == channel:
+                rec_ref = info.get("_rec_ref")
+                break
+
+    if rec_ref is None:
+        return _error("このチャンネルのライブストリームが見つかりません", 404)
+
+    f = rec_ref.get("file")
+    saved_path = rec_ref.get("path")
+    rec_ref["file"] = None
+    rec_ref["path"] = None
+    if f is not None:
+        try:
+            f.close()
+        except OSError:
+            pass
+
+    # jikkyo-rec.py 停止
+    jikkyo_proc = rec_ref.get("jikkyo_proc")
+    if jikkyo_proc:
+        jikkyo_proc.terminate()
+        try:
+            jikkyo_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            jikkyo_proc.kill()
+        rec_ref["jikkyo_proc"] = None
+
+    rel_path = None
+    if saved_path:
+        try:
+            rel_path = os.path.relpath(saved_path, RECORD_DIR)
+        except ValueError:
+            rel_path = saved_path
+
+    return _json_response({"status": "stopped", "path": rel_path})
 
 
 def _extract_ts_start_time(filepath):
@@ -844,6 +987,12 @@ def handle_request(method, path, params, body=b""):
         return get_now_playing(params)
     if method == "GET" and path == "/api/live/now-all":
         return get_now_playing_all(params)
+
+    # ライブ録画
+    if method == "POST" and path == "/api/live/record/start":
+        return start_live_recording(body)
+    if method == "POST" and path == "/api/live/record/stop":
+        return stop_live_recording(body)
 
     # 録画済みファイル
     if method == "GET" and path == "/api/recordings":
