@@ -540,6 +540,90 @@ def get_now_playing_all(_params):
     return _json_response({"now_playing": by_channel, "timestamp": now})
 
 
+def _extract_ts_start_time(filepath):
+    """MPEG-TS ファイルの先頭付近から TDT を読み取り、(unix_epoch, tdt_byte_offset) を返す
+
+    tdt_byte_offset はファイル先頭から TDT パケットまでのバイト数。
+    ファイルサイズと再生時間から TDT の時間位置を補正するために使う。
+    """
+    TS_PACKET_SIZE = 188
+    TDT_PID = 0x0014
+    MAX_READ = 10 * 1024 * 1024  # 先頭 10MB のみスキャン
+
+    with open(filepath, 'rb') as f:
+        buf = f.read(MAX_READ)
+
+    buf_len = len(buf)
+
+    # sync byte (0x47) を確実に見つける: 3 連続パケットの sync を確認
+    start = -1
+    for i in range(min(buf_len - TS_PACKET_SIZE * 3, TS_PACKET_SIZE)):
+        if (buf[i] == 0x47
+                and buf[i + TS_PACKET_SIZE] == 0x47
+                and buf[i + TS_PACKET_SIZE * 2] == 0x47):
+            start = i
+            break
+    if start < 0:
+        return None
+
+    pos = start
+    while pos + TS_PACKET_SIZE <= buf_len:
+        if buf[pos] != 0x47:
+            pos += 1
+            continue
+
+        pid = ((buf[pos + 1] & 0x1F) << 8) | buf[pos + 2]
+        if pid != TDT_PID:
+            pos += TS_PACKET_SIZE
+            continue
+
+        # adaptation field スキップ
+        afc = (buf[pos + 3] >> 4) & 0x03
+        if not (afc & 0x01):  # payload なし
+            pos += TS_PACKET_SIZE
+            continue
+        payload_start = pos + 4
+        if afc in (2, 3):  # adaptation field あり
+            af_len = buf[pos + 4]
+            payload_start = pos + 5 + af_len
+        if payload_start >= pos + TS_PACKET_SIZE:
+            pos += TS_PACKET_SIZE
+            continue
+
+        # PUSI (payload_unit_start_indicator) チェック
+        pusi = (buf[pos + 1] >> 6) & 0x01
+        if pusi:
+            pointer = buf[payload_start]
+            section = payload_start + 1 + pointer
+        else:
+            section = payload_start
+
+        if section + 8 > pos + TS_PACKET_SIZE:
+            pos += TS_PACKET_SIZE
+            continue
+
+        table_id = buf[section]
+        if table_id not in (0x70, 0x73):  # TDT or TOT
+            pos += TS_PACKET_SIZE
+            continue
+
+        # UTC/JST time: 5 bytes (2 MJD + 3 BCD)
+        t = section + 3
+        mjd = (buf[t] << 8) | buf[t + 1]
+        hour = (buf[t + 2] >> 4) * 10 + (buf[t + 2] & 0x0F)
+        minute = (buf[t + 3] >> 4) * 10 + (buf[t + 3] & 0x0F)
+        second = (buf[t + 4] >> 4) * 10 + (buf[t + 4] & 0x0F)
+
+        # MJD → Unix days (MJD of Unix epoch = 40587)
+        unix_days = mjd - 40587
+        # ARIB 規格では TDT は JST (UTC+9) なので 9時間引く
+        unix_epoch = unix_days * 86400 + hour * 3600 + minute * 60 + second - 9 * 3600
+
+        return unix_epoch, pos - start
+
+    return None
+
+
 def get_recording_duration(params):
     """GET /api/recordings/duration?path=<path> - ffprobe で再生時間を取得"""
     rel_path = params.get("path", [""])[0]
@@ -562,7 +646,25 @@ def get_recording_duration(params):
         )
         data = json.loads(result.stdout)
         duration = float(data["format"]["duration"])
-        return _json_response({"duration": duration})
+        resp = {"duration": duration}
+
+        # TDT から録画開始時刻を取得 (TDT 位置分を補正)
+        try:
+            tdt_result = _extract_ts_start_time(file_path)
+            if tdt_result:
+                tdt_epoch, tdt_byte_offset = tdt_result
+                # TDT はファイル先頭ではなく数秒後にある。
+                # バイト位置から時間オフセットを推定して差し引く
+                file_size = os.path.getsize(file_path)
+                if file_size > 0 and duration > 0:
+                    tdt_time_offset = (tdt_byte_offset / file_size) * duration
+                else:
+                    tdt_time_offset = 0
+                resp["start_time"] = tdt_epoch - tdt_time_offset
+        except Exception:
+            pass
+
+        return _json_response(resp)
     except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError,
             subprocess.TimeoutExpired):
         return _error("Could not determine duration", 500)

@@ -1223,16 +1223,15 @@ function playRecording(path, name, hasNicojk) {
                     document.getElementById('video-current-time').textContent = '0:00';
                     document.getElementById('video-seek-container').style.display = '';
                 }
+                // .nicojk がある場合、実況コメントを読み込む (start_time を渡す)
+                if (hasNicojk) {
+                    const nicojkPath = encodeURIComponent(recordingPath.replace(/\.ts$/, '.nicojk')).replace(/%2F/g, '/');
+                    recordingJikkyo.load(nicojkPath, data.start_time || 0);
+                }
             })
             .catch(() => {});
 
         startRecordingStream(0);
-
-        // .nicojk がある場合、実況コメントを読み込む
-        if (hasNicojk) {
-            const nicojkPath = encodeURIComponent(recordingPath.replace(/\.ts$/, '.nicojk')).replace(/%2F/g, '/');
-            recordingJikkyo.load(nicojkPath);
-        }
     } else {
         const videoEl = document.getElementById('video-player');
         videoEl.src = '/recordings/' + path;
@@ -1457,7 +1456,7 @@ const recordingJikkyo = (() => {
     }
 
     return {
-        async load(nicojkPath) {
+        async load(nicojkPath, startEpoch) {
             this.stop();
             try {
                 const resp = await fetch('/recordings/' + nicojkPath);
@@ -1480,7 +1479,7 @@ const recordingJikkyo = (() => {
 
                 if (parsed.length === 0) return;
 
-                baseDate = minDate;
+                baseDate = startEpoch ? startEpoch : minDate;
                 comments = parsed
                     .map(p => ({ offset: p.date - baseDate, text: p.text }))
                     .sort((a, b) => a.offset - b.offset);
@@ -1496,7 +1495,9 @@ const recordingJikkyo = (() => {
                 // Start tick timer
                 tickTimer = setInterval(_tick, TICK_INTERVAL);
 
-                console.log('[rec-jikkyo] loaded ' + comments.length + ' comments, baseDate=' + baseDate);
+                console.log('[rec-jikkyo] loaded ' + comments.length + ' comments, baseDate=' + baseDate
+                    + ' (startEpoch=' + startEpoch + ', minDate=' + minDate
+                    + ', diff=' + (minDate - baseDate) + 's)');
             } catch (e) {
                 console.log('[rec-jikkyo] load error: ' + e);
             }
