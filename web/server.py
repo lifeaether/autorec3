@@ -188,7 +188,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             content_length = file_size
             self.send_response(200)
 
-        self.send_header("Content-Type", "video/mp2t")
+        if file_path.endswith('.nicojk'):
+            content_type = "application/x-ndjson"
+        else:
+            content_type = "video/mp2t"
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", content_length)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Access-Control-Allow-Origin", "*")

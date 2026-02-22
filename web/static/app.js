@@ -864,13 +864,17 @@ function _buildSeriesHtml(series) {
         html += `<table><thead><tr><th>ファイル名</th><th>サイズ</th><th>更新日時</th><th>操作</th></tr></thead><tbody>`;
         s.files.forEach(f => {
             const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
+            const nicojkPath = encodedPath.replace(/\.ts$/, '.nicojk');
             html += `<tr>`;
             html += `<td class="recordings-filename">${escapeHtml(f.name)}</td>`;
             html += `<td style="white-space:nowrap">${formatFileSize(f.size)}</td>`;
             html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
             html += `<td style="white-space:nowrap">`;
-            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
+            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}', ${!!f.has_nicojk})">再生</button> `;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">DL</a>`;
+            if (f.has_nicojk) {
+                html += ` <a class="btn btn-secondary btn-sm" href="/recordings/${nicojkPath}?download=1">実況DL</a>`;
+            }
             html += `</td></tr>`;
         });
         html += `</tbody></table>`;
@@ -878,12 +882,16 @@ function _buildSeriesHtml(series) {
         html += `<div class="recordings-file-card">`;
         s.files.forEach(f => {
             const encodedPath = encodeURIComponent(f.path).replace(/%2F/g, '/');
+            const nicojkPath = encodedPath.replace(/\.ts$/, '.nicojk');
             html += `<div class="recordings-file-card-item">`;
             html += `<div class="recordings-file-card-name">${escapeHtml(f.name)}</div>`;
             html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
             html += `<div class="recordings-file-card-actions">`;
-            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}')">再生</button>`;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">ダウンロード</a>`;
+            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}', ${!!f.has_nicojk})">再生</button>`;
+            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">DL</a>`;
+            if (f.has_nicojk) {
+                html += `<a class="btn btn-secondary btn-sm" href="/recordings/${nicojkPath}?download=1">実況DL</a>`;
+            }
             html += `</div></div>`;
         });
         html += `</div>`;
@@ -1031,7 +1039,7 @@ function formatDuration(sec) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function playRecording(path, name) {
+function playRecording(path, name, hasNicojk) {
     const modal = document.getElementById('video-modal');
     const title = document.getElementById('video-modal-title');
     title.textContent = name || '再生';
@@ -1059,6 +1067,12 @@ function playRecording(path, name) {
             .catch(() => {});
 
         startRecordingStream(0);
+
+        // .nicojk がある場合、実況コメントを読み込む
+        if (hasNicojk) {
+            const nicojkPath = encodeURIComponent(recordingPath.replace(/\.ts$/, '.nicojk')).replace(/%2F/g, '/');
+            recordingJikkyo.load(nicojkPath);
+        }
     } else {
         const videoEl = document.getElementById('video-player');
         videoEl.src = '/recordings/' + path;
@@ -1080,6 +1094,7 @@ function startRecordingStream(seekTime) {
     videoEl.load();
 
     recordingBaseTime = seekTime;
+    recordingJikkyo.onSeek();
 
     let url = `/recordings/transcode?path=${encodeURIComponent(recordingPath)}&quality=${streamQuality}`;
     if (seekTime > 0) url += `&ss=${seekTime}`;
@@ -1116,6 +1131,7 @@ function closeRecordingPlayer() {
         clearInterval(seekUpdateTimer);
         seekUpdateTimer = null;
     }
+    recordingJikkyo.stop();
     const videoEl = document.getElementById('video-player');
     if (recordingPlayer) {
         recordingPlayer.destroy();
@@ -1130,6 +1146,238 @@ function closeRecordingPlayer() {
     seekBarDragging = false;
     document.getElementById('video-seek-container').style.display = 'none';
 }
+
+/* --- 録画実況コメント再生 --- */
+
+const recordingJikkyo = (() => {
+    const COMMENT_DURATION_REC = 6000; // ms
+    const LANE_COUNT_REC = 12;
+    const MAX_OVERLAY_REC = 50;
+    const MAX_SIDEBAR_REC = 200;
+    const TICK_INTERVAL = 250; // ms
+
+    let comments = [];       // {offset, text} sorted by offset
+    let mode = localStorage.getItem('autorec-rec-jikkyo-mode') || 'overlay';
+    let tickTimer = null;
+    let lastTickTime = -1;
+    let baseDate = 0;        // unix seconds of earliest comment
+    let lanes = new Array(LANE_COUNT_REC).fill(0);
+    let overlayCount = 0;
+    let loaded = false;
+
+    function _getOverlay() { return document.getElementById('rec-jikkyo-overlay'); }
+    function _getSidebar() { return document.getElementById('rec-jikkyo-sidebar'); }
+    function _getSidebarMessages() { return document.getElementById('rec-jikkyo-sidebar-messages'); }
+    function _getModeSelect() { return document.getElementById('rec-jikkyo-mode-select'); }
+
+    function _assignLane() {
+        const now = Date.now();
+        for (let i = 0; i < LANE_COUNT_REC; i++) {
+            if (lanes[i] <= now) {
+                lanes[i] = now + COMMENT_DURATION_REC;
+                return i;
+            }
+        }
+        let minIdx = 0;
+        for (let i = 1; i < LANE_COUNT_REC; i++) {
+            if (lanes[i] < lanes[minIdx]) minIdx = i;
+        }
+        lanes[minIdx] = Date.now() + COMMENT_DURATION_REC;
+        return minIdx;
+    }
+
+    function _renderOverlay(text) {
+        const overlay = _getOverlay();
+        if (!overlay) return;
+        if (overlayCount >= MAX_OVERLAY_REC) return;
+
+        const lane = _assignLane();
+        const overlayWidth = overlay.clientWidth;
+        const lineHeight = overlay.clientHeight / LANE_COUNT_REC;
+
+        const span = document.createElement('span');
+        span.className = 'jikkyo-comment';
+        span.textContent = text;
+        span.style.top = (lane * lineHeight) + 'px';
+        span.style.left = overlayWidth + 'px';
+        span.style.animation = 'none';
+        span.style.visibility = 'hidden';
+        overlay.appendChild(span);
+        const totalDist = overlayWidth + span.offsetWidth;
+        span.style.setProperty('--jikkyo-dist', '-' + totalDist + 'px');
+        span.style.visibility = '';
+        span.offsetHeight;
+        span.style.animation = 'jikkyo-flow ' + COMMENT_DURATION_REC + 'ms linear forwards';
+
+        overlayCount++;
+        span.addEventListener('animationend', () => {
+            span.remove();
+            overlayCount--;
+        });
+    }
+
+    function _renderSidebar(text) {
+        const container = _getSidebarMessages();
+        if (!container) return;
+        const div = document.createElement('div');
+        div.className = 'jikkyo-sidebar-msg';
+        div.textContent = text;
+        container.insertBefore(div, container.firstChild);
+        while (container.children.length > MAX_SIDEBAR_REC) {
+            container.removeChild(container.lastChild);
+        }
+    }
+
+    function _onComment(text) {
+        if (mode === 'off') return;
+        if (mode === 'overlay') _renderOverlay(text);
+        _renderSidebar(text);
+    }
+
+    // Binary search: find first index where comments[i].offset > time
+    function _upperBound(arr, time) {
+        let lo = 0, hi = arr.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >>> 1;
+            if (arr[mid].offset <= time) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+    function _tick() {
+        if (!loaded || comments.length === 0) return;
+        const videoEl = document.getElementById('video-player');
+        if (!videoEl || videoEl.paused) return;
+
+        const currentVideoTime = recordingBaseTime + (videoEl.currentTime || 0);
+        if (lastTickTime < 0) {
+            lastTickTime = currentVideoTime - 0.01;
+        }
+
+        // Find comments in (lastTickTime, currentVideoTime] range
+        const startIdx = _upperBound(comments, lastTickTime);
+        const endIdx = _upperBound(comments, currentVideoTime);
+
+        for (let i = startIdx; i < endIdx; i++) {
+            _onComment(comments[i].text);
+        }
+
+        lastTickTime = currentVideoTime;
+    }
+
+    function _updateUI() {
+        const overlay = _getOverlay();
+        const sidebar = _getSidebar();
+        const select = _getModeSelect();
+
+        if (select) select.value = mode;
+        if (overlay) overlay.style.display = (mode === 'overlay') ? '' : 'none';
+        if (sidebar) {
+            sidebar.style.display = (mode === 'sidebar') ? '' : 'none';
+            if (mode === 'sidebar') {
+                // Sync sidebar height with video
+                const videoEl = document.getElementById('video-player');
+                if (videoEl && sidebar) {
+                    sidebar.style.height = videoEl.offsetHeight + 'px';
+                }
+            }
+        }
+    }
+
+    function _clearDisplay() {
+        const overlay = _getOverlay();
+        if (overlay) overlay.innerHTML = '';
+        const msgs = _getSidebarMessages();
+        if (msgs) msgs.innerHTML = '';
+        overlayCount = 0;
+        lanes.fill(0);
+    }
+
+    return {
+        async load(nicojkPath) {
+            this.stop();
+            try {
+                const resp = await fetch('/recordings/' + nicojkPath);
+                if (!resp.ok) return;
+                const text = await resp.text();
+                const lines = text.trim().split('\n');
+                const parsed = [];
+                let minDate = Infinity;
+
+                for (const line of lines) {
+                    try {
+                        const msg = JSON.parse(line);
+                        if (msg.chat && msg.chat.content && msg.chat.date) {
+                            const date = Number(msg.chat.date);
+                            if (date < minDate) minDate = date;
+                            parsed.push({ date, text: msg.chat.content });
+                        }
+                    } catch (e) { /* skip invalid lines */ }
+                }
+
+                if (parsed.length === 0) return;
+
+                baseDate = minDate;
+                comments = parsed
+                    .map(p => ({ offset: p.date - baseDate, text: p.text }))
+                    .sort((a, b) => a.offset - b.offset);
+                loaded = true;
+                lastTickTime = -1;
+
+                // Show mode select
+                const select = _getModeSelect();
+                if (select) select.style.display = '';
+
+                _updateUI();
+
+                // Start tick timer
+                tickTimer = setInterval(_tick, TICK_INTERVAL);
+
+                console.log('[rec-jikkyo] loaded ' + comments.length + ' comments, baseDate=' + baseDate);
+            } catch (e) {
+                console.log('[rec-jikkyo] load error: ' + e);
+            }
+        },
+
+        onSeek() {
+            _clearDisplay();
+            lastTickTime = -1;
+        },
+
+        stop() {
+            if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+            comments = [];
+            baseDate = 0;
+            lastTickTime = -1;
+            loaded = false;
+            overlayCount = 0;
+            lanes.fill(0);
+
+            _clearDisplay();
+
+            // Hide mode select
+            const select = _getModeSelect();
+            if (select) select.style.display = 'none';
+
+            // Hide sidebar
+            const sidebar = _getSidebar();
+            if (sidebar) sidebar.style.display = 'none';
+
+            // Hide overlay
+            const overlay = _getOverlay();
+            if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+        },
+
+        setMode(newMode) {
+            mode = newMode;
+            localStorage.setItem('autorec-rec-jikkyo-mode', mode);
+            _updateUI();
+        },
+
+        getMode() { return mode; },
+    };
+})();
 
 /* --- ライブ視聴機能 --- */
 

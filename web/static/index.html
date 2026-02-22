@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=18">
+    <link rel="stylesheet" href="/style.css?v=20">
 </head>
 <body>
     <nav>
@@ -351,23 +351,39 @@
 
     <!-- 動画再生モーダル -->
     <div id="video-modal" class="modal-overlay">
-        <div class="modal" style="max-width:900px">
+        <div class="modal" style="max-width:960px">
             <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');">&times;</button>
             <h3 id="video-modal-title" style="margin-bottom:0.75rem">再生</h3>
-            <video id="video-player" controls autoplay style="width:100%;max-height:70vh;background:#000"></video>
+            <div class="rec-player-with-sidebar">
+                <div class="rec-player-main">
+                    <div class="rec-video-wrapper">
+                        <video id="video-player" autoplay playsinline style="width:100%;max-height:70vh;background:#000"></video>
+                        <div id="rec-jikkyo-overlay" class="jikkyo-overlay"></div>
+                    </div>
+                </div>
+                <div id="rec-jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
+                    <div class="jikkyo-sidebar-header">実況コメント</div>
+                    <div id="rec-jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
+                </div>
+            </div>
             <div id="video-seek-container" style="display:none;margin-top:0.5rem">
                 <div style="display:flex;align-items:center;gap:0.5rem">
                     <span id="video-current-time" style="font-size:0.8rem;color:var(--text-muted);min-width:4em;text-align:right">0:00</span>
                     <input type="range" id="video-seek-bar" min="0" max="100" value="0" step="1" style="flex:1">
                     <span id="video-total-time" style="font-size:0.8rem;color:var(--text-muted);min-width:4em">0:00</span>
+                    <select id="rec-jikkyo-mode-select" class="jikkyo-mode-select" style="display:none" onchange="recordingJikkyo.setMode(this.value)">
+                        <option value="overlay">実況: オーバーレイ</option>
+                        <option value="sidebar">実況: サイドバー</option>
+                        <option value="off">実況: OFF</option>
+                    </select>
                 </div>
             </div>
-            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem">ffmpeg でトランスコードして再生しています。シークバーで任意の位置から再生できます。</p>
+            <p class="video-modal-desc" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem">ffmpeg でトランスコードして再生しています。シークバーで任意の位置から再生できます。</p>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
-    <script src="/app.js?v=19"></script>
+    <script src="/app.js?v=20"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {

@@ -1785,6 +1785,70 @@ button, .btn {
         padding: 1.5rem;
     }
 
+    /* --- Video modal: fullscreen on mobile --- */
+    #video-modal .modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        height: 100%;
+        border-radius: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #video-modal .modal-close {
+        top: 0.35rem;
+        right: 0.5rem;
+        z-index: 10;
+    }
+
+    #video-modal .modal h3 {
+        padding: 0.4rem 2.5rem 0.4rem 0.75rem;
+        margin-bottom: 0 !important;
+        font-size: 0.95rem;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+
+    #video-modal .rec-player-with-sidebar {
+        display: contents;
+    }
+
+    #video-modal .rec-player-main {
+        flex: none;
+        order: 1;
+    }
+
+    #video-modal #video-player {
+        max-height: none !important;
+        display: block;
+    }
+
+    #video-modal #video-seek-container {
+        padding: 0.25rem 0.75rem;
+        margin-top: 0 !important;
+        flex-shrink: 0;
+        order: 2;
+    }
+
+    #video-modal .jikkyo-sidebar {
+        order: 3;
+        flex: 1;
+        min-height: 0;
+        width: 100% !important;
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
+
+    #video-modal .jikkyo-sidebar-messages {
+        max-height: none;
+    }
+
+    #video-modal .video-modal-desc {
+        display: none;
+    }
+
     /* --- EPG fullscreen: mobile overrides --- */
     .section-epg-fullscreen {
         margin: calc(-1.25rem - env(safe-area-inset-top, 0px)) -1rem calc((var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) * -1);
@@ -2069,6 +2133,53 @@ button, .btn {
     border-color: var(--accent);
     color: var(--accent);
     box-shadow: none;
+}
+
+/* ===== Recording Player with Jikkyo ===== */
+
+.rec-player-with-sidebar {
+    display: flex;
+    gap: 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: #000;
+}
+
+.rec-player-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.rec-video-wrapper {
+    position: relative;
+    background: #000;
+}
+
+@media (min-width: 769px) {
+    .rec-video-wrapper .jikkyo-comment {
+        font-size: 1.4rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .rec-player-with-sidebar {
+        flex-direction: column;
+    }
+
+    .rec-player-with-sidebar .jikkyo-sidebar {
+        width: 100% !important;
+        height: auto !important;
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
+
+    .rec-player-with-sidebar .jikkyo-sidebar-messages {
+        max-height: 35vh;
+    }
+
+    .rec-video-wrapper .jikkyo-comment {
+        font-size: 1.0rem;
+    }
 }
 
 /* ===== Responsive: Small mobile ===== */

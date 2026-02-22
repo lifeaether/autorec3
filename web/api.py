@@ -596,12 +596,14 @@ def get_recordings(_params):
                                 mtime = stat.st_mtime
                                 if mtime > max_mtime:
                                     max_mtime = mtime
+                                nicojk_path = os.path.join(entry.path, f.name.rsplit('.', 1)[0] + '.nicojk')
                                 files.append({
                                     "name": f.name,
                                     "size": stat.st_size,
                                     "mtime": datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S"),
                                     "mtime_ts": mtime,
                                     "path": f"{entry.name}/{f.name}",
+                                    "has_nicojk": os.path.isfile(nicojk_path),
                                 })
                                 total_size += stat.st_size
                             except OSError:
