@@ -905,6 +905,7 @@ button, .btn {
 .rule-preview label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; display: block; }
 .rule-preview table { font-size: 0.85rem; }
 .rule-preview-scroll { max-height: 250px; overflow-y: auto; }
+.rule-preview-scroll thead th { background: var(--bg-card); }
 
 /* ===== Programme detail popup ===== */
 .programme-detail {
