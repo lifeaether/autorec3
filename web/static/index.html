@@ -239,14 +239,14 @@
                 </p>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">視聴</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてリアルタイム視聴 (同時最大2ストリーム)。画質はナビバー右上またはメニューから変更できます</li>
+                    <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてリアルタイム視聴 (同時最大2ストリーム)。画質はナビバー右上またはメニューから変更できます。視聴中にコントロールバーの録画ボタンで即座に録画を開始できます</li>
                     <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組を表示。タップで詳細を開き、録画予約や録画ルール作成ができます</li>
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">録画</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタやキーワード検索で絞り込み、ブラウザ内再生やダウンロードが可能です</li>
                     <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — 録画スケジュールの一覧。予定・録画中・完了・失敗などの状態でフィルタできます</li>
-                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワードやジャンルで自動録画の条件を設定。ルールを削除・無効化すると、紐付く未実行の録画予定も自動で取り消されます</li>
+                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワード・ジャンル・チャンネルで自動録画の条件を設定。ルールを削除・無効化すると、紐付く未実行の録画予定も自動で取り消されます</li>
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">その他 (···メニュー内)</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
@@ -272,7 +272,7 @@
                     <p style="margin-bottom:0.5rem"><strong>方法1: 録画ルールで自動録画</strong></p>
                     <p style="margin-bottom:0.75rem;padding-left:1rem">
                         <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a> →「+ 録画ルール」で条件を登録。<br>
-                        キーワード (部分一致) やジャンルを指定すると、一致する番組が自動的に録画予定に追加されます。<br>
+                        キーワード (部分一致)・ジャンル・チャンネルを指定すると、一致する番組が自動的に録画予定に追加されます。<br>
                         ルール作成時にマッチする番組のプレビューを確認できます。
                     </p>
                     <p style="margin-bottom:0.5rem"><strong>方法2: 番組表から直接予約</strong></p>
@@ -296,6 +296,13 @@
                         <li><strong>最低画質</strong> — 480p / 400kbps。モバイル回線向け</li>
                     </ul>
                 </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">ダークモード</h3>
+                <p style="font-size:0.9rem;line-height:1.8">
+                    OS のダークモード設定に自動追従します。手動での切り替えは不要です。
+                </p>
             </div>
         </div>
       </div>
