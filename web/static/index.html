@@ -359,6 +359,13 @@
                     <div class="rec-video-wrapper">
                         <video id="video-player" autoplay playsinline style="width:100%;max-height:70vh;background:#000"></video>
                         <div id="rec-jikkyo-overlay" class="jikkyo-overlay"></div>
+                        <div id="rec-controls" class="live-controls">
+                            <button class="lc-btn" id="rc-play" onclick="recControls.togglePlay()" title="再生/一時停止"></button>
+                            <button class="lc-btn" id="rc-mute" onclick="recControls.toggleMute()" title="ミュート"></button>
+                            <input type="range" id="rc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="recControls.setVolume(this.value)">
+                            <div class="lc-spacer"></div>
+                            <button class="lc-btn" id="rc-pip" onclick="recControls.togglePip()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
+                        </div>
                     </div>
                 </div>
                 <div id="rec-jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
