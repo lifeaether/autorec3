@@ -108,6 +108,7 @@ log_msg "info" "保存先: $OUTPUT_FILE"
 
 # ステータスを recording に更新
 sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'recording' WHERE id = $SCHEDULE_ID;"
+"$AUTOREC_DIR/bin/notify.sh" "録画開始" "$TITLE ($CHANNEL)" &
 
 # 実況コメント並行録画 (失敗しても録画に影響しない)
 JIKKYO_PID=""

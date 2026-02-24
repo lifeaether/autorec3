@@ -41,6 +41,64 @@ bash setup.sh
 
 設定ファイルのテンプレートは `conf/*.example` を参照してください。
 
+## Web UI の常時起動 (systemd)
+
+Web UI サーバーを systemd ユーザーサービスとして登録すると、システム起動時に自動で立ち上がります。
+
+### 1. サービスファイルを作成
+
+```bash
+mkdir -p ~/.config/systemd/user
+
+cat > ~/.config/systemd/user/autorec-web.service << 'EOF'
+[Unit]
+Description=autorec Web UI Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/autorec
+ExecStart=/usr/bin/python3 /path/to/autorec/web/server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+```
+
+`WorkingDirectory` と `ExecStart` のパスは環境に合わせて変更してください。
+
+### 2. サービスを有効化・起動
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable autorec-web.service
+systemctl --user start autorec-web.service
+```
+
+### 3. ログインなしでの自動起動
+
+デフォルトではユーザーサービスはログインセッションが存在する間だけ動作します。
+システム起動時 (ログイン前) から起動するには linger を有効にします:
+
+```bash
+sudo loginctl enable-linger $(whoami)
+```
+
+### 管理コマンド
+
+```bash
+systemctl --user status autorec-web     # 状態確認
+systemctl --user restart autorec-web    # 再起動
+systemctl --user stop autorec-web       # 停止
+journalctl --user -u autorec-web        # ログ表示
+```
+
+> **注意**: ポート 80 など 1024 未満の特権ポートを使用する場合は、
+> `sudo sysctl net.ipv4.ip_unprivileged_port_start=80` でカーネルの制限を緩和するか、
+> `/etc/systemd/system/` にシステムサービスとして配置し `AmbientCapabilities=CAP_NET_BIND_SERVICE` を付与する必要があります。
+
 ## アーキテクチャ
 
 ```
