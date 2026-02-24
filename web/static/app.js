@@ -144,6 +144,7 @@ function switchSection(name) {
     else if (name === 'schedules') loadSchedules();
     else if (name === 'recordings') loadRecordings();
     else if (name === 'live') initLiveSection();
+    else if (name === 'storage') loadStorage();
     else if (name === 'logs') loadLogs();
 }
 
@@ -235,21 +236,11 @@ function renderEPGGrid(programmes, container, options) {
         byChannel[p.channel].push(p);
     });
 
-    // リモコン番号順にソート (地上波の一般的な並び)
-    const CH_ORDER = [
-        'NHK総合', 'NHK-Eテレ', 'Eテレ',
-        '日テレ', '日本テレビ',
-        'テレビ朝日', 'テレ朝',
-        'TBS',
-        'テレビ東京', 'テレ東',
-        'フジテレビ', 'フジ',
-        'TOKYO MX', 'MX',
-    ];
+    // channels.conf の順序に合わせてソート (ライブ画面と同じ並び)
+    const chConfOrder = channels.map(c => c.name);
     const chSortKey = (name) => {
-        for (let i = 0; i < CH_ORDER.length; i++) {
-            if (name.includes(CH_ORDER[i])) return i;
-        }
-        return CH_ORDER.length;
+        const idx = chConfOrder.indexOf(name);
+        return idx >= 0 ? idx : chConfOrder.length;
     };
     const channelOrder = [...channelSet].sort((a, b) => chSortKey(a) - chSortKey(b));
 
@@ -845,6 +836,80 @@ async function loadLogs() {
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
         if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+    }
+}
+
+/* --- ストレージ --- */
+
+async function loadStorage() {
+    const container = document.getElementById('storage-content');
+    try {
+        const data = await API.get('/api/storage');
+        const disk = data.disk;
+        const series = data.series || [];
+
+        // プログレスバーの色
+        let barColor = 'var(--accent)';
+        if (disk.usage_percent >= 90) barColor = 'var(--error)';
+        else if (disk.usage_percent >= 75) barColor = '#FF9500';
+
+        let html = '';
+
+        // ディスク概要カード
+        html += '<div class="card" style="margin-bottom:1rem">';
+        html += '<h3 style="margin-bottom:0.75rem">ディスク使用状況</h3>';
+        html += `<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">${escapeHtml(disk.path)}</p>`;
+        html += '<div style="background:var(--bg-secondary);border-radius:6px;height:20px;overflow:hidden;margin-bottom:0.75rem">';
+        html += `<div style="background:${barColor};height:100%;width:${disk.usage_percent}%;border-radius:6px;transition:width 0.3s"></div>`;
+        html += '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:0.5rem;font-size:0.9rem">';
+        html += `<div><span style="color:var(--text-muted)">使用済み</span><br><strong>${formatFileSize(disk.used)}</strong></div>`;
+        html += `<div><span style="color:var(--text-muted)">空き</span><br><strong>${formatFileSize(disk.free)}</strong></div>`;
+        html += `<div><span style="color:var(--text-muted)">合計</span><br><strong>${formatFileSize(disk.total)}</strong></div>`;
+        html += `<div><span style="color:var(--text-muted)">使用率</span><br><strong style="color:${barColor}">${disk.usage_percent}%</strong></div>`;
+        html += '</div>';
+        html += '</div>';
+
+        // シリーズ別使用量カード
+        if (series.length > 0) {
+            const recordingsTotal = series.reduce((a, s) => a + s.total_size, 0);
+
+            html += '<div class="card" style="padding:0">';
+            html += '<div style="padding:1rem 1rem 0.5rem"><h3 style="margin-bottom:0.25rem">シリーズ別使用量</h3>';
+            html += `<p style="font-size:0.85rem;color:var(--text-muted)">録画合計: ${formatFileSize(recordingsTotal)}</p></div>`;
+
+            // デスクトップ: テーブル
+            html += '<div class="table-card desktop-only" style="box-shadow:none;border-radius:0">';
+            html += '<table><thead><tr><th>シリーズ名</th><th>ファイル数</th><th>サイズ</th><th>ディスク割合</th></tr></thead><tbody>';
+            series.forEach(s => {
+                const pct = disk.total > 0 ? ((s.total_size / disk.total) * 100).toFixed(1) : '0.0';
+                html += '<tr>';
+                html += `<td>${escapeHtml(s.name)}</td>`;
+                html += `<td>${s.file_count}</td>`;
+                html += `<td style="white-space:nowrap">${formatFileSize(s.total_size)}</td>`;
+                html += `<td>${pct}%</td>`;
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+
+            // モバイル: カードリスト
+            html += '<div class="card-list" style="padding:0 0.5rem 0.5rem">';
+            series.forEach(s => {
+                const pct = disk.total > 0 ? ((s.total_size / disk.total) * 100).toFixed(1) : '0.0';
+                html += '<div class="storage-series-card" style="padding:0.75rem;border-bottom:1px solid var(--border)">';
+                html += `<div style="font-weight:500">${escapeHtml(s.name)}</div>`;
+                html += `<div style="font-size:0.85rem;color:var(--text-muted)">${s.file_count} ファイル / ${formatFileSize(s.total_size)} (${pct}%)</div>`;
+                html += '</div>';
+            });
+            html += '</div>';
+
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML =
+            `<p style="color:var(--error)">ストレージ情報の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
 
