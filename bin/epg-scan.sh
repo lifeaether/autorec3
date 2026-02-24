@@ -89,43 +89,92 @@ if [ "$USE_JSON" -eq 1 ] && command -v jq >/dev/null 2>&1; then
     fi
 else
     echo "[epg-scan] XML モードで解析中..."
-    # xmlstarlet で XML を解析
-    if ! command -v xmlstarlet >/dev/null 2>&1; then
-        echo "[epg-scan] エラー: jq も xmlstarlet も見つかりません" >&2
-        exit 1
-    fi
-
-    xmlstarlet sel -t \
-        -m "//programme" \
-        -v "concat('INSERT OR REPLACE INTO programme (event_id, channel, title, description, start_time, end_time, category) VALUES (')" \
-        -v "@event_id" -o ", " \
-        -o "'$CHANNEL_NAME', " \
-        -o "'" -v "normalize-space(title)" -o "', " \
-        -o "'" -v "normalize-space(desc)" -o "', " \
-        -o "'" -v "@start" -o "', " \
-        -o "'" -v "@stop" -o "', " \
-        -o "'" -v "normalize-space(category)" -o "'" \
-        -o ");" -n \
-        "$EPG_XML" > "$WORK/insert.sql" 2>/dev/null || {
-        # シンプルなフォールバック: python3 で XML パース
-        python3 -c "
+    # Python で XML を解析
+    # BS では1トランスポンダのスキャンに全チャンネルの番組が含まれるため、
+    # 各番組の channel 属性から正しいチャンネル名を決定する
+    python3 - "$EPG_XML" "$AUTOREC_DIR/conf/channels.conf" "$CHANNEL_NAME" \
+        > "$WORK/insert.sql" 2>/dev/null << 'PYEOF'
 import xml.etree.ElementTree as ET
-import json, sys
+import json, sys, unicodedata
 
-tree = ET.parse('$EPG_XML')
+xml_file, channels_conf, default_channel = sys.argv[1], sys.argv[2], sys.argv[3]
+
+# channels.conf からチャンネル名一覧を取得
+our_channels = set()
+with open(channels_conf) as f:
+    for line in f:
+        line = line.split('#')[0].strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) >= 2:
+            our_channels.add(parts[1])
+
+def normalize(s):
+    """全角英数・記号を半角に正規化"""
+    s = unicodedata.normalize('NFKC', s)
+    for dash in '\u2010\u2012\u2013\u2014\u2015\u2212':
+        s = s.replace(dash, '-')
+    return s.strip()
+
+tree = ET.parse(xml_file)
 root = tree.getroot()
+
+# XML <channel> 要素から channel_id → チャンネル名マッピングを構築
+ch_map = {}
+for ch_elem in root.findall('.//channel'):
+    ch_id = ch_elem.get('id', '')
+    dn = ch_elem.find('display-name')
+    if dn is None or not dn.text:
+        continue
+    normalized = normalize(dn.text)
+    # 完全一致
+    matched = None
+    for name in our_channels:
+        if name == normalized:
+            matched = name
+            break
+    # スペース除去して一致 (例: "BS12トゥエルビ" ↔ "BS12 トゥエルビ")
+    if not matched:
+        norm_nsp = normalized.replace(' ', '')
+        for name in our_channels:
+            if name.replace(' ', '') == norm_nsp:
+                matched = name
+                break
+    # 前方一致 (例: channels.conf "BS11" ↔ XML "BS11イレブン")
+    if not matched:
+        norm_nsp = normalized.replace(' ', '')
+        candidates = [n for n in our_channels
+                      if norm_nsp.startswith(n.replace(' ', ''))
+                      or n.replace(' ', '').startswith(norm_nsp)]
+        if candidates:
+            matched = max(candidates, key=len)
+    if matched:
+        ch_map[ch_id] = matched
+
+# 番組データを SQL INSERT 文として出力
 for prog in root.findall('.//programme'):
+    ch_id = prog.get('channel', '')
+    if ch_map:
+        # マッピングがある場合、一致しないチャンネル (有料局等) はスキップ
+        ch_name = ch_map.get(ch_id)
+        if ch_name is None:
+            continue
+    else:
+        # マッピングがない場合 (地上波等)、デフォルトチャンネル名を使用
+        ch_name = default_channel
+    if ch_name not in our_channels:
+        continue
     eid = prog.get('event_id', '0') or '0'
-    ch = '$CHANNEL_NAME'.replace(\"'\", \"''\")
-    title = (prog.findtext('title') or '').replace(\"'\", \"''\")
-    desc = (prog.findtext('desc') or '').replace(\"'\", \"''\")
+    title = (prog.findtext('title') or '').replace("'", "''")
+    desc = (prog.findtext('desc') or '').replace("'", "''")
     start = prog.get('start', '')
     stop = prog.get('stop', '')
     cats = [c.text for c in prog.findall('category') if c.text]
-    cat_json = json.dumps(cats, ensure_ascii=False).replace(\"'\", \"''\")
-    print(f\"INSERT OR REPLACE INTO programme (event_id, channel, title, description, start_time, end_time, category) VALUES ({eid}, '{ch}', '{title}', '{desc}', '{start}', '{stop}', '{cat_json}');\")
-" > "$WORK/insert.sql" 2>/dev/null || true
-    }
+    cat_json = json.dumps(cats, ensure_ascii=False).replace("'", "''")
+    ch_esc = ch_name.replace("'", "''")
+    print(f"INSERT OR REPLACE INTO programme (event_id, channel, title, description, start_time, end_time, category) VALUES ({eid}, '{ch_esc}', '{title}', '{desc}', '{start}', '{stop}', '{cat_json}');")
+PYEOF
 fi
 
 # SQL 実行
