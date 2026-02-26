@@ -3,8 +3,11 @@
 # 注: schedule-update.sh が自動生成する録画エントリはこのファイルの末尾に追加される
 
 SHELL=/bin/bash
-AUTOREC_DIR=/path/to/autorec  # ← 実際のインストールパスに変更
+AUTOREC_DIR=/home/user/claude/autorec
 
-# EPG 一括更新 (毎時0分 — 録画中は自動スキップ)
+# EPG 一括更新 (毎時7分・37分 — 録画中は自動スキップ)
 # epg-update.sh 末尾で schedule-update.sh も実行される
-0 * * * * $AUTOREC_DIR/bin/epg-update.sh >> $AUTOREC_DIR/log/epg-update.log 2>&1
+7,37 * * * * $AUTOREC_DIR/bin/epg-update.sh >> $AUTOREC_DIR/log/epg-update.log 2>&1
+
+# ストレージ残量チェック (毎日20:00)
+0 20 * * * $AUTOREC_DIR/bin/storage-check.sh >> $AUTOREC_DIR/log/storage-check.log 2>&1
