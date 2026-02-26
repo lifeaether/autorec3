@@ -2294,8 +2294,14 @@ const liveControls = (() => {
         togglePlay() {
             const video = _getLiveVideo();
             if (!video) return;
-            if (video.paused) video.play().catch(() => {});
-            else video.pause();
+            if (video.paused) {
+                video.play().then(() => {
+                    document.getElementById('live-status').innerHTML =
+                        '<span class="live-indicator"></span> 再生中';
+                }).catch(() => {});
+            } else {
+                video.pause();
+            }
             _showControls();
         },
 
@@ -2445,8 +2451,11 @@ function startLive(chNum, chName) {
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 5.0,
-        liveBufferLatencyMinRemain: 1.0,
+        liveBufferLatencyMaxLatency: 2.5,
+        liveBufferLatencyMinRemain: 0.5,
+        autoCleanupSourceBuffer: true,
+        autoCleanupMaxBackwardDuration: 30,
+        autoCleanupMinBackwardDuration: 15,
     });
 
     livePlayer.attachMediaElement(videoEl);
@@ -2466,10 +2475,19 @@ function startLive(chNum, chName) {
             `再生エラー: ${detail || type}`;
     });
 
+    videoEl.addEventListener('playing', () => {
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生中';
+    }, { once: true });
+
     livePlayer.load();
     videoEl.play().catch(() => {
-        document.getElementById('live-status').innerHTML =
-            '<span class="live-indicator"></span> 再生ボタンを押してください';
+        videoEl.addEventListener('canplay', () => {
+            videoEl.play().catch(() => {
+                document.getElementById('live-status').innerHTML =
+                    '<span class="live-indicator"></span> 再生ボタンを押してください';
+            });
+        }, { once: true });
     });
 
     // 番組情報を定期更新

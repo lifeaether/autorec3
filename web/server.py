@@ -372,8 +372,9 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ffmpeg_cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-analyzeduration", "500000", "-probesize", "1000000",
-            "-fflags", "+nobuffer", "-i", "pipe:0",
+            "-fflags", "+nobuffer+discardcorrupt+genpts", "-i", "pipe:0",
         ] + quality_args + [
+            "-af", "aresample=async=1:first_pts=0",
             "-f", "mpegts", "-mpegts_flags", "+resend_headers", "pipe:1",
         ]
         r_fd, w_fd = os.pipe()
