@@ -122,7 +122,7 @@ def get_programmes(params):
 
     conn = _get_db(EPG_DB)
     rows = conn.execute(
-        f"SELECT event_id, channel, title, description, start_time, end_time, category FROM programme {where} ORDER BY start_time, channel LIMIT ? OFFSET ?",
+        f"SELECT event_id, channel, title, description, start_time, end_time, category, extra FROM programme {where} ORDER BY start_time, channel LIMIT ? OFFSET ?",
         args + [limit, offset],
     ).fetchall()
     programmes = [dict(r) for r in rows]
@@ -876,6 +876,66 @@ def get_recordings(_params):
     return _json_response({"series": series})
 
 
+# --- ストレージ API ---
+
+def get_storage(_params):
+    """GET /api/storage - ディスク使用状況 + シリーズ別内訳"""
+    # ディスク全体の情報
+    try:
+        st = os.statvfs(RECORD_DIR)
+    except OSError as e:
+        return _error(f"RECORD_DIR にアクセスできません: {e}", 500)
+
+    total = st.f_frsize * st.f_blocks
+    free = st.f_frsize * st.f_bavail
+    used = total - free
+    usage_percent = round((used / total) * 100, 1) if total > 0 else 0.0
+
+    disk = {
+        "path": RECORD_DIR,
+        "total": total,
+        "used": used,
+        "free": free,
+        "usage_percent": usage_percent,
+    }
+
+    # シリーズ別サイズ集計 (.ts ファイルのみ)
+    series = []
+    if os.path.isdir(RECORD_DIR):
+        try:
+            with os.scandir(RECORD_DIR) as entries:
+                for entry in entries:
+                    if not entry.is_dir(follow_symlinks=False):
+                        continue
+                    file_count = 0
+                    total_size = 0
+                    try:
+                        with os.scandir(entry.path) as sub_entries:
+                            for f in sub_entries:
+                                if not f.is_file(follow_symlinks=False):
+                                    continue
+                                if not f.name.endswith(".ts"):
+                                    continue
+                                try:
+                                    total_size += f.stat().st_size
+                                    file_count += 1
+                                except OSError:
+                                    continue
+                    except OSError:
+                        continue
+                    if file_count > 0:
+                        series.append({
+                            "name": entry.name,
+                            "file_count": file_count,
+                            "total_size": total_size,
+                        })
+        except OSError:
+            pass
+
+    series.sort(key=lambda s: s["total_size"], reverse=True)
+    return _json_response({"disk": disk, "series": series})
+
+
 # --- NX-Jikkyo プロキシ ---
 
 def proxy_jikkyo_channel(jk_id):
@@ -993,6 +1053,10 @@ def handle_request(method, path, params, body=b""):
         return start_live_recording(body)
     if method == "POST" and path == "/api/live/record/stop":
         return stop_live_recording(body)
+
+    # ストレージ
+    if method == "GET" and path == "/api/storage":
+        return get_storage(params)
 
     # 録画済みファイル
     if method == "GET" and path == "/api/recordings":

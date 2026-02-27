@@ -374,7 +374,7 @@ function renderEPGGrid(programmes, container, options) {
             if (height <= 0) return;
 
             const catCls = categoryClass(p.category);
-            html += `<div class="epg-programme epg-cell ${catCls}" style="top:${top}px;height:${height}px" onmouseenter="showProgrammeDetail(this, ${p.idx})" onclick="showProgrammeDetail(this, ${p.idx})">`;
+            html += `<div class="epg-programme epg-cell ${catCls}" style="top:${top}px;height:${height}px" onclick="showProgrammeDetail(this, ${p.idx})">`;
             html += `<div class="epg-prog-time">${formatTime(p.start_time)}</div>`;
             html += `<div class="epg-prog-title">${escapeHtml(p.title)}</div>`;
             html += '</div>';
@@ -440,24 +440,61 @@ function renderEPGTable(programmes) {
     renderEPGGrid(programmes, container, { showNowLine: true, autoScroll: true });
 }
 
-/* 番組詳細表示 */
-let _detailHideTimer = null;
+/* カテゴリ表示用ヘルパー: JSON配列から日本語カテゴリのみ抽出 */
+function formatCategory(cat) {
+    if (!cat) return '';
+    let arr;
+    if (typeof cat === 'string') {
+        try { arr = JSON.parse(cat); } catch { return cat; }
+    } else {
+        arr = cat;
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return '';
+    // 日本語カテゴリのみ抽出 (英語キーを除外)
+    const ja = arr.filter(c => typeof c === 'string' && /[^\x00-\x7F]/.test(c));
+    // 重複除去
+    return [...new Set(ja)].join('・');
+}
 
+/* 番組extra表示用ヘルパー */
+function formatExtra(extra) {
+    if (!extra) return '';
+    let obj;
+    if (typeof extra === 'string') {
+        try { obj = JSON.parse(extra); } catch { return ''; }
+    } else {
+        obj = extra;
+    }
+    if (!obj || typeof obj !== 'object' || Object.keys(obj).length === 0) return '';
+    const parts = [];
+    for (const [key, val] of Object.entries(obj)) {
+        if (val === null || val === undefined || val === '') continue;
+        if (Array.isArray(val)) {
+            if (val.length > 0) parts.push(`${key}: ${val.join(', ')}`);
+        } else {
+            parts.push(`${key}: ${val}`);
+        }
+    }
+    return parts.join(' / ');
+}
+
+/* 番組詳細表示 */
 function showProgrammeDetail(el, idx) {
     const p = window._programmes[idx];
     const detail = document.getElementById('programme-detail');
     const isMobile = window.innerWidth < 768;
 
-    // 非表示タイマーをキャンセル
-    if (_detailHideTimer) { clearTimeout(_detailHideTimer); _detailHideTimer = null; }
+    const catText = formatCategory(p.category);
+    const extraText = formatExtra(p.extra);
 
     detail.innerHTML = `
         <h4>${escapeHtml(p.title)}</h4>
         <div class="meta">
             ${escapeHtml(p.channel)} | ${formatDateTime(p.start_time)} - ${formatTime(p.end_time)}
-            ${p.category ? ' | ' + escapeHtml(p.category) : ''}
+            ${catText ? ' | ' + escapeHtml(catText) : ''}
         </div>
         <div class="desc">${escapeHtml(p.description || '')}</div>
+        ${extraText ? '<div class="programme-extra">' + escapeHtml(extraText) + '</div>' : ''}
         <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="directSchedule(${idx})">
                 <i class="ph ph-calendar-check"></i> 録画予約
@@ -485,36 +522,7 @@ function showProgrammeDetail(el, idx) {
     detail.classList.add('active');
 }
 
-function hideProgrammeDetail() {
-    _detailHideTimer = setTimeout(() => {
-        document.getElementById('programme-detail').classList.remove('active');
-    }, 200);
-}
-
-// ポップアップ自体にマウスが入ったら非表示をキャンセル
-document.addEventListener('DOMContentLoaded', () => {
-    const detail = document.getElementById('programme-detail');
-    if (detail) {
-        detail.addEventListener('mouseenter', () => {
-            if (_detailHideTimer) { clearTimeout(_detailHideTimer); _detailHideTimer = null; }
-        });
-        detail.addEventListener('mouseleave', () => {
-            hideProgrammeDetail();
-        });
-    }
-});
-
-// 番組ブロックからマウスが離れたら非表示（遅延付き）
-document.addEventListener('mouseout', (e) => {
-    if (e.target.closest && e.target.closest('.epg-cell')) {
-        const related = e.relatedTarget;
-        if (!related || (!related.closest('.epg-cell') && !related.closest('.programme-detail'))) {
-            hideProgrammeDetail();
-        }
-    }
-});
-
-// クリックで他の場所を押した場合も閉じる
+// クリックで他の場所を押した場合は閉じる
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.epg-cell') && !e.target.closest('.programme-detail')) {
         document.getElementById('programme-detail').classList.remove('active');

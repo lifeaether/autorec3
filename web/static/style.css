@@ -1015,6 +1015,13 @@ button i[class*="ph"],
     line-height: 1.7;
 }
 
+.programme-extra {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    line-height: 1.6;
+}
+
 .programme-detail .btn {
     min-height: 44px;
 }
