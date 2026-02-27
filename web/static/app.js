@@ -855,18 +855,41 @@ async function loadStorage() {
 
         let html = '';
 
-        // ディスク概要カード
+        // ディスク概要カード (ドーナツチャート)
+        const usedPct = Math.min(Math.max(disk.usage_percent, 0), 100);
+        const radius = 54;
+        const circumference = 2 * Math.PI * radius;
+        const usedDash = circumference * usedPct / 100;
+        const freeDash = circumference - usedDash;
+        const freeColor = 'var(--bg-tertiary, #3a3a3c)';
+
         html += '<div class="card" style="margin-bottom:1rem">';
         html += '<h3 style="margin-bottom:0.75rem">ディスク使用状況</h3>';
-        html += `<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem">${escapeHtml(disk.path)}</p>`;
-        html += '<div style="background:var(--bg-secondary);border-radius:6px;height:20px;overflow:hidden;margin-bottom:0.75rem">';
-        html += `<div style="background:${barColor};height:100%;width:${disk.usage_percent}%;border-radius:6px;transition:width 0.3s"></div>`;
+        html += `<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem">${escapeHtml(disk.path)}</p>`;
+        html += '<div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">';
+
+        // SVG ドーナツチャート
+        html += '<div style="position:relative;width:180px;height:180px;flex-shrink:0">';
+        html += `<svg viewBox="0 0 128 128" style="width:100%;height:100%;transform:rotate(-90deg)">`;
+        html += `<circle cx="64" cy="64" r="${radius}" fill="none" stroke="${freeColor}" stroke-width="16"/>`;
+        if (usedPct > 0) {
+            html += `<circle cx="64" cy="64" r="${radius}" fill="none" stroke="${barColor}" stroke-width="16" `
+                  + `stroke-dasharray="${usedDash} ${freeDash}" stroke-linecap="round"/>`;
+        }
+        html += '</svg>';
+        html += `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">`;
+        html += `<span style="font-size:1.5rem;font-weight:700;color:${barColor}">${disk.usage_percent}%</span>`;
+        html += `<span style="font-size:0.7rem;color:var(--text-muted)">使用率</span>`;
         html += '</div>';
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:0.5rem;font-size:0.9rem">';
-        html += `<div><span style="color:var(--text-muted)">使用済み</span><br><strong>${formatFileSize(disk.used)}</strong></div>`;
-        html += `<div><span style="color:var(--text-muted)">空き</span><br><strong>${formatFileSize(disk.free)}</strong></div>`;
-        html += `<div><span style="color:var(--text-muted)">合計</span><br><strong>${formatFileSize(disk.total)}</strong></div>`;
-        html += `<div><span style="color:var(--text-muted)">使用率</span><br><strong style="color:${barColor}">${disk.usage_percent}%</strong></div>`;
+        html += '</div>';
+
+        // 凡例・数値
+        html += '<div style="display:grid;gap:0.6rem;font-size:0.9rem;flex:1;min-width:160px">';
+        html += `<div style="display:flex;align-items:center;gap:0.5rem"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${barColor}"></span><span style="color:var(--text-muted)">使用済み</span><strong style="margin-left:auto">${formatFileSize(disk.used)}</strong></div>`;
+        html += `<div style="display:flex;align-items:center;gap:0.5rem"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${freeColor}"></span><span style="color:var(--text-muted)">空き</span><strong style="margin-left:auto">${formatFileSize(disk.free)}</strong></div>`;
+        html += `<div style="display:flex;align-items:center;gap:0.5rem;padding-top:0.4rem;border-top:1px solid var(--border)"><span style="color:var(--text-muted)">合計</span><strong style="margin-left:auto">${formatFileSize(disk.total)}</strong></div>`;
+        html += '</div>';
+
         html += '</div>';
         html += '</div>';
 
