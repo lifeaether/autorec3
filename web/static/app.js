@@ -1889,7 +1889,7 @@ const jikkyo = (() => {
     }
 
     function _assignLane() {
-        const now = Date.now();
+        const now = performance.now();
         for (let i = 0; i < LANE_COUNT; i++) {
             if (lanes[i] <= now) {
                 lanes[i] = now + COMMENT_DURATION();
@@ -1901,7 +1901,7 @@ const jikkyo = (() => {
         for (let i = 1; i < LANE_COUNT; i++) {
             if (lanes[i] < lanes[minIdx]) minIdx = i;
         }
-        lanes[minIdx] = Date.now() + COMMENT_DURATION();
+        lanes[minIdx] = performance.now() + COMMENT_DURATION();
         return minIdx;
     }
 
@@ -1958,10 +1958,10 @@ const jikkyo = (() => {
         activeComments.push({
             text,
             lane,
-            startTime: Date.now(),
+            startTime: performance.now(),
             textWidth: 0,
         });
-        activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION());
+        activeComments = activeComments.filter(c => performance.now() - c.startTime < COMMENT_DURATION());
 
         if (mode === 'off') return;
         if (mode === 'overlay' && !jikkyoPip.isActive()) {
@@ -2161,7 +2161,7 @@ const jikkyo = (() => {
         },
 
         getActiveComments() {
-            activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION());
+            activeComments = activeComments.filter(c => performance.now() - c.startTime < COMMENT_DURATION());
             return activeComments;
         },
 
@@ -2228,11 +2228,34 @@ const jikkyoPip = (() => {
         wrapper.insertBefore(displayVideo, wrapper.firstChild);
 
         // Canvas captureStream → displayVideo
-        displayVideo.srcObject = canvas.captureStream(30);
+        displayVideo.srcObject = canvas.captureStream(60);
         displayVideo.play().catch(() => {});
     }
 
-    function _renderFrame() {
+    function _cacheComment(c, scaledFontSize, sizeScale) {
+        const tmpCanvas = document.createElement('canvas');
+        const tmpCtx = tmpCanvas.getContext('2d');
+        tmpCtx.font = 'bold ' + scaledFontSize + 'px "Noto Sans JP", sans-serif';
+        const m = tmpCtx.measureText(c.text);
+        const pad = 4; // stroke 分の余白
+        tmpCanvas.width = Math.ceil(m.width) + pad * 2;
+        tmpCanvas.height = Math.ceil(scaledFontSize * 1.4);
+        // canvas リサイズでコンテキスト設定リセットされるため再設定
+        tmpCtx.font = 'bold ' + scaledFontSize + 'px "Noto Sans JP", sans-serif';
+        tmpCtx.textBaseline = 'top';
+        tmpCtx.strokeStyle = '#000';
+        tmpCtx.lineWidth = 3;
+        tmpCtx.lineJoin = 'round';
+        tmpCtx.strokeText(c.text, pad, 0);
+        tmpCtx.fillStyle = '#fff';
+        tmpCtx.fillText(c.text, pad, 0);
+        c._cache = tmpCanvas;
+        c._cachePad = pad;
+        c.textWidth = m.width;
+        c._fontScale = sizeScale;
+    }
+
+    function _renderFrame(timestamp) {
         if (!isRendering) return;
         const srcVideo = document.getElementById('live-video');
 
@@ -2241,35 +2264,25 @@ const jikkyoPip = (() => {
 
             const comments = jikkyo.getMode() === 'overlay' ? jikkyo.getActiveComments() : [];
             if (comments.length > 0) {
-                const now = Date.now();
                 const lineHeight = CANVAS_H / LANE_COUNT;
                 const sizeScale = (typeof jikkyoSettings !== 'undefined') ? jikkyoSettings.size : 1.0;
                 const opacityVal = (typeof jikkyoSettings !== 'undefined') ? jikkyoSettings.opacity : 0.85;
                 const scaledFontSize = Math.round(FONT_SIZE * sizeScale);
-                ctx.font = `bold ${scaledFontSize}px "Noto Sans JP", sans-serif`;
-                ctx.textBaseline = 'top';
-                ctx.globalAlpha = opacityVal;
 
                 for (let i = 0; i < comments.length; i++) {
                     const c = comments[i];
-                    const elapsed = now - c.startTime;
+                    const elapsed = timestamp - c.startTime;
                     if (elapsed > COMMENT_DURATION()) continue;
                     const progress = elapsed / COMMENT_DURATION();
 
-                    if (!c.textWidth || c._fontScale !== sizeScale) {
-                        c.textWidth = ctx.measureText(c.text).width;
-                        c._fontScale = sizeScale;
+                    if (!c._cache || c._fontScale !== sizeScale) {
+                        _cacheComment(c, scaledFontSize, sizeScale);
                     }
 
                     const x = CANVAS_W - (CANVAS_W + c.textWidth) * progress;
                     const y = c.lane * lineHeight;
-
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 3;
-                    ctx.lineJoin = 'round';
-                    ctx.strokeText(c.text, x, y);
-                    ctx.fillStyle = '#fff';
-                    ctx.fillText(c.text, x, y);
+                    ctx.globalAlpha = opacityVal;
+                    ctx.drawImage(c._cache, x - c._cachePad, y);
                 }
                 ctx.globalAlpha = 1.0;
             }
