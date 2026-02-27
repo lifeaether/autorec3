@@ -1452,7 +1452,7 @@ function closeRecordingPlayer() {
 /* --- 録画実況コメント再生 --- */
 
 const recordingJikkyo = (() => {
-    const COMMENT_DURATION_REC = 6000; // ms
+    function _getDuration() { return (typeof jikkyoSettings !== 'undefined' ? jikkyoSettings.speed : 6) * 1000; }
     const LANE_COUNT_REC = 12;
     const MAX_OVERLAY_REC = 50;
     const MAX_SIDEBAR_REC = 200;
@@ -1476,7 +1476,7 @@ const recordingJikkyo = (() => {
         const now = Date.now();
         for (let i = 0; i < LANE_COUNT_REC; i++) {
             if (lanes[i] <= now) {
-                lanes[i] = now + COMMENT_DURATION_REC;
+                lanes[i] = now + _getDuration();
                 return i;
             }
         }
@@ -1484,7 +1484,7 @@ const recordingJikkyo = (() => {
         for (let i = 1; i < LANE_COUNT_REC; i++) {
             if (lanes[i] < lanes[minIdx]) minIdx = i;
         }
-        lanes[minIdx] = Date.now() + COMMENT_DURATION_REC;
+        lanes[minIdx] = Date.now() + _getDuration();
         return minIdx;
     }
 
@@ -1509,7 +1509,7 @@ const recordingJikkyo = (() => {
         span.style.setProperty('--jikkyo-dist', '-' + totalDist + 'px');
         span.style.visibility = '';
         span.offsetHeight;
-        span.style.animation = 'jikkyo-flow ' + COMMENT_DURATION_REC + 'ms linear forwards';
+        span.style.animation = 'jikkyo-flow ' + _getDuration() + 'ms linear forwards';
 
         overlayCount++;
         span.addEventListener('animationend', () => {
@@ -1627,9 +1627,11 @@ const recordingJikkyo = (() => {
                 loaded = true;
                 lastTickTime = -1;
 
-                // Show mode select
+                // Show mode select + settings button
                 const select = _getModeSelect();
                 if (select) select.style.display = '';
+                const settingsBtn = document.getElementById('rec-jikkyo-settings-btn');
+                if (settingsBtn) settingsBtn.style.display = '';
 
                 _updateUI();
 
@@ -1660,9 +1662,12 @@ const recordingJikkyo = (() => {
 
             _clearDisplay();
 
-            // Hide mode select
+            // Hide mode select + settings button
             const select = _getModeSelect();
             if (select) select.style.display = 'none';
+            const settingsBtn = document.getElementById('rec-jikkyo-settings-btn');
+            if (settingsBtn) settingsBtn.style.display = 'none';
+            jikkyoSettings.close();
 
             // Hide sidebar
             const sidebar = _getSidebar();
@@ -1680,6 +1685,144 @@ const recordingJikkyo = (() => {
         },
 
         getMode() { return mode; },
+    };
+})();
+
+/* --- 実況コメント設定 --- */
+
+const jikkyoSettings = (() => {
+    const DEFAULTS = { size: 1.0, opacity: 0.85, speed: 6 };
+    const KEYS = {
+        size: 'autorec-jikkyo-size',
+        opacity: 'autorec-jikkyo-opacity',
+        speed: 'autorec-jikkyo-speed',
+    };
+
+    function _load(key, fallback) {
+        const v = localStorage.getItem(key);
+        return v !== null ? parseFloat(v) : fallback;
+    }
+    let size = _load(KEYS.size, DEFAULTS.size);
+    let opacity = _load(KEYS.opacity, DEFAULTS.opacity);
+    let speed = _load(KEYS.speed, DEFAULTS.speed);
+    let popover = null;
+    let currentAnchor = null;
+
+    function _apply() {
+        // DOM overlay 用 (Canvas PiP 非使用時のブラウザ向け)
+        const liveDt = (2.1 * size).toFixed(2);
+        const liveMb = (0.85 * size).toFixed(2);
+        const recDt = (1.6 * size).toFixed(2);
+        const recMb = (1.15 * size).toFixed(2);
+
+        const old = document.getElementById('jikkyo-settings-style');
+        if (old) old.remove();
+        const styleEl = document.createElement('style');
+        styleEl.id = 'jikkyo-settings-style';
+        document.head.appendChild(styleEl);
+        const sheet = styleEl.sheet;
+        sheet.insertRule('.jikkyo-comment { opacity: ' + opacity + ' !important; font-size: ' + liveDt + 'rem !important; }', 0);
+        sheet.insertRule('.rec-video-wrapper .jikkyo-comment { font-size: ' + recDt + 'rem !important; }', 1);
+        sheet.insertRule('@media (max-width: 768px) { .jikkyo-comment { font-size: ' + liveMb + 'rem !important; } }', 2);
+        sheet.insertRule('@media (max-width: 768px) { .rec-video-wrapper .jikkyo-comment { font-size: ' + recMb + 'rem !important; } }', 3);
+        // Canvas PiP パスでは _renderFrame が jikkyoSettings を直接参照するため追加処理不要
+    }
+
+    function _save() {
+        localStorage.setItem(KEYS.size, size);
+        localStorage.setItem(KEYS.opacity, opacity);
+        localStorage.setItem(KEYS.speed, speed);
+    }
+
+    function _sizeLabel(v) {
+        if (v <= 0.7) return '小';
+        if (v <= 0.85) return 'やや小';
+        if (v <= 1.05) return '中';
+        if (v <= 1.3) return 'やや大';
+        return '大';
+    }
+
+    function _createPopover(anchorId) {
+        const el = document.createElement('div');
+        el.className = 'jikkyo-settings';
+
+        el.innerHTML =
+            '<div class="jikkyo-settings-row">' +
+                '<label>大きさ</label>' +
+                '<input type="range" min="0.7" max="1.6" step="0.1" value="' + size + '" id="js-size-range">' +
+                '<span class="jikkyo-settings-value" id="js-size-val">' + _sizeLabel(size) + '</span>' +
+            '</div>' +
+            '<div class="jikkyo-settings-row">' +
+                '<label>透明度</label>' +
+                '<input type="range" min="0.4" max="1.0" step="0.05" value="' + opacity + '" id="js-opacity-range">' +
+                '<span class="jikkyo-settings-value" id="js-opacity-val">' + Math.round(opacity * 100) + '%</span>' +
+            '</div>' +
+            '<div class="jikkyo-settings-row">' +
+                '<label>速度</label>' +
+                '<input type="range" min="4" max="8" step="1" value="' + speed + '" id="js-speed-range">' +
+                '<span class="jikkyo-settings-value" id="js-speed-val">' + speed + '秒</span>' +
+            '</div>';
+
+        el.querySelector('#js-size-range').addEventListener('input', function() {
+            size = parseFloat(this.value);
+            el.querySelector('#js-size-val').textContent = _sizeLabel(size);
+            _apply();
+            _save();
+        });
+        el.querySelector('#js-opacity-range').addEventListener('input', function() {
+            opacity = parseFloat(this.value);
+            el.querySelector('#js-opacity-val').textContent = Math.round(opacity * 100) + '%';
+            _apply();
+            _save();
+        });
+        el.querySelector('#js-speed-range').addEventListener('input', function() {
+            speed = parseFloat(this.value);
+            el.querySelector('#js-speed-val').textContent = speed + '秒';
+            _save();
+        });
+
+        return el;
+    }
+
+    function _close() {
+        if (popover) {
+            popover.remove();
+            popover = null;
+            currentAnchor = null;
+        }
+    }
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+        if (!popover) return;
+        const anchor = currentAnchor ? document.getElementById(currentAnchor) : null;
+        if (popover.contains(e.target) || (anchor && anchor.contains(e.target))) return;
+        _close();
+    });
+
+    // Apply saved settings on load
+    _apply();
+
+    return {
+        get size() { return size; },
+        get opacity() { return opacity; },
+        get speed() { return speed; },
+
+        toggle(anchorId) {
+            if (popover && currentAnchor === anchorId) {
+                _close();
+                return;
+            }
+            _close();
+            const anchor = document.getElementById(anchorId);
+            if (!anchor) return;
+            popover = _createPopover(anchorId);
+            currentAnchor = anchorId;
+            const container = anchor.closest('.live-controls') || anchor.parentElement;
+            container.appendChild(popover);
+        },
+
+        close() { _close(); },
     };
 })();
 
@@ -1701,7 +1844,7 @@ const JIKKYO_MAP = {
     'BS松竹東急': 'jk260', 'BSよしもと': 'jk265',
 };
 
-const COMMENT_DURATION = 6000; // ms — コメント表示時間
+function COMMENT_DURATION() { return (typeof jikkyoSettings !== 'undefined' ? jikkyoSettings.speed : 6) * 1000; }
 const LANE_COUNT = 12;         // コメントレーン数
 
 const jikkyo = (() => {
@@ -1746,7 +1889,7 @@ const jikkyo = (() => {
         const now = Date.now();
         for (let i = 0; i < LANE_COUNT; i++) {
             if (lanes[i] <= now) {
-                lanes[i] = now + COMMENT_DURATION;
+                lanes[i] = now + COMMENT_DURATION();
                 return i;
             }
         }
@@ -1755,7 +1898,7 @@ const jikkyo = (() => {
         for (let i = 1; i < LANE_COUNT; i++) {
             if (lanes[i] < lanes[minIdx]) minIdx = i;
         }
-        lanes[minIdx] = Date.now() + COMMENT_DURATION;
+        lanes[minIdx] = Date.now() + COMMENT_DURATION();
         return minIdx;
     }
 
@@ -1781,7 +1924,7 @@ const jikkyo = (() => {
         span.style.visibility = '';
         // Trigger reflow then start animation
         span.offsetHeight;
-        span.style.animation = `jikkyo-flow ${COMMENT_DURATION}ms linear forwards`;
+        span.style.animation = `jikkyo-flow ${COMMENT_DURATION()}ms linear forwards`;
 
         overlayCount++;
         span.addEventListener('animationend', () => {
@@ -1815,7 +1958,7 @@ const jikkyo = (() => {
             startTime: Date.now(),
             textWidth: 0,
         });
-        activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION);
+        activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION());
 
         if (mode === 'off') return;
         if (mode === 'overlay' && !jikkyoPip.isActive()) {
@@ -2015,7 +2158,7 @@ const jikkyo = (() => {
         },
 
         getActiveComments() {
-            activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION);
+            activeComments = activeComments.filter(c => Date.now() - c.startTime < COMMENT_DURATION());
             return activeComments;
         },
 
@@ -2097,16 +2240,23 @@ const jikkyoPip = (() => {
             if (comments.length > 0) {
                 const now = Date.now();
                 const lineHeight = CANVAS_H / LANE_COUNT;
-                ctx.font = `bold ${FONT_SIZE}px "Noto Sans JP", sans-serif`;
+                const sizeScale = (typeof jikkyoSettings !== 'undefined') ? jikkyoSettings.size : 1.0;
+                const opacityVal = (typeof jikkyoSettings !== 'undefined') ? jikkyoSettings.opacity : 0.85;
+                const scaledFontSize = Math.round(FONT_SIZE * sizeScale);
+                ctx.font = `bold ${scaledFontSize}px "Noto Sans JP", sans-serif`;
                 ctx.textBaseline = 'top';
+                ctx.globalAlpha = opacityVal;
 
                 for (let i = 0; i < comments.length; i++) {
                     const c = comments[i];
                     const elapsed = now - c.startTime;
-                    if (elapsed > COMMENT_DURATION) continue;
-                    const progress = elapsed / COMMENT_DURATION;
+                    if (elapsed > COMMENT_DURATION()) continue;
+                    const progress = elapsed / COMMENT_DURATION();
 
-                    if (!c.textWidth) c.textWidth = ctx.measureText(c.text).width;
+                    if (!c.textWidth || c._fontScale !== sizeScale) {
+                        c.textWidth = ctx.measureText(c.text).width;
+                        c._fontScale = sizeScale;
+                    }
 
                     const x = CANVAS_W - (CANVAS_W + c.textWidth) * progress;
                     const y = c.lane * lineHeight;
@@ -2118,6 +2268,7 @@ const jikkyoPip = (() => {
                     ctx.fillStyle = '#fff';
                     ctx.fillText(c.text, x, y);
                 }
+                ctx.globalAlpha = 1.0;
             }
         }
 

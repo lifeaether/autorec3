@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=21">
+    <link rel="stylesheet" href="/style.css?v=26">
 </head>
 <body>
     <nav>
@@ -184,6 +184,7 @@
                                         <option value="sidebar">実況: サイドバー</option>
                                         <option value="off">実況: OFF</option>
                                     </select>
+                                    <button class="lc-btn" id="jikkyo-settings-btn" onclick="jikkyoSettings.toggle('jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
                                     <button class="lc-btn" id="pip-btn" onclick="jikkyoPip.toggle()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
                                     <button class="lc-btn" id="lc-fullscreen" onclick="liveControls.toggleFullscreen()" title="フルスクリーン"></button>
                                 </div>
@@ -400,6 +401,7 @@
                         <option value="sidebar">実況: サイドバー</option>
                         <option value="off">実況: OFF</option>
                     </select>
+                    <button class="btn btn-secondary btn-sm btn-icon" id="rec-jikkyo-settings-btn" style="display:none" onclick="jikkyoSettings.toggle('rec-jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
                 </div>
             </div>
             <p class="video-modal-desc" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem">ffmpeg でトランスコードして再生しています。シークバーで任意の位置から再生できます。</p>
@@ -407,7 +409,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
-    <script src="/app.js?v=21"></script>
+    <script src="/app.js?v=26"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
