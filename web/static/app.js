@@ -1290,6 +1290,7 @@ const recControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
+            recPip.exit();
             if (document.pictureInPictureElement) {
                 document.exitPictureInPicture().catch(() => {});
             }
@@ -1322,6 +1323,13 @@ const recControls = (() => {
         },
 
         async togglePip() {
+            // recPip が有効 (Canvas 合成中) なら委譲
+            if (recPip.isActive()) {
+                await recPip.toggle();
+                _showControls();
+                return;
+            }
+            // フォールバック: 直接 PiP
             if (document.pictureInPictureElement) {
                 document.exitPictureInPicture().catch(() => {});
                 return;
@@ -1370,7 +1378,8 @@ function playRecording(path, name, hasNicojk) {
                 // .nicojk がある場合、実況コメントを読み込む (start_time を渡す)
                 if (hasNicojk) {
                     const nicojkPath = encodeURIComponent(recordingPath.replace(/\.ts$/, '.nicojk')).replace(/%2F/g, '/');
-                    recordingJikkyo.load(nicojkPath, data.start_time || 0);
+                    recordingJikkyo.load(nicojkPath, data.start_time || 0)
+                        .then(() => { recPip.warmUp(); });
                 }
             })
             .catch(() => {});
@@ -1431,6 +1440,7 @@ function updateSeekBar() {
 }
 
 function closeRecordingPlayer() {
+    recPip.cleanup();
     recControls.cleanup();
     if (seekUpdateTimer) {
         clearInterval(seekUpdateTimer);
@@ -1469,6 +1479,7 @@ const recordingJikkyo = (() => {
     let lanes = new Array(LANE_COUNT_REC).fill(0);
     let overlayCount = 0;
     let loaded = false;
+    let activeComments = []; // Canvas PiP 用コメントデータ
 
     function _getOverlay() { return document.getElementById('rec-jikkyo-overlay'); }
     function _getSidebar() { return document.getElementById('rec-jikkyo-sidebar'); }
@@ -1476,7 +1487,7 @@ const recordingJikkyo = (() => {
     function _getModeSelect() { return document.getElementById('rec-jikkyo-mode-select'); }
 
     function _assignLane() {
-        const now = Date.now();
+        const now = performance.now();
         for (let i = 0; i < LANE_COUNT_REC; i++) {
             if (lanes[i] <= now) {
                 lanes[i] = now + _getDuration();
@@ -1487,16 +1498,15 @@ const recordingJikkyo = (() => {
         for (let i = 1; i < LANE_COUNT_REC; i++) {
             if (lanes[i] < lanes[minIdx]) minIdx = i;
         }
-        lanes[minIdx] = Date.now() + _getDuration();
+        lanes[minIdx] = performance.now() + _getDuration();
         return minIdx;
     }
 
-    function _renderOverlay(text) {
+    function _renderOverlay(text, lane) {
         const overlay = _getOverlay();
         if (!overlay) return;
         if (overlayCount >= MAX_OVERLAY_REC) return;
 
-        const lane = _assignLane();
         const overlayWidth = overlay.clientWidth;
         const lineHeight = overlay.clientHeight / LANE_COUNT_REC;
 
@@ -1534,8 +1544,21 @@ const recordingJikkyo = (() => {
     }
 
     function _onComment(text) {
+        const lane = _assignLane();
+
+        // Always track for Canvas PiP regardless of mode
+        activeComments.push({
+            text,
+            lane,
+            startTime: performance.now(),
+            textWidth: 0,
+        });
+        activeComments = activeComments.filter(c => performance.now() - c.startTime < _getDuration());
+
         if (mode === 'off') return;
-        if (mode === 'overlay') _renderOverlay(text);
+        if (mode === 'overlay' && !(typeof recPip !== 'undefined' && recPip.isActive())) {
+            _renderOverlay(text, lane);
+        }
         _renderSidebar(text);
     }
 
@@ -1577,7 +1600,10 @@ const recordingJikkyo = (() => {
         const select = _getModeSelect();
 
         if (select) select.value = mode;
-        if (overlay) overlay.style.display = (mode === 'overlay') ? '' : 'none';
+        if (overlay) {
+            // Canvas 描画中は DOM オーバーレイを使わない (Canvas が描画を担当)
+            overlay.style.display = (mode === 'overlay' && !(typeof recPip !== 'undefined' && recPip.isActive())) ? '' : 'none';
+        }
         if (sidebar) {
             sidebar.style.display = (mode === 'sidebar') ? '' : 'none';
             if (mode === 'sidebar') {
@@ -1652,6 +1678,7 @@ const recordingJikkyo = (() => {
         onSeek() {
             _clearDisplay();
             lastTickTime = -1;
+            activeComments = [];
         },
 
         stop() {
@@ -1662,6 +1689,7 @@ const recordingJikkyo = (() => {
             loaded = false;
             overlayCount = 0;
             lanes.fill(0);
+            activeComments = [];
 
             _clearDisplay();
 
@@ -1688,6 +1716,11 @@ const recordingJikkyo = (() => {
         },
 
         getMode() { return mode; },
+
+        getActiveComments() {
+            activeComments = activeComments.filter(c => performance.now() - c.startTime < _getDuration());
+            return activeComments;
+        },
     };
 })();
 
@@ -2369,6 +2402,202 @@ const jikkyoPip = (() => {
             const srcVideo = document.getElementById('live-video');
             if (srcVideo) srcVideo.style.cssText = '';
             const overlay = document.getElementById('jikkyo-overlay');
+            if (overlay) overlay.style.display = '';
+        },
+
+        isSupported() {
+            return 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+        },
+
+        isActive() {
+            return isRendering;
+        },
+    };
+})();
+
+/* --- 録画プレーヤー Canvas 合成 + PiP --- */
+// Canvas で映像+コメントを合成。録画済みプレーヤー用 PiP でコメント表示。
+
+const recPip = (() => {
+    const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const FONT_SIZE = 28;
+    const CANVAS_W = 960;
+    const CANVAS_H = 540;
+
+    let canvas = null;
+    let ctx = null;
+    let displayVideo = null;
+    let animFrameId = null;
+    let isRendering = false;
+
+    function _cacheComment(c, scaledFontSize, sizeScale) {
+        const tmpCanvas = document.createElement('canvas');
+        const tmpCtx = tmpCanvas.getContext('2d');
+        tmpCtx.font = 'bold ' + scaledFontSize + 'px "Noto Sans JP", sans-serif';
+        const m = tmpCtx.measureText(c.text);
+        const pad = 4;
+        tmpCanvas.width = Math.ceil(m.width) + pad * 2;
+        tmpCanvas.height = Math.ceil(scaledFontSize * 1.4);
+        tmpCtx.font = 'bold ' + scaledFontSize + 'px "Noto Sans JP", sans-serif';
+        tmpCtx.textBaseline = 'top';
+        tmpCtx.strokeStyle = '#000';
+        tmpCtx.lineWidth = 3;
+        tmpCtx.lineJoin = 'round';
+        tmpCtx.strokeText(c.text, pad, 0);
+        tmpCtx.fillStyle = '#fff';
+        tmpCtx.fillText(c.text, pad, 0);
+        c._cache = tmpCanvas;
+        c._cachePad = pad;
+        c.textWidth = m.width;
+        c._fontScale = sizeScale;
+    }
+
+    function _getDuration() {
+        return (typeof jikkyoSettings !== 'undefined' ? jikkyoSettings.speed : 6) * 1000;
+    }
+
+    function _setup() {
+        if (canvas) return;
+
+        const srcVideo = document.getElementById('video-player');
+        const wrapper = document.querySelector('.rec-video-wrapper');
+        if (!srcVideo || !wrapper) return;
+
+        canvas = document.createElement('canvas');
+        canvas.width = CANVAS_W;
+        canvas.height = CANVAS_H;
+        canvas.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;pointer-events:none';
+        document.body.appendChild(canvas);
+        ctx = canvas.getContext('2d');
+
+        srcVideo.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none';
+
+        const overlay = document.getElementById('rec-jikkyo-overlay');
+        if (overlay) overlay.style.display = 'none';
+
+        displayVideo = document.createElement('video');
+        displayVideo.id = 'rec-canvas';
+        displayVideo.muted = true;
+        displayVideo.playsInline = true;
+        displayVideo.autoplay = true;
+        if (_isIOS) displayVideo.disablePictureInPicture = true;
+        displayVideo.style.cssText = 'display:block;width:100%;background:#000';
+        wrapper.insertBefore(displayVideo, wrapper.firstChild);
+
+        displayVideo.srcObject = canvas.captureStream(60);
+        displayVideo.play().catch(() => {});
+    }
+
+    function _renderFrame(timestamp) {
+        if (!isRendering) return;
+        const srcVideo = document.getElementById('video-player');
+
+        if (srcVideo && srcVideo.readyState >= 2) {
+            ctx.drawImage(srcVideo, 0, 0, CANVAS_W, CANVAS_H);
+
+            const comments = recordingJikkyo.getMode() === 'overlay' ? recordingJikkyo.getActiveComments() : [];
+            if (comments.length > 0) {
+                const lineHeight = CANVAS_H / LANE_COUNT;
+                const sizeScale = (typeof jikkyoSettings !== 'undefined') ? jikkyoSettings.size : 1.0;
+                const opacityVal = (typeof jikkyoSettings !== 'undefined') ? jikkyoSettings.opacity : 0.85;
+                const scaledFontSize = Math.round(FONT_SIZE * sizeScale);
+
+                for (let i = 0; i < comments.length; i++) {
+                    const c = comments[i];
+                    const elapsed = timestamp - c.startTime;
+                    if (elapsed > _getDuration()) continue;
+                    const progress = elapsed / _getDuration();
+
+                    if (!c._cache || c._fontScale !== sizeScale) {
+                        _cacheComment(c, scaledFontSize, sizeScale);
+                    }
+
+                    const x = CANVAS_W - (CANVAS_W + c.textWidth) * progress;
+                    const y = c.lane * lineHeight;
+                    ctx.globalAlpha = opacityVal;
+                    ctx.drawImage(c._cache, x - c._cachePad, y);
+                }
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        animFrameId = requestAnimationFrame(_renderFrame);
+    }
+
+    function _startRenderLoop() {
+        if (isRendering) return;
+        isRendering = true;
+        animFrameId = requestAnimationFrame(_renderFrame);
+    }
+
+    function _stopRenderLoop() {
+        isRendering = false;
+        if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+    }
+
+    return {
+        warmUp() {
+            _setup();
+            _startRenderLoop();
+        },
+
+        async toggle() {
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture().catch(() => {});
+                return;
+            }
+
+            const pipTarget = (_isIOS || !displayVideo)
+                ? document.getElementById('video-player')
+                : displayVideo;
+            if (!pipTarget) return;
+
+            try {
+                await pipTarget.requestPictureInPicture();
+
+                const btn = document.getElementById('rc-pip');
+                if (btn) btn.classList.add('active');
+
+                pipTarget.addEventListener('leavepictureinpicture', () => {
+                    const b = document.getElementById('rc-pip');
+                    if (b) b.classList.remove('active');
+                    if (pipTarget.paused) pipTarget.play().catch(() => {});
+                }, { once: true });
+            } catch (e) { /* ignore */ }
+        },
+
+        exit() {
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture().catch(() => {});
+            }
+            const btn = document.getElementById('rc-pip');
+            if (btn) btn.classList.remove('active');
+        },
+
+        cleanup() {
+            this.exit();
+            _stopRenderLoop();
+
+            if (displayVideo) {
+                displayVideo.pause();
+                displayVideo.srcObject = null;
+                if (displayVideo.parentNode) displayVideo.parentNode.removeChild(displayVideo);
+                displayVideo = null;
+            }
+
+            if (canvas) {
+                if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+                canvas = null;
+                ctx = null;
+            }
+            const srcVideo = document.getElementById('video-player');
+            if (srcVideo) srcVideo.style.cssText = '';
+            const overlay = document.getElementById('rec-jikkyo-overlay');
             if (overlay) overlay.style.display = '';
         },
 
