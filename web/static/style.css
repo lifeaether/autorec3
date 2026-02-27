@@ -347,11 +347,53 @@ h3 {
     margin-bottom: 0.2rem;
 }
 
+.rule-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.rule-card-header .rule-title {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rule-card-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.rule-card-controls .btn-icon {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0.3rem;
+}
+
 .schedule-meta,
 .rule-meta {
     font-size: 0.8rem;
     color: var(--text-muted);
     margin-bottom: 0.3rem;
+}
+
+.rule-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    margin-right: 0.75em;
+}
+
+.rule-meta-item i[class*="ph"] {
+    font-size: 1em;
+    opacity: 0.7;
 }
 
 .log-header {
@@ -378,10 +420,11 @@ h3 {
     margin-top: 0.15rem;
 }
 
-.rule-actions {
+.rule-table-actions {
     display: flex;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
 }
 
 /* ===== Tables ===== */

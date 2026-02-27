@@ -537,7 +537,7 @@ async function loadRules() {
     try {
         const data = await API.get('/api/rules');
         if (!data.rules || data.rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
             if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">ルールなし</p>';
             return;
         }
@@ -548,34 +548,40 @@ async function loadRules() {
                 <td>${escapeHtml(r.keyword || '*')}</td>
                 <td>${escapeHtml(r.channel || '-')}</td>
                 <td>${escapeHtml(r.category || '-')}</td>
-                <td><label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRuleEnabled(${r.id}, ${r.enabled})"><span class="switch-slider"></span></label></td>
                 <td>
-                    <button class="btn btn-secondary btn-sm btn-icon" onclick="editRule(${r.id})" title="編集"><i class="ph ph-pencil-simple"></i></button>
-                    <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')" title="削除"><i class="ph ph-trash"></i></button>
+                    <div class="rule-table-actions">
+                        <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRuleEnabled(${r.id}, ${r.enabled})"><span class="switch-slider"></span></label>
+                        <button class="btn btn-secondary btn-sm btn-icon" onclick="editRule(${r.id})" title="編集"><i class="ph ph-pencil-simple"></i></button>
+                        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')" title="削除"><i class="ph ph-trash"></i></button>
+                    </div>
                 </td>
             </tr>
         `).join('');
 
         // Card list for mobile
         if (cardsEl) {
-            cardsEl.innerHTML = data.rules.map(r => `
+            cardsEl.innerHTML = data.rules.map(r => {
+                const catText = formatCategory(r.category);
+                return `
                 <div class="rule-card">
-                    <div class="rule-title">${escapeHtml(r.name)}</div>
+                    <div class="rule-card-header">
+                        <div class="rule-title">${escapeHtml(r.name)}</div>
+                        <div class="rule-card-controls">
+                            <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRuleEnabled(${r.id}, ${r.enabled})"><span class="switch-slider"></span></label>
+                            <button class="btn btn-secondary btn-sm btn-icon" onclick="editRule(${r.id})" title="編集"><i class="ph ph-pencil-simple"></i></button>
+                            <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')" title="削除"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </div>
                     <div class="rule-meta">
-                        キーワード: ${escapeHtml(r.keyword || '*')}
-                        ${r.channel ? ' | CH: ' + escapeHtml(r.channel) : ''}
-                        ${r.category ? ' | ジャンル: ' + escapeHtml(r.category) : ''}
-                        | <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRuleEnabled(${r.id}, ${r.enabled})"><span class="switch-slider"></span></label>
+                        <span class="rule-meta-item"><i class="ph ph-magnifying-glass"></i>${escapeHtml(r.keyword || 'すべて')}</span>
+                        ${r.channel ? '<span class="rule-meta-item"><i class="ph ph-television"></i>' + escapeHtml(r.channel) + '</span>' : ''}
+                        ${catText ? '<span class="rule-meta-item"><i class="ph ph-tag"></i>' + escapeHtml(catText) + '</span>' : ''}
                     </div>
-                    <div class="rule-actions">
-                        <button class="btn btn-secondary btn-sm btn-icon" onclick="editRule(${r.id})" title="編集"><i class="ph ph-pencil-simple"></i></button>
-                        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')" title="削除"><i class="ph ph-trash"></i></button>
-                    </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
         if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
