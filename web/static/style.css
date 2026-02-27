@@ -149,6 +149,13 @@ nav .logo {
     white-space: nowrap;
     flex-shrink: 0;
     text-shadow: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+nav .logo i[class*="ph"] {
+    font-size: 1.25rem;
 }
 
 /* Desktop nav tabs */
@@ -166,11 +173,16 @@ nav .logo {
     height: 100%;
     display: flex;
     align-items: center;
+    gap: 0.3rem;
     font-size: 0.9rem;
     font-weight: 500;
     white-space: nowrap;
     position: relative;
     transition: color var(--transition-fast);
+}
+
+.nav-tab i[class*="ph"] {
+    font-size: 1.1rem;
 }
 
 .nav-tab:hover {
