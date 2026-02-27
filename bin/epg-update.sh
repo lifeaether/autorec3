@@ -11,12 +11,20 @@ source "$AUTOREC_DIR/conf/autorec.conf"
 SCAN_DURATION="${1:-30}"
 CHANNELS_CONF="$AUTOREC_DIR/conf/channels.conf"
 
+# ログ記録関数 (schedule_id = NULL でDBに記録)
+log_msg() {
+    local level="$1"
+    local msg="$2"
+    sqlite3 "$AUTOREC_DB" "INSERT INTO log (schedule_id, level, message) VALUES (NULL, '$level', '$(echo "$msg" | sed "s/'/''/g")');"
+    echo "[epg-update][$level] $msg"
+}
+
 echo "[epg-update] === EPG一括更新開始 ==="
 echo "[epg-update] 日時: $(date '+%Y-%m-%d %H:%M:%S')"
 
 # 録画中チェック: recpt1 プロセスが動いていたら中断
 if pgrep -x recpt1 >/dev/null 2>&1; then
-    echo "[epg-update] 警告: recpt1 が実行中のため、EPG更新をスキップします" >&2
+    log_msg "warn" "EPG更新スキップ (recpt1 実行中)"
     exit 0
 fi
 
@@ -29,6 +37,8 @@ fi
 SUCCESS=0
 FAIL=0
 TOTAL=0
+
+log_msg "info" "EPG更新開始"
 
 while IFS= read -r line; do
     # コメント・空行スキップ
@@ -58,6 +68,12 @@ echo "[epg-update] === EPG更新完了 ==="
 echo "[epg-update] 成功: $SUCCESS / $TOTAL チャンネル"
 [ "$FAIL" -gt 0 ] && echo "[epg-update] 失敗: $FAIL チャンネル"
 echo "[epg-update] 日時: $(date '+%Y-%m-%d %H:%M:%S')"
+
+if [ "$FAIL" -gt 0 ]; then
+    log_msg "warn" "EPG更新完了 (成功: $SUCCESS/$TOTAL, 失敗: $FAIL チャンネル)"
+else
+    log_msg "info" "EPG更新完了 (成功: $SUCCESS/$TOTAL チャンネル)"
+fi
 
 # スケジュール更新を実行
 echo ""
