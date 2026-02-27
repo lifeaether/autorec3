@@ -704,6 +704,21 @@ button, .btn {
     text-decoration: none;
 }
 
+button i[class*="ph"],
+.btn i[class*="ph"] {
+    font-size: 1.25em;
+    line-height: 1;
+}
+
+.btn-icon {
+    padding: 0.45rem 0.55rem;
+    min-width: 36px;
+}
+
+.btn-icon i[class*="ph"] {
+    font-size: 1.15rem;
+}
+
 .btn-primary {
     background: var(--accent);
     color: white;
@@ -807,12 +822,16 @@ button, .btn {
 
 /* ===== Status Badges ===== */
 .badge {
-    display: inline-block;
-    padding: 0.2rem 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+    padding: 0.3rem 0.5rem;
     border-radius: var(--radius-pill);
-    font-size: 0.75rem;
+    font-size: 1.05rem;
     font-weight: 500;
     letter-spacing: 0.01em;
+    line-height: 1;
 }
 
 .badge-scheduled { background: rgba(0, 122, 255, 0.12); color: #007AFF; }
@@ -823,8 +842,51 @@ button, .btn {
 .badge-info { background: rgba(0, 122, 255, 0.12); color: #007AFF; }
 .badge-warn { background: rgba(255, 149, 0, 0.12); color: #CC7700; }
 .badge-error { background: rgba(255, 59, 48, 0.12); color: #D70015; }
-.badge-enabled { background: rgba(52, 199, 89, 0.12); color: #248A3D; }
-.badge-disabled { background: rgba(142, 142, 147, 0.12); color: #8e8e93; }
+/* ===== Toggle Switch ===== */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 26px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.switch-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 13px;
+    transition: background 0.25s ease;
+}
+
+.switch-slider::before {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    left: 2px;
+    bottom: 2px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    transition: transform 0.25s ease;
+}
+
+.switch input:checked + .switch-slider {
+    background: var(--success);
+}
+
+.switch input:checked + .switch-slider::before {
+    transform: translateX(16px);
+}
 
 /* ===== Modal ===== */
 .modal-overlay {
@@ -984,9 +1046,11 @@ button, .btn {
 
 .recordings-series-arrow {
     color: var(--accent);
-    font-size: 0.75rem;
-    width: 1em;
-    display: inline-block;
+    font-size: 0.85rem;
+    width: 1.2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: transform var(--transition-fast);
 }
 
@@ -1147,6 +1211,11 @@ button, .btn {
 
 .lc-btn svg {
     flex-shrink: 0;
+}
+
+.lc-btn i[class*="ph"] {
+    font-size: 1.5rem;
+    line-height: 1;
 }
 
 .lc-volume {
@@ -1471,9 +1540,9 @@ button, .btn {
     border-radius: 50%;
     background: var(--bg-card);
     color: var(--text-muted);
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    font-size: 1.3rem;
+    font-weight: normal;
+    letter-spacing: 0;
     line-height: 1;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -1514,6 +1583,14 @@ button, .btn {
     text-decoration: none;
     transition: background var(--transition-fast);
     white-space: nowrap;
+}
+
+.nav-dropdown-menu .nav-link i[class*="ph"] {
+    font-size: 1.25rem;
+    margin-right: 0.5rem;
+    vertical-align: -0.1em;
+    width: 1.25em;
+    text-align: center;
 }
 
 .nav-dropdown-menu .nav-link:hover {
@@ -1609,11 +1686,13 @@ button, .btn {
     .nav-mobile a,
     .nav-mobile .nav-more-btn {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 0.15rem;
         color: var(--text-muted);
         text-decoration: none;
-        font-size: 0.8rem;
+        font-size: 0.7rem;
         font-weight: 500;
         padding: 0.3rem 0.2rem;
         min-height: 52px;
@@ -1622,6 +1701,12 @@ button, .btn {
         border: none;
         background: none;
         font-family: inherit;
+    }
+
+    .nav-mobile a i[class*="ph"],
+    .nav-mobile .nav-more-btn i[class*="ph"] {
+        font-size: 1.5rem;
+        line-height: 1;
     }
 
     .nav-mobile a.active {
@@ -1674,7 +1759,13 @@ button, .btn {
         margin: 0.25rem 1.25rem;
     }
 
-    /* Drawer icons — disabled (text only) */
+    .more-drawer a i[class*="ph"] {
+        font-size: 1.35rem;
+        margin-right: 0.75rem;
+        vertical-align: -0.1em;
+        width: 1.35em;
+        text-align: center;
+    }
 
     .more-drawer-backdrop {
         display: none;
@@ -2197,8 +2288,13 @@ button, .btn {
 @media (max-width: 480px) {
     .nav-mobile a,
     .nav-mobile .nav-more-btn {
-        font-size: 0.65rem;
+        font-size: 0.6rem;
         padding: 0.25rem 0.15rem;
+    }
+
+    .nav-mobile a i[class*="ph"],
+    .nav-mobile .nav-more-btn i[class*="ph"] {
+        font-size: 1.3rem;
     }
 
     h2 {
@@ -2374,8 +2470,13 @@ button, .btn {
     .badge-info { background: rgba(10, 132, 255, 0.18); color: #409CFF; }
     .badge-warn { background: rgba(255, 159, 10, 0.18); color: #FFB340; }
     .badge-error { background: rgba(255, 69, 58, 0.18); color: #FF6961; }
-    .badge-enabled { background: rgba(48, 209, 88, 0.18); color: #30D158; }
-    .badge-disabled { background: rgba(152, 152, 157, 0.18); color: #98989d; }
+    .switch-slider {
+        background: #636366;
+    }
+
+    .switch-slider::before {
+        background: #e5e5ea;
+    }
 
     /* PiP active */
     #pip-btn.active {

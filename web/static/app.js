@@ -72,11 +72,24 @@ function nowTimestamp() {
 }
 
 function statusBadge(status) {
-    return `<span class="badge badge-${status}">${status}</span>`;
+    const icons = {
+        scheduled: '<i class="ph ph-clock"></i>',
+        recording: '<i class="ph-fill ph-record"></i>',
+        done: '<i class="ph ph-check-circle"></i>',
+        failed: '<i class="ph ph-x-circle"></i>',
+        skipped: '<i class="ph ph-skip-forward"></i>',
+    };
+    const label = { scheduled: '予定', recording: '録画中', done: '完了', failed: '失敗', skipped: 'スキップ' };
+    return `<span class="badge badge-${status}" title="${label[status] || status}">${icons[status] || status}</span>`;
 }
 
 function levelBadge(level) {
-    return `<span class="badge badge-${level}">${level}</span>`;
+    const icons = {
+        info: '<i class="ph ph-info"></i>',
+        warn: '<i class="ph ph-warning-circle"></i>',
+        error: '<i class="ph ph-x-circle"></i>',
+    };
+    return `<span class="badge badge-${level}" title="${level}">${icons[level] || level}</span>`;
 }
 
 function formatFileSize(bytes) {
@@ -447,10 +460,10 @@ function showProgrammeDetail(el, idx) {
         <div class="desc">${escapeHtml(p.description || '')}</div>
         <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="directSchedule(${idx})">
-                録画予約
+                <i class="ph ph-calendar-check"></i> 録画予約
             </button>
             <button class="btn btn-secondary btn-sm" onclick="quickAddRule('${escapeHtml(p.title)}')">
-                録画ルールを作成
+                <i class="ph ph-funnel"></i> 録画ルールを作成
             </button>
         </div>
     `;
@@ -527,10 +540,10 @@ async function loadRules() {
                 <td>${escapeHtml(r.keyword || '*')}</td>
                 <td>${escapeHtml(r.channel || '-')}</td>
                 <td>${escapeHtml(r.category || '-')}</td>
-                <td>${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}</td>
+                <td><label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRuleEnabled(${r.id}, ${r.enabled})"><span class="switch-slider"></span></label></td>
                 <td>
-                    <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')">削除</button>
+                    <button class="btn btn-secondary btn-sm btn-icon" onclick="editRule(${r.id})" title="編集"><i class="ph ph-pencil-simple"></i></button>
+                    <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')" title="削除"><i class="ph ph-trash"></i></button>
                 </td>
             </tr>
         `).join('');
@@ -544,11 +557,11 @@ async function loadRules() {
                         キーワード: ${escapeHtml(r.keyword || '*')}
                         ${r.channel ? ' | CH: ' + escapeHtml(r.channel) : ''}
                         ${r.category ? ' | ジャンル: ' + escapeHtml(r.category) : ''}
-                        | ${r.enabled ? '<span class="badge badge-enabled">有効</span>' : '<span class="badge badge-disabled">無効</span>'}
+                        | <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRuleEnabled(${r.id}, ${r.enabled})"><span class="switch-slider"></span></label>
                     </div>
                     <div class="rule-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="editRule(${r.id})">編集</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')">削除</button>
+                        <button class="btn btn-secondary btn-sm btn-icon" onclick="editRule(${r.id})" title="編集"><i class="ph ph-pencil-simple"></i></button>
+                        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRule(${r.id}, '${escapeHtml(r.name)}')" title="削除"><i class="ph ph-trash"></i></button>
                     </div>
                 </div>
             `).join('');
@@ -617,6 +630,19 @@ async function deleteRule(id, name) {
         loadRules();
     } catch (err) {
         alert('削除に失敗しました: ' + err.message);
+    }
+}
+
+async function toggleRuleEnabled(id, currentEnabled) {
+    const newEnabled = currentEnabled ? 0 : 1;
+    try {
+        const result = await API.put(`/api/rules/${id}`, { enabled: newEnabled });
+        if (result.cancelled_schedules > 0) {
+            alert(`ルールを無効化し、${result.cancelled_schedules}件の録画予定を取り消しました`);
+        }
+        loadRules();
+    } catch (err) {
+        alert('変更に失敗しました: ' + err.message);
     }
 }
 
@@ -957,7 +983,7 @@ function _buildSeriesHtml(series) {
     series.forEach((s, idx) => {
         html += `<div class="card" style="padding:0;margin-bottom:0.5rem">`;
         html += `<div class="recordings-series-header" onclick="toggleSeries(${idx})">`;
-        html += `<span class="recordings-series-arrow" id="series-arrow-${idx}">&#9654;</span>`;
+        html += `<span class="recordings-series-arrow" id="series-arrow-${idx}"><i class="ph ph-caret-right"></i></span>`;
         html += `<strong>${escapeHtml(s.name)}</strong>`;
         html += `<span style="margin-left:auto;color:var(--text-muted);font-size:0.85rem">${s.file_count} ファイル / ${formatFileSize(s.total_size)}</span>`;
         html += `</div>`;
@@ -971,10 +997,10 @@ function _buildSeriesHtml(series) {
             html += `<td style="white-space:nowrap">${formatFileSize(f.size)}</td>`;
             html += `<td style="white-space:nowrap">${escapeHtml(f.mtime)}</td>`;
             html += `<td style="white-space:nowrap">`;
-            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}', ${!!f.has_nicojk})">再生</button> `;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">DL</a>`;
+            html += `<button class="btn btn-primary btn-sm btn-icon" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}', ${!!f.has_nicojk})" title="再生"><i class="ph ph-play"></i></button> `;
+            html += `<a class="btn btn-secondary btn-sm btn-icon" href="/recordings/${encodedPath}?download=1" title="ダウンロード"><i class="ph ph-download-simple"></i></a>`;
             if (f.has_nicojk) {
-                html += ` <a class="btn btn-secondary btn-sm" href="/recordings/${nicojkPath}?download=1">実況DL</a>`;
+                html += ` <a class="btn btn-secondary btn-sm" href="/recordings/${nicojkPath}?download=1" title="実況コメントDL"><i class="ph ph-chat-circle-text"></i> 実況</a>`;
             }
             html += `</td></tr>`;
         });
@@ -988,10 +1014,10 @@ function _buildSeriesHtml(series) {
             html += `<div class="recordings-file-card-name">${escapeHtml(f.name)}</div>`;
             html += `<div class="recordings-file-card-meta">${formatFileSize(f.size)} / ${escapeHtml(f.mtime)}</div>`;
             html += `<div class="recordings-file-card-actions">`;
-            html += `<button class="btn btn-primary btn-sm" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}', ${!!f.has_nicojk})">再生</button>`;
-            html += `<a class="btn btn-secondary btn-sm" href="/recordings/${encodedPath}?download=1">DL</a>`;
+            html += `<button class="btn btn-primary btn-sm btn-icon" onclick="playRecording('${encodedPath}', '${escapeHtml(f.name)}', ${!!f.has_nicojk})" title="再生"><i class="ph ph-play"></i></button>`;
+            html += `<a class="btn btn-secondary btn-sm btn-icon" href="/recordings/${encodedPath}?download=1" title="ダウンロード"><i class="ph ph-download-simple"></i></a>`;
             if (f.has_nicojk) {
-                html += `<a class="btn btn-secondary btn-sm" href="/recordings/${nicojkPath}?download=1">実況DL</a>`;
+                html += `<a class="btn btn-secondary btn-sm" href="/recordings/${nicojkPath}?download=1" title="実況コメントDL"><i class="ph ph-chat-circle-text"></i> 実況</a>`;
             }
             html += `</div></div>`;
         });
@@ -1100,10 +1126,10 @@ function toggleSeries(idx) {
     if (!files) return;
     if (files.style.display === 'none') {
         files.style.display = '';
-        arrow.innerHTML = '&#9660;';
+        arrow.innerHTML = '<i class="ph ph-caret-down"></i>';
     } else {
         files.style.display = 'none';
-        arrow.innerHTML = '&#9654;';
+        arrow.innerHTML = '<i class="ph ph-caret-right"></i>';
     }
 }
 
@@ -1144,11 +1170,11 @@ function formatDuration(sec) {
 const recControls = (() => {
     const HIDE_DELAY = 3000;
     const ICONS = {
-        play: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
-        pause: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>',
-        volumeOn: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
-        volumeOff: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
-        pip: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>',
+        play: '<i class="ph-fill ph-play"></i>',
+        pause: '<i class="ph-fill ph-pause"></i>',
+        volumeOn: '<i class="ph-fill ph-speaker-high"></i>',
+        volumeOff: '<i class="ph-fill ph-speaker-slash"></i>',
+        pip: '<i class="ph ph-picture-in-picture"></i>',
     };
 
     let hideTimer = null;
@@ -2180,15 +2206,15 @@ const jikkyoPip = (() => {
 const liveControls = (() => {
     const HIDE_DELAY = 3000;
     const ICONS = {
-        play: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
-        pause: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>',
-        volumeOn: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
-        volumeOff: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
-        pip: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/></svg>',
-        fullscreen: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>',
-        fullscreenExit: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>',
-        record: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>',
-        recordActive: '<svg viewBox="0 0 24 24" width="20" height="20" fill="#ff3b30"><circle cx="12" cy="12" r="8"/></svg>',
+        play: '<i class="ph-fill ph-play"></i>',
+        pause: '<i class="ph-fill ph-pause"></i>',
+        volumeOn: '<i class="ph-fill ph-speaker-high"></i>',
+        volumeOff: '<i class="ph-fill ph-speaker-slash"></i>',
+        pip: '<i class="ph ph-picture-in-picture"></i>',
+        fullscreen: '<i class="ph ph-corners-out"></i>',
+        fullscreenExit: '<i class="ph ph-corners-in"></i>',
+        record: '<i class="ph-fill ph-record"></i>',
+        recordActive: '<i class="ph-fill ph-record" style="color:#ff3b30"></i>',
     };
 
     let hideTimer = null;

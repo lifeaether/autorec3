@@ -7,7 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/phosphor/regular/style.css">
+    <link rel="stylesheet" href="/phosphor/fill/style.css">
+    <link rel="stylesheet" href="/style.css?v=21">
 </head>
 <body>
     <nav>
@@ -24,31 +26,31 @@
             </div>
             <div class="nav-actions">
                 <div class="nav-dropdown">
-                    <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')">···</button>
+                    <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')"><i class="ph ph-dots-three"></i></button>
                     <div class="nav-dropdown-menu">
-                        <a href="/#logs" class="nav-link">ログ</a>
-                        <a href="epg.html" class="nav-link active">アーカイブ</a>
-                        <a href="/#help" class="nav-link">ヘルプ</a>
+                        <a href="/#logs" class="nav-link"><i class="ph ph-clipboard-text"></i>ログ</a>
+                        <a href="epg.html" class="nav-link active"><i class="ph ph-archive-box"></i>アーカイブ</a>
+                        <a href="/#help" class="nav-link"><i class="ph ph-question"></i>ヘルプ</a>
                     </div>
                 </div>
             </div>
         </div>
         <!-- Mobile: Bottom bar -->
         <div class="nav-mobile">
-            <a href="/#live" class="nav-primary">ライブ</a>
-            <a href="/#epg" class="nav-primary">番組表</a>
-            <a href="/#recordings" class="nav-primary">録画済み</a>
-            <a href="/#schedules" class="nav-primary">録画一覧</a>
-            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">メニュー</a>
+            <a href="/#live" class="nav-primary"><i class="ph ph-television"></i><span>ライブ</span></a>
+            <a href="/#epg" class="nav-primary"><i class="ph ph-calendar-blank"></i><span>番組表</span></a>
+            <a href="/#recordings" class="nav-primary"><i class="ph ph-film-strip"></i><span>録画済み</span></a>
+            <a href="/#schedules" class="nav-primary"><i class="ph ph-list-bullets"></i><span>録画一覧</span></a>
+            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)"><i class="ph ph-dots-three"></i><span>メニュー</span></a>
         </div>
     </nav>
     <!-- Mobile more drawer -->
     <div id="more-drawer" class="more-drawer">
-        <a href="/#rules">録画ルール</a>
+        <a href="/#rules"><i class="ph ph-funnel"></i>録画ルール</a>
         <div class="drawer-divider"></div>
-        <a href="epg.html" class="active">アーカイブ</a>
-        <a href="/#logs">ログ</a>
-        <a href="/#help">ヘルプ</a>
+        <a href="epg.html" class="active"><i class="ph ph-archive-box"></i>アーカイブ</a>
+        <a href="/#logs"><i class="ph ph-clipboard-text"></i>ログ</a>
+        <a href="/#help"><i class="ph ph-question"></i>ヘルプ</a>
     </div>
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
 
@@ -70,7 +72,7 @@
                     <input type="date" id="search-date-from">
                     <span style="color:var(--text-muted)">〜</span>
                     <input type="date" id="search-date-to">
-                    <button type="submit" class="btn btn-primary">検索</button>
+                    <button type="submit" class="btn btn-primary"><i class="ph ph-magnifying-glass"></i> 検索</button>
                 </div>
             </form>
         </div>

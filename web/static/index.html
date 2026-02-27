@@ -7,7 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=20">
+    <link rel="stylesheet" href="/phosphor/regular/style.css">
+    <link rel="stylesheet" href="/phosphor/fill/style.css">
+    <link rel="stylesheet" href="/style.css?v=21">
 </head>
 <body>
     <nav>
@@ -29,22 +31,23 @@
                     <option value="lowest">最低画質</option>
                 </select>
                 <div class="nav-dropdown">
-                    <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')">···</button>
+                    <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')"><i class="ph ph-dots-three"></i></button>
                     <div class="nav-dropdown-menu">
-                        <a href="#" data-section="logs" class="nav-link">ログ</a>
-                        <a href="epg.html" class="nav-link">アーカイブ</a>
-                        <a href="#" data-section="help" class="nav-link">ヘルプ</a>
+                        <a href="#" data-section="storage" class="nav-link"><i class="ph ph-hard-drive"></i>ストレージ</a>
+                        <a href="#" data-section="logs" class="nav-link"><i class="ph ph-clipboard-text"></i>ログ</a>
+                        <a href="epg.html" class="nav-link"><i class="ph ph-archive-box"></i>アーカイブ</a>
+                        <a href="#" data-section="help" class="nav-link"><i class="ph ph-question"></i>ヘルプ</a>
                     </div>
                 </div>
             </div>
         </div>
         <!-- Mobile: Bottom bar -->
         <div class="nav-mobile">
-            <a href="#" data-section="live" class="nav-primary active">ライブ</a>
-            <a href="#" data-section="epg" class="nav-primary">番組表</a>
-            <a href="#" data-section="recordings" class="nav-primary">録画済み</a>
-            <a href="#" data-section="schedules" class="nav-primary">録画一覧</a>
-            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)">メニュー</a>
+            <a href="#" data-section="live" class="nav-primary active"><i class="ph ph-television"></i><span>ライブ</span></a>
+            <a href="#" data-section="epg" class="nav-primary"><i class="ph ph-calendar-blank"></i><span>番組表</span></a>
+            <a href="#" data-section="recordings" class="nav-primary"><i class="ph ph-film-strip"></i><span>録画済み</span></a>
+            <a href="#" data-section="schedules" class="nav-primary"><i class="ph ph-list-bullets"></i><span>録画一覧</span></a>
+            <a href="#" class="nav-primary nav-more-btn" onclick="toggleMoreDrawer(event)"><i class="ph ph-dots-three"></i><span>メニュー</span></a>
         </div>
     </nav>
     <!-- Mobile more drawer -->
@@ -58,11 +61,12 @@
             </select>
         </div>
         <div class="drawer-divider"></div>
-        <a href="#" data-section="rules" onclick="switchFromDrawer('rules',event)">録画ルール</a>
+        <a href="#" data-section="rules" onclick="switchFromDrawer('rules',event)"><i class="ph ph-funnel"></i>録画ルール</a>
         <div class="drawer-divider"></div>
-        <a href="epg.html">アーカイブ</a>
-        <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)">ログ</a>
-        <a href="#" data-section="help" onclick="switchFromDrawer('help',event)">ヘルプ</a>
+        <a href="epg.html"><i class="ph ph-archive-box"></i>アーカイブ</a>
+        <a href="#" data-section="storage" onclick="switchFromDrawer('storage',event)"><i class="ph ph-hard-drive"></i>ストレージ</a>
+        <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)"><i class="ph ph-clipboard-text"></i>ログ</a>
+        <a href="#" data-section="help" onclick="switchFromDrawer('help',event)"><i class="ph ph-question"></i>ヘルプ</a>
     </div>
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
 
@@ -79,7 +83,7 @@
         <div id="section-rules" class="section">
             <div class="section-header">
                 <div class="toolbar">
-                    <button class="btn btn-primary btn-add-rule" onclick="showRuleForm(null)">+ 録画ルール</button>
+                    <button class="btn btn-primary btn-add-rule" onclick="showRuleForm(null)"><i class="ph ph-plus"></i> 録画ルール</button>
                 </div>
             </div>
             <div class="card table-card">
@@ -200,6 +204,13 @@
             </div>
         </div>
 
+        <!-- ストレージセクション -->
+        <div id="section-storage" class="section">
+            <div id="storage-content">
+                <p style="color:var(--text-muted)">読み込み中...</p>
+            </div>
+        </div>
+
         <!-- ログセクション -->
         <div id="section-logs" class="section">
             <div class="section-header">
@@ -250,6 +261,7 @@
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">その他 (···メニュー内)</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
+                    <li><a href="#" onclick="switchSection('storage');return false" style="color:var(--accent);font-weight:500">ストレージ</a> — 録画先ディスクの使用状況とシリーズ別の容量内訳を表示</li>
                     <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴。レベルでフィルタ可能</li>
                     <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付・チャンネルで横断検索</li>
                 </ul>
@@ -396,7 +408,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
-    <script src="/app.js?v=20"></script>
+    <script src="/app.js?v=21"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
