@@ -21,7 +21,7 @@ QUALITY_PRESETS = {
         "video": ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"],
         "audio": ["-c:a", "aac", "-b:a", "128k"],
     },
-    "low": {
+    "medium": {
         "video": [
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
             "-b:v", "800k", "-maxrate", "900k", "-bufsize", "1200k",
@@ -29,7 +29,7 @@ QUALITY_PRESETS = {
         ],
         "audio": ["-c:a", "aac", "-b:a", "64k", "-ac", "2"],
     },
-    "lowest": {
+    "low": {
         "video": [
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
             "-b:v", "400k", "-maxrate", "450k", "-bufsize", "600k",

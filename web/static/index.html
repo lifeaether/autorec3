@@ -26,9 +26,9 @@
             </div>
             <div class="nav-actions">
                 <select class="nav-quality-select" id="nav-quality-select" onchange="setStreamQuality(this.value)">
-                    <option value="high">高画質</option>
-                    <option value="low">低画質</option>
-                    <option value="lowest">最低画質</option>
+                    <option value="high">画質：高</option>
+                    <option value="medium">画質：中</option>
+                    <option value="low">画質：低</option>
                 </select>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')"><i class="ph ph-dots-three"></i></button>
@@ -55,9 +55,9 @@
         <div class="drawer-quality-row">
             <span>画質</span>
             <select id="drawer-quality-select" onchange="setStreamQuality(this.value); closeMoreDrawer();">
-                <option value="high">高画質</option>
-                <option value="low">低画質</option>
-                <option value="lowest">最低画質</option>
+                <option value="high">高</option>
+                <option value="medium">中</option>
+                <option value="low">低</option>
             </select>
         </div>
         <div class="drawer-divider"></div>
@@ -167,7 +167,7 @@
                                 <span id="live-player-title" class="live-player-bar-title"></span>
                                 <div class="live-player-bar-right">
                                     <span id="live-status"></span>
-                                    <button class="live-close-btn" onclick="stopLive()" title="視聴を終了">&times;</button>
+                                    <button class="live-close-btn" onclick="stopLive()" title="視聴を終了"><i class="ph ph-x"></i></button>
                                 </div>
                             </div>
                             <div class="live-video-wrapper" id="live-video-wrapper">
@@ -326,7 +326,7 @@
     <!-- 録画ルール 追加/編集モーダル -->
     <div id="rule-modal" class="modal-overlay">
         <div class="modal">
-            <button class="modal-close" onclick="document.getElementById('rule-modal').classList.remove('active')">&times;</button>
+            <button class="modal-close" onclick="document.getElementById('rule-modal').classList.remove('active')"><i class="ph ph-x"></i></button>
             <h3 id="rule-modal-title">録画ルール</h3>
             <form id="rule-form" onsubmit="event.preventDefault(); saveRule();">
                 <div class="form-group">
@@ -370,7 +370,7 @@
     <!-- 動画再生モーダル -->
     <div id="video-modal" class="modal-overlay">
         <div class="modal" style="max-width:960px">
-            <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');">&times;</button>
+            <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');"><i class="ph ph-x"></i></button>
             <h3 id="video-modal-title" style="margin-bottom:0.75rem">再生</h3>
             <div class="rec-player-with-sidebar">
                 <div class="rec-player-main">

@@ -105,6 +105,9 @@ let livePlayer = null;    // mpegts.Player
 let liveNowTimer = null;  // 番組情報更新用 interval
 
 let streamQuality = localStorage.getItem('autorec-stream-quality') || 'high';
+// migrate old quality keys
+if (streamQuality === 'lowest') { streamQuality = 'low'; localStorage.setItem('autorec-stream-quality', 'low'); }
+else if (streamQuality === 'low') { streamQuality = 'medium'; localStorage.setItem('autorec-stream-quality', 'medium'); }
 
 function setStreamQuality(quality) {
     streamQuality = quality;
