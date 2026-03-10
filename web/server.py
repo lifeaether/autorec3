@@ -19,7 +19,7 @@ STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
 QUALITY_PRESETS = {
     "high": {
         "video": ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"],
-        "audio": ["-c:a", "aac", "-b:a", "128k"],
+        "audio": ["-c:a", "aac", "-b:a", "256k"],
     },
     "medium": {
         "video": [
@@ -27,7 +27,7 @@ QUALITY_PRESETS = {
             "-b:v", "800k", "-maxrate", "900k", "-bufsize", "1200k",
             "-vf", "scale=640:-2",
         ],
-        "audio": ["-c:a", "aac", "-b:a", "64k", "-ac", "2"],
+        "audio": ["-c:a", "aac", "-b:a", "128k", "-ac", "2"],
     },
     "low": {
         "video": [
@@ -35,7 +35,7 @@ QUALITY_PRESETS = {
             "-b:v", "400k", "-maxrate", "450k", "-bufsize", "600k",
             "-vf", "scale=480:-2",
         ],
-        "audio": ["-c:a", "aac", "-b:a", "48k", "-ac", "1"],
+        "audio": ["-c:a", "aac", "-b:a", "64k", "-ac", "2"],
     },
 }
 DEFAULT_QUALITY = "high"
@@ -375,7 +375,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-fflags", "+nobuffer+discardcorrupt+genpts", "-i", "pipe:0",
         ] + quality_args + [
             "-af", "aresample=async=1:first_pts=0",
-            "-f", "mpegts", "-mpegts_flags", "+resend_headers", "pipe:1",
+            "-f", "mpegts", "-mpegts_flags", "+resend_headers", "-flush_packets", "1", "pipe:1",
         ]
         r_fd, w_fd = os.pipe()
         try:

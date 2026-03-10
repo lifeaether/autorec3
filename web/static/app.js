@@ -2910,8 +2910,8 @@ function startLive(chNum, chName) {
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 2.5,
-        liveBufferLatencyMinRemain: 0.5,
+        liveBufferLatencyMaxLatency: 3.0,
+        liveBufferLatencyMinRemain: 1.0,
         autoCleanupSourceBuffer: true,
         autoCleanupMaxBackwardDuration: 30,
         autoCleanupMinBackwardDuration: 15,
@@ -2938,6 +2938,23 @@ function startLive(chNum, chName) {
         document.getElementById('live-status').innerHTML =
             '<span class="live-indicator"></span> 再生中';
     }, { once: true });
+
+    // stall後の音ズレ修正: バッファ末尾にシークして再同期
+    let stallDetected = false;
+    videoEl.addEventListener('waiting', () => { stallDetected = true; });
+    videoEl.addEventListener('playing', () => {
+        if (stallDetected) {
+            stallDetected = false;
+            const buf = videoEl.buffered;
+            if (buf.length > 0) {
+                const liveEdge = buf.end(buf.length - 1);
+                const offset = 0.5;
+                if (liveEdge - offset > videoEl.currentTime) {
+                    videoEl.currentTime = liveEdge - offset;
+                }
+            }
+        }
+    });
 
     livePlayer.load();
     videoEl.play().catch(() => {
