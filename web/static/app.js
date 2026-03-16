@@ -2910,8 +2910,8 @@ function startLive(chNum, chName) {
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 3.0,
-        liveBufferLatencyMinRemain: 1.0,
+        liveBufferLatencyMaxLatency: 5.0,
+        liveBufferLatencyMinRemain: 2.0,
         autoCleanupSourceBuffer: true,
         autoCleanupMaxBackwardDuration: 30,
         autoCleanupMinBackwardDuration: 15,
