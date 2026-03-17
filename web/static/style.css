@@ -1424,6 +1424,62 @@ button i[class*="ph"],
     object-fit: contain;
 }
 
+/* Fake fullscreen landscape for iOS (no Fullscreen API) */
+.rec-video-wrapper.fs-landscape,
+.live-player-container.fs-landscape {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    z-index: 999999;
+    background: #000;
+}
+.fs-landscape video,
+.fs-landscape canvas {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+}
+@media screen and (orientation: portrait) {
+    .rec-video-wrapper.fs-landscape,
+    .live-player-container.fs-landscape {
+        width: 100dvh;
+        height: 100dvw;
+        transform: rotate(90deg);
+        transform-origin: top left;
+        translate: 100dvw 0;
+    }
+}
+@media screen and (orientation: landscape) {
+    .rec-video-wrapper.fs-landscape,
+    .live-player-container.fs-landscape {
+        width: 100dvw;
+        height: 100dvh;
+    }
+}
+body.fs-landscape-active {
+    overflow: hidden !important;
+}
+.live-player-container.fs-landscape .live-player-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+    border-bottom: none;
+    padding: 0.75rem 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.live-player-container.fs-landscape .live-player-bar-title { color: #fff; }
+.live-player-container.fs-landscape #live-status { color: rgba(255, 255, 255, 0.7); }
+.live-player-container.fs-landscape .live-close-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.7);
+}
+.live-player-container.fs-landscape.controls-visible .live-player-bar { opacity: 1; }
+.live-player-container.fs-landscape .live-video-wrapper { height: 100%; }
+
 .live-channel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

@@ -1183,6 +1183,36 @@ function formatDuration(sec) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/* --- Fullscreen orientation helpers --- */
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function _lockLandscape() {
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+    }
+}
+
+function _unlockOrientation() {
+    if (screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (e) {}
+    }
+}
+
+function _enterFakeLandscape(el) {
+    el.classList.add('fs-landscape');
+    document.body.classList.add('fs-landscape-active');
+}
+
+function _exitFakeLandscape(el) {
+    el.classList.remove('fs-landscape');
+    document.body.classList.remove('fs-landscape-active');
+}
+
+function _isFakeLandscape(el) {
+    return el && el.classList.contains('fs-landscape');
+}
+
 /* --- 録画プレイヤー カスタムコントロール --- */
 const recControls = (() => {
     const HIDE_DELAY = 3000;
@@ -1222,11 +1252,17 @@ const recControls = (() => {
         btn.innerHTML = ICONS.pip;
     }
 
+    function _isFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement)
+            || _isFakeLandscape(document.querySelector('#video-modal .rec-video-wrapper'));
+    }
+
     function _updateFullscreenIcon() {
         const btn = document.getElementById('rc-fullscreen');
         if (!btn) return;
-        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const isFs = _isFullscreen();
         btn.innerHTML = isFs ? ICONS.fullscreenExit : ICONS.fullscreen;
+        if (!isFs) _unlockOrientation();
     }
 
     function _showControls() {
@@ -1302,6 +1338,8 @@ const recControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
+            const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
+            if (_isFakeLandscape(wrapper)) _exitFakeLandscape(wrapper);
             if (document.fullscreenElement || document.webkitFullscreenElement) {
                 (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
             }
@@ -1375,15 +1413,19 @@ const recControls = (() => {
         toggleFullscreen() {
             const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
             if (!wrapper) return;
-            if (document.fullscreenElement || document.webkitFullscreenElement) {
+            if (_isFakeLandscape(wrapper)) {
+                _exitFakeLandscape(wrapper);
+                _updateFullscreenIcon();
+            } else if (document.fullscreenElement || document.webkitFullscreenElement) {
                 (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
+            } else if (_isIOS) {
+                _enterFakeLandscape(wrapper);
+                _updateFullscreenIcon();
             } else if (wrapper.requestFullscreen) {
-                wrapper.requestFullscreen().catch(() => {});
+                wrapper.requestFullscreen().then(() => _lockLandscape()).catch(() => {});
             } else if (wrapper.webkitRequestFullscreen) {
                 wrapper.webkitRequestFullscreen();
-            } else {
-                const video = document.getElementById('video-player');
-                if (video && video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+                _lockLandscape();
             }
             _showControls();
         },
@@ -2700,11 +2742,17 @@ const liveControls = (() => {
         btn.innerHTML = muted ? ICONS.volumeOff : ICONS.volumeOn;
     }
 
+    function _isFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement)
+            || _isFakeLandscape(document.getElementById('live-player-container'));
+    }
+
     function _updateFullscreenIcon() {
         const btn = document.getElementById('lc-fullscreen');
         if (!btn) return;
-        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const isFs = _isFullscreen();
         btn.innerHTML = isFs ? ICONS.fullscreenExit : ICONS.fullscreen;
+        if (!isFs) _unlockOrientation();
     }
 
     function _updatePipIcon() {
@@ -2795,6 +2843,8 @@ const liveControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
+            const container = document.getElementById('live-player-container');
+            if (_isFakeLandscape(container)) _exitFakeLandscape(container);
             liveRecording = false;
             const recBtn = document.getElementById('lc-record');
             if (recBtn) recBtn.style.display = 'none';
@@ -2836,15 +2886,19 @@ const liveControls = (() => {
         toggleFullscreen() {
             const container = document.getElementById('live-player-container');
             if (!container) return;
-            if (document.fullscreenElement || document.webkitFullscreenElement) {
+            if (_isFakeLandscape(container)) {
+                _exitFakeLandscape(container);
+                _updateFullscreenIcon();
+            } else if (document.fullscreenElement || document.webkitFullscreenElement) {
                 (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
+            } else if (_isIOS) {
+                _enterFakeLandscape(container);
+                _updateFullscreenIcon();
             } else if (container.requestFullscreen) {
-                container.requestFullscreen().catch(() => {});
+                container.requestFullscreen().then(() => _lockLandscape()).catch(() => {});
             } else if (container.webkitRequestFullscreen) {
                 container.webkitRequestFullscreen();
-            } else {
-                const video = document.getElementById('live-canvas') || document.getElementById('live-video');
-                if (video && video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+                _lockLandscape();
             }
             _showControls();
         },
