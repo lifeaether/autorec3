@@ -1301,8 +1301,16 @@ const recControls = (() => {
         togglePlay() {
             const video = _getVideo();
             if (!video) return;
-            if (video.paused) video.play().catch(() => {});
-            else video.pause();
+            if (video.paused || video.ended) {
+                video.play().catch(() => {
+                    if (recordingPath && recordingDuration) {
+                        const currentTime = recordingBaseTime + (video.currentTime || 0);
+                        startRecordingStream(currentTime);
+                    }
+                });
+            } else {
+                video.pause();
+            }
             _showControls();
         },
 
@@ -1427,6 +1435,12 @@ function startRecordingStream(seekTime) {
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: false,
+    });
+    recordingPlayer.on(mpegts.Events.ERROR, () => {
+        const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
+        if (recordingPath && recordingDuration && currentTime < recordingDuration - 1) {
+            startRecordingStream(currentTime);
+        }
     });
     recordingPlayer.attachMediaElement(videoEl);
     recordingPlayer.load();
