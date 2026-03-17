@@ -2056,10 +2056,6 @@ button i[class*="ph"],
         max-height: none;
     }
 
-    #video-modal .video-modal-desc {
-        display: none;
-    }
-
     /* --- EPG fullscreen: mobile overrides --- */
     .section-epg-fullscreen {
         margin: calc(-1.25rem - env(safe-area-inset-top, 0px)) -1rem calc((var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) * -1);
