@@ -1192,6 +1192,8 @@ const recControls = (() => {
         volumeOn: '<i class="ph-fill ph-speaker-high"></i>',
         volumeOff: '<i class="ph-fill ph-speaker-slash"></i>',
         pip: '<i class="ph ph-picture-in-picture"></i>',
+        fullscreen: '<i class="ph ph-corners-out"></i>',
+        fullscreenExit: '<i class="ph ph-corners-in"></i>',
     };
 
     let hideTimer = null;
@@ -1218,6 +1220,13 @@ const recControls = (() => {
         const btn = document.getElementById('rc-pip');
         if (!btn) return;
         btn.innerHTML = ICONS.pip;
+    }
+
+    function _updateFullscreenIcon() {
+        const btn = document.getElementById('rc-fullscreen');
+        if (!btn) return;
+        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        btn.innerHTML = isFs ? ICONS.fullscreenExit : ICONS.fullscreen;
     }
 
     function _showControls() {
@@ -1255,6 +1264,7 @@ const recControls = (() => {
             _updatePlayIcon();
             _updateVolumeIcon();
             _updatePipIcon();
+            _updateFullscreenIcon();
 
             const pipBtn = document.getElementById('rc-pip');
             if (pipBtn && 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled) {
@@ -1281,6 +1291,8 @@ const recControls = (() => {
                     wrapper.addEventListener('mouseleave', _onMouseLeave);
                     wrapper.addEventListener('touchstart', _onTouch, { passive: true });
                 }
+                document.addEventListener('fullscreenchange', _updateFullscreenIcon);
+                document.addEventListener('webkitfullscreenchange', _updateFullscreenIcon);
                 eventsAttached = true;
             }
 
@@ -1290,6 +1302,9 @@ const recControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
+            }
             recPip.exit();
             if (document.pictureInPictureElement) {
                 document.exitPictureInPicture().catch(() => {});
@@ -1354,6 +1369,22 @@ const recControls = (() => {
                     if (video.paused) video.play().catch(() => {});
                 }, { once: true });
             } catch (e) { /* ignore */ }
+            _showControls();
+        },
+
+        toggleFullscreen() {
+            const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
+            if (!wrapper) return;
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
+            } else if (wrapper.requestFullscreen) {
+                wrapper.requestFullscreen().catch(() => {});
+            } else if (wrapper.webkitRequestFullscreen) {
+                wrapper.webkitRequestFullscreen();
+            } else {
+                const video = document.getElementById('video-player');
+                if (video && video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+            }
             _showControls();
         },
     };
