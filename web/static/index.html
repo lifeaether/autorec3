@@ -371,13 +371,13 @@
 
     <!-- 動画再生モーダル -->
     <div id="video-modal" class="modal-overlay">
-        <div class="modal" style="max-width:960px">
+        <div class="modal">
             <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');"><i class="ph ph-x"></i></button>
             <h3 id="video-modal-title" style="margin-bottom:0.75rem">再生</h3>
             <div class="rec-player-with-sidebar">
                 <div class="rec-player-main">
                     <div class="rec-video-wrapper">
-                        <video id="video-player" autoplay playsinline style="width:100%;max-height:70vh;background:#000"></video>
+                        <video id="video-player" autoplay playsinline style="width:100%;background:#000"></video>
                         <div id="rec-jikkyo-overlay" class="jikkyo-overlay"></div>
                         <div id="rec-controls" class="live-controls">
                             <button class="lc-btn" id="rc-play" onclick="recControls.togglePlay()" title="再生/一時停止"></button>

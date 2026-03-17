@@ -2426,6 +2426,62 @@ button i[class*="ph"],
     }
 }
 
+/* ===== Video Modal: Fullscreen layout ===== */
+
+#video-modal .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#video-modal .modal-close {
+    top: 0.5rem;
+    right: 0.75rem;
+    z-index: 10;
+}
+
+#video-modal .modal h3 {
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    margin-bottom: 0 !important;
+    font-size: 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+#video-modal .rec-player-with-sidebar {
+    flex: 1;
+    min-height: 0;
+}
+
+#video-modal .rec-player-main {
+    display: flex;
+    flex-direction: column;
+}
+
+#video-modal .rec-video-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#video-modal #video-player {
+    max-height: 100%;
+    object-fit: contain;
+}
+
+#video-modal #video-seek-container {
+    padding: 0.5rem 1rem;
+    margin-top: 0;
+    flex-shrink: 0;
+}
+
 /* ===== Recording Player with Jikkyo ===== */
 
 .rec-player-with-sidebar {
