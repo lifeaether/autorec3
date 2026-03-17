@@ -1395,6 +1395,14 @@ function playRecording(path, name, hasNicojk) {
     recControls.init();
 }
 
+function seekSkip(seconds) {
+    if (!recordingPath || !recordingDuration) return;
+    const videoEl = document.getElementById('video-player');
+    const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
+    const newTime = Math.max(0, Math.min(currentTime + seconds, recordingDuration));
+    startRecordingStream(newTime);
+}
+
 function startRecordingStream(seekTime) {
     const videoEl = document.getElementById('video-player');
 

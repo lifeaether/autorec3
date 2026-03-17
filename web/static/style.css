@@ -1701,6 +1701,21 @@ button i[class*="ph"],
     flex: 1;
 }
 
+.seek-skip-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.seek-skip-btn:hover { color: var(--text); }
+.seek-skip-btn i { font-size: 1.1rem; line-height: 1; }
+
 #video-seek-bar {
     -webkit-appearance: none;
     appearance: none;
