@@ -374,7 +374,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-analyzeduration", "500000", "-probesize", "1000000",
             "-fflags", "+nobuffer+discardcorrupt+genpts", "-i", "pipe:0",
         ] + quality_args + [
-            "-af", "aresample=async=1:first_pts=0",
+            "-af", "aresample=async=1000:first_pts=0",
             "-f", "mpegts", "-mpegts_flags", "+resend_headers", "-flush_packets", "1", "pipe:1",
         ]
         r_fd, w_fd = os.pipe()
