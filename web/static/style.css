@@ -1675,6 +1675,32 @@ button i[class*="ph"],
 }
 
 /* ===== Seek bar ===== */
+#video-seek-container {
+    display: none;
+    margin-top: 0.5rem;
+}
+
+#video-seek-container > div {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#video-current-time,
+#video-total-time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    min-width: 4em;
+}
+
+#video-current-time {
+    text-align: right;
+}
+
+#video-seek-bar {
+    flex: 1;
+}
+
 #video-seek-bar {
     -webkit-appearance: none;
     appearance: none;
@@ -2000,10 +2026,21 @@ button i[class*="ph"],
     }
 
     #video-modal #video-seek-container {
-        padding: 0.25rem 0.75rem;
-        margin-top: 0 !important;
+        padding: 0.75rem 0.75rem;
+        margin-top: 0;
         flex-shrink: 0;
         order: 2;
+    }
+
+    #video-modal #video-seek-container > div {
+        flex-wrap: wrap;
+    }
+
+    #video-modal #video-seek-container #video-seek-bar {
+        flex: none;
+        width: 100%;
+        order: -1;
+        margin-bottom: 0.15rem;
     }
 
     #video-modal .jikkyo-sidebar {

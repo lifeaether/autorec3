@@ -393,11 +393,11 @@
                     <div id="rec-jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
                 </div>
             </div>
-            <div id="video-seek-container" style="display:none;margin-top:0.5rem">
-                <div style="display:flex;align-items:center;gap:0.5rem">
-                    <span id="video-current-time" style="font-size:0.8rem;color:var(--text-muted);min-width:4em;text-align:right">0:00</span>
-                    <input type="range" id="video-seek-bar" min="0" max="100" value="0" step="1" style="flex:1">
-                    <span id="video-total-time" style="font-size:0.8rem;color:var(--text-muted);min-width:4em">0:00</span>
+            <div id="video-seek-container">
+                <div>
+                    <span id="video-current-time">0:00</span>
+                    <input type="range" id="video-seek-bar" min="0" max="100" value="0" step="1">
+                    <span id="video-total-time">0:00</span>
                     <select id="rec-jikkyo-mode-select" class="jikkyo-mode-select" style="display:none" onchange="recordingJikkyo.setMode(this.value)">
                         <option value="overlay">実況: オーバーレイ</option>
                         <option value="sidebar">実況: サイドバー</option>

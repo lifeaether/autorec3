@@ -1373,7 +1373,7 @@ function playRecording(path, name, hasNicojk) {
                     bar.value = 0;
                     document.getElementById('video-total-time').textContent = formatDuration(recordingDuration);
                     document.getElementById('video-current-time').textContent = '0:00';
-                    document.getElementById('video-seek-container').style.display = '';
+                    document.getElementById('video-seek-container').style.display = 'block';
                 }
                 // .nicojk がある場合、実況コメントを読み込む (start_time を渡す)
                 if (hasNicojk) {
@@ -2912,6 +2912,8 @@ function startLive(chNum, chName) {
         liveBufferLatencyChasing: true,
         liveBufferLatencyMaxLatency: 5.0,
         liveBufferLatencyMinRemain: 2.0,
+        fixAudioTimestampGap: true,
+        accurateSeek: true,
         autoCleanupSourceBuffer: true,
         autoCleanupMaxBackwardDuration: 30,
         autoCleanupMinBackwardDuration: 15,
@@ -2953,6 +2955,18 @@ function startLive(chNum, chName) {
                     videoEl.currentTime = liveEdge - offset;
                 }
             }
+        }
+    });
+
+    // 定期的なA/V同期チェック: ドリフトが閾値を超えたらバッファ末尾付近にシーク
+    videoEl.addEventListener('timeupdate', () => {
+        if (videoEl.paused || videoEl.seeking) return;
+        const buf = videoEl.buffered;
+        if (buf.length === 0) return;
+        const liveEdge = buf.end(buf.length - 1);
+        const drift = liveEdge - videoEl.currentTime;
+        if (drift > 5.0) {
+            videoEl.currentTime = liveEdge - 2.0;
         }
     });
 
