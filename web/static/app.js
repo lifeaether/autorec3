@@ -729,6 +729,11 @@ async function loadRules() {
     const cardsEl = document.getElementById('rules-cards');
     try {
         const data = await API.get('/api/rules');
+        // 無効ルール削除ボタンの表示切替
+        const disabledRules = (data.rules || []).filter(r => !r.enabled);
+        const btnDel = document.getElementById('btn-delete-disabled-rules');
+        if (btnDel) btnDel.style.display = disabledRules.length > 0 ? '' : 'none';
+
         if (!data.rules || data.rules.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">ルールなし</td></tr>';
             if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">ルールなし</p>';
@@ -836,6 +841,23 @@ async function deleteRule(id, name) {
         if (result.cancelled_schedules > 0) {
             alert(`ルールを削除し、${result.cancelled_schedules}件の録画予定を取り消しました`);
         }
+        loadRules();
+    } catch (err) {
+        alert('削除に失敗しました: ' + err.message);
+    }
+}
+
+async function deleteDisabledRules() {
+    const data = await API.get('/api/rules');
+    const disabled = (data.rules || []).filter(r => !r.enabled);
+    if (disabled.length === 0) { alert('無効なルールはありません'); return; }
+    const names = disabled.map(r => r.name).join('\n');
+    if (!confirm(`無効な${disabled.length}件のルールを削除しますか？\n\n${names}`)) return;
+    try {
+        for (const r of disabled) {
+            await API.del(`/api/rules/${r.id}`);
+        }
+        alert(`${disabled.length}件のルールを削除しました`);
         loadRules();
     } catch (err) {
         alert('削除に失敗しました: ' + err.message);
