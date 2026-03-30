@@ -79,15 +79,25 @@ if [ "$DURATION" -le 0 ]; then
 fi
 
 # 保存先ディレクトリ作成
-# 番組名からシリーズ名を抽出 (回数・サブタイトル等を除去)
-SERIES_NAME=$(echo "$TITLE" | sed -E \
-    -e 's/「[^」]*」//g' \
-    -e 's/（[0-9]+）//g' \
-    -e 's/\([0-9]+\)//g' \
-    -e 's/[　 ]*#[0-9]+//' \
-    -e 's/[　 ]*第[0-9]+[回話]//g' \
-    -e 's/[　 ]+$//; s/^[　 ]+//')
-[ -z "$SERIES_NAME" ] && SERIES_NAME="$TITLE"
+# ルール名があればフォルダ名に使用、なければタイトルからシリーズ名を抽出
+if [ "$RULE_NAME" != "unknown" ] && [ -n "$RULE_NAME" ]; then
+    SERIES_NAME="$RULE_NAME"
+else
+    SERIES_NAME=$(echo "$TITLE" | sed -E \
+        -e 's/【新】//g; s/【終】//g' \
+        -e 's/「[^」]*」//g' \
+        -e "s/『[^』]*』//g" \
+        -e 's/（[０-９]+）//g' \
+        -e 's/（[0-9]+）//g' \
+        -e 's/\([0-9]+\)//g' \
+        -e 's/[　 ]*[★☆][^ 　]*//g' \
+        -e 's/[　 ]*＃[０-９0-9]+//g' \
+        -e 's/[　 ]*#[0-9]+//g' \
+        -e 's/[　 ]*第[０-９0-9一二三四五六七八九十百]+[回話]//g' \
+        -e 's/[　 ]+（/（/g; s/[　 ]+【/【/g' \
+        -e 's/[　 ]{2,}/　/g; s/[　 ]+$//; s/^[　 ]+//')
+    [ -z "$SERIES_NAME" ] && SERIES_NAME="$TITLE"
+fi
 SAFE_SERIES=$(echo "$SERIES_NAME" | sed 's/[\/\\:*?"<>|]/_/g')
 SAFE_TITLE=$(echo "$TITLE" | sed 's/[\/\\:*?"<>|]/_/g')
 DATE_STR=$(date -d "$START_TIME" '+%Y-%m-%d' 2>/dev/null) || \
