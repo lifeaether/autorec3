@@ -161,6 +161,7 @@ function switchSection(name) {
     else if (name === 'recordings') loadRecordings();
     else if (name === 'live') initLiveSection();
     else if (name === 'storage') loadStorage();
+    else if (name === 'season') loadSeason();
     else if (name === 'logs') loadLogs();
 }
 
@@ -532,6 +533,168 @@ document.addEventListener('click', (e) => {
     }
 });
 
+/* --- 番組改編 --- */
+
+let _seasonProgrammes = [];
+let _seasonCategoryFilter = '';
+
+function loadSeason() {
+    const tab = document.querySelector('#season-tabs .btn-filter.active');
+    const mode = tab ? tab.dataset.value : 'new';
+    document.getElementById('season-category-filter').style.display = mode === 'new' ? '' : 'none';
+    if (mode === 'new') loadNewProgrammes();
+    else loadEndingRules();
+}
+
+function setSeasonTab(btn, mode) {
+    btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('season-new-list').style.display = mode === 'new' ? 'block' : 'none';
+    document.getElementById('season-ending-list').style.display = mode === 'ending' ? 'block' : 'none';
+    document.getElementById('season-category-filter').style.display = mode === 'new' ? '' : 'none';
+    if (mode === 'new') loadNewProgrammes();
+    else loadEndingRules();
+}
+
+function _primaryCategory(cat) {
+    if (!cat) return '';
+    let arr;
+    if (typeof cat === 'string') {
+        try { arr = JSON.parse(cat); } catch { return cat; }
+    } else {
+        arr = cat;
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return '';
+    const ja = arr.find(c => typeof c === 'string' && /[^\x00-\x7F]/.test(c));
+    return ja || '';
+}
+
+function _buildCategoryButtons(programmes) {
+    const counts = {};
+    for (const p of programmes) {
+        const cat = _primaryCategory(p.category);
+        if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    }
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const btnGroup = document.getElementById('season-category-buttons');
+    btnGroup.innerHTML = `<button class="btn-filter active" data-value="" onclick="filterSeasonCategory(this, '')">すべて (${programmes.length})</button>`
+        + sorted.map(([cat, cnt]) =>
+            `<button class="btn-filter" data-value="${escapeHtml(cat)}" onclick="filterSeasonCategory(this, '${escapeHtml(cat)}')">${escapeHtml(cat)} (${cnt})</button>`
+        ).join('');
+}
+
+function filterSeasonCategory(btn, cat) {
+    btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _seasonCategoryFilter = cat;
+    renderNewProgrammes();
+}
+
+async function loadNewProgrammes() {
+    const el = document.getElementById('season-new-list');
+    el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">読み込み中...</p>';
+    try {
+        const data = await API.get('/api/programmes/new');
+        if (!data.programmes || data.programmes.length === 0) {
+            _seasonProgrammes = [];
+            _buildCategoryButtons([]);
+            el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">新番組が見つかりません</p>';
+            return;
+        }
+        _seasonProgrammes = data.programmes.sort((a, b) => (a.has_rule === b.has_rule) ? 0 : a.has_rule ? 1 : -1);
+        _buildCategoryButtons(_seasonProgrammes);
+        renderNewProgrammes();
+    } catch (err) {
+        el.innerHTML = `<p style="padding:1rem;color:var(--error)">${escapeHtml(err.message)}</p>`;
+    }
+}
+
+function renderNewProgrammes() {
+    const el = document.getElementById('season-new-list');
+    const filtered = _seasonCategoryFilter
+        ? _seasonProgrammes.filter(p => _primaryCategory(p.category) === _seasonCategoryFilter)
+        : _seasonProgrammes;
+    if (filtered.length === 0) {
+        el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">該当する番組がありません</p>';
+        return;
+    }
+    el.innerHTML = filtered.map(p => {
+        const channels = (p.channels || [p.channel]).map(escapeHtml).join(', ');
+        return `
+        <div class="season-item ${p.has_rule ? 'season-item-done' : ''}">
+            <div class="season-item-header">
+                <div class="season-item-info">
+                    <div class="season-item-title">${escapeHtml(p.normalized_title)}</div>
+                    <div class="season-item-meta">
+                        <span><i class="ph ph-television"></i>${channels}</span>
+                        <span><i class="ph ph-calendar-blank"></i>${formatDate(p.start_time)}</span>
+                        ${formatCategory(p.category) ? '<span><i class="ph ph-tag"></i>' + escapeHtml(formatCategory(p.category)) + '</span>' : ''}
+                    </div>
+                </div>
+                <div class="season-item-actions">
+                    ${p.has_rule
+                        ? '<span class="badge badge-done"><i class="ph ph-check-circle"></i> 登録済み</span>'
+                        : `<button class="btn btn-primary btn-sm" onclick="seasonAddRule(this)" data-title="${escapeHtml(p.normalized_title)}"><i class="ph ph-plus"></i> ルール作成</button>`
+                    }
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function seasonAddRule(btn) {
+    const title = btn.dataset.title;
+    switchSection('rules');
+    showRuleForm(null);
+    document.getElementById('rule-form').elements['rule-name'].value = title;
+    document.getElementById('rule-form').elements['rule-keyword'].value = title;
+    previewRule();
+}
+
+async function loadEndingRules() {
+    const el = document.getElementById('season-ending-list');
+    el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">読み込み中...</p>';
+    try {
+        const data = await API.get('/api/rules/ending');
+        if (!data.rules || data.rules.length === 0) {
+            el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">終了候補のルールはありません</p>';
+            return;
+        }
+        el.innerHTML = data.rules.map(r => `
+            <div class="season-item">
+                <div class="season-item-header">
+                    <div class="season-item-info">
+                        <div class="season-item-title">${escapeHtml(r.name)}</div>
+                        <div class="season-item-meta">
+                            ${r.keyword ? '<span><i class="ph ph-magnifying-glass"></i>' + escapeHtml(r.keyword) + '</span>' : ''}
+                            ${r.channel ? '<span><i class="ph ph-television"></i>' + escapeHtml(r.channel) + '</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="season-item-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="seasonDisableRule(this)" data-rule-id="${r.id}" data-rule-name="${escapeHtml(r.name)}"><i class="ph ph-prohibit"></i> 無効化</button>
+                    </div>
+                </div>
+            </div>`).join('');
+    } catch (err) {
+        el.innerHTML = `<p style="padding:1rem;color:var(--error)">${escapeHtml(err.message)}</p>`;
+    }
+}
+
+async function seasonDisableRule(btn) {
+    const id = btn.dataset.ruleId;
+    const name = btn.dataset.ruleName;
+    if (!confirm(`「${name}」を無効化しますか？`)) return;
+    try {
+        const result = await API.put(`/api/rules/${id}`, { enabled: 0 });
+        let msg = 'ルールを無効化しました';
+        if (result.cancelled_schedules) msg += `\n${result.cancelled_schedules}件の録画予定を取り消しました`;
+        alert(msg);
+        loadEndingRules();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
 /* --- 録画ルール --- */
 
 async function loadRules() {
@@ -625,8 +788,10 @@ function showRuleForm(rule) {
 
     overlay.classList.add('active');
 
-    // 編集時はキーワードまたはカテゴリがあれば即プレビュー
-    if (rule && (rule.keyword || rule.category)) {
+    // キーワードまたはカテゴリがあれば即プレビュー
+    const kw = form.elements['rule-keyword'].value.trim();
+    const cat = catSelect.value;
+    if (kw || cat) {
         previewRule();
     }
 }
@@ -762,6 +927,7 @@ function quickAddRule(title) {
     showRuleForm(null);
     document.getElementById('rule-form').elements['rule-name'].value = title;
     document.getElementById('rule-form').elements['rule-keyword'].value = title;
+    previewRule();
 }
 
 async function directSchedule(idx) {
@@ -1508,6 +1674,8 @@ function startRecordingStream(seekTime) {
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: false,
+        fixAudioTimestampGap: true,
+        accurateSeek: true,
     });
     recordingPlayer.on(mpegts.Events.ERROR, () => {
         const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
@@ -1517,7 +1685,9 @@ function startRecordingStream(seekTime) {
     });
     recordingPlayer.attachMediaElement(videoEl);
     recordingPlayer.load();
-    videoEl.play().catch(() => {});
+    videoEl.addEventListener('canplaythrough', () => {
+        videoEl.play().catch(() => {});
+    }, { once: true });
 
     // シークバー更新開始
     if (seekUpdateTimer) clearInterval(seekUpdateTimer);
@@ -3017,8 +3187,9 @@ function startLive(chNum, chName) {
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 5.0,
-        liveBufferLatencyMinRemain: 2.0,
+        liveBufferLatencyMaxLatency: 3.0,
+        liveBufferLatencyMinRemain: 1.0,
+        liveBufferLatencyChasingSpeed: 1.1,
         fixAudioTimestampGap: true,
         accurateSeek: true,
         autoCleanupSourceBuffer: true,
@@ -3028,7 +3199,9 @@ function startLive(chNum, chName) {
 
     livePlayer.attachMediaElement(videoEl);
 
+    let _mediaInfoCount = 0;
     livePlayer.on(mpegts.Events.MEDIA_INFO, (info) => {
+        _mediaInfoCount++;
         document.getElementById('live-status').innerHTML =
             '<span class="live-indicator"></span> 再生中';
         let infoText = '';
@@ -3036,6 +3209,15 @@ function startLive(chNum, chName) {
         if (info.width && info.height) infoText += ` ${info.width}x${info.height}`;
         if (info.audioCodec) infoText += ` / 音声: ${info.audioCodec}`;
         document.getElementById('live-stream-info').textContent = infoText;
+
+        // 番組切り替え時: 2回目以降のMEDIA_INFOはストリーム構成変化を示す
+        // バッファ末尾にシークして古いデータをスキップ
+        if (_mediaInfoCount > 1) {
+            const buf = videoEl.buffered;
+            if (buf.length > 0) {
+                videoEl.currentTime = buf.end(buf.length - 1) - 0.3;
+            }
+        }
     });
 
     livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
@@ -3048,7 +3230,7 @@ function startLive(chNum, chName) {
             '<span class="live-indicator"></span> 再生中';
     }, { once: true });
 
-    // stall後の音ズレ修正: バッファ末尾にシークして再同期
+    // stall後の同期修正: バッファ末尾にシークして再同期
     let stallDetected = false;
     videoEl.addEventListener('waiting', () => { stallDetected = true; });
     videoEl.addEventListener('playing', () => {
@@ -3057,35 +3239,32 @@ function startLive(chNum, chName) {
             const buf = videoEl.buffered;
             if (buf.length > 0) {
                 const liveEdge = buf.end(buf.length - 1);
-                const offset = 0.5;
-                if (liveEdge - offset > videoEl.currentTime) {
-                    videoEl.currentTime = liveEdge - offset;
+                if (liveEdge - 0.5 > videoEl.currentTime) {
+                    videoEl.currentTime = liveEdge - 0.5;
                 }
             }
         }
     });
 
-    // 定期的なA/V同期チェック: ドリフトが閾値を超えたらバッファ末尾付近にシーク
+    // 定期的なドリフトチェック: ライブエッジから離れすぎたらシークで復帰
     videoEl.addEventListener('timeupdate', () => {
         if (videoEl.paused || videoEl.seeking) return;
         const buf = videoEl.buffered;
         if (buf.length === 0) return;
         const liveEdge = buf.end(buf.length - 1);
         const drift = liveEdge - videoEl.currentTime;
-        if (drift > 5.0) {
-            videoEl.currentTime = liveEdge - 2.0;
+        if (drift > 3.0) {
+            videoEl.currentTime = liveEdge - 0.5;
         }
     });
 
     livePlayer.load();
-    videoEl.play().catch(() => {
-        videoEl.addEventListener('canplay', () => {
-            videoEl.play().catch(() => {
-                document.getElementById('live-status').innerHTML =
-                    '<span class="live-indicator"></span> 再生ボタンを押してください';
-            });
-        }, { once: true });
-    });
+    videoEl.addEventListener('canplaythrough', () => {
+        videoEl.play().catch(() => {
+            document.getElementById('live-status').innerHTML =
+                '<span class="live-indicator"></span> 再生ボタンを押してください';
+        });
+    }, { once: true });
 
     // 番組情報を定期更新
     if (liveNowTimer) clearInterval(liveNowTimer);

@@ -318,6 +318,86 @@ def delete_rule(rule_id):
     return _json_response({"deleted": rule_id, "cancelled_schedules": cancelled})
 
 
+import re
+
+_NEW_MARKER_RE = re.compile(r"【新】")
+_TITLE_NORMALIZE_RE = re.compile(
+    r"【[^】]*】|＃\d+|#\d+|　＃\d+|　#\d+|「[^」]*」|（[^）]*）|\s+$"
+)
+
+
+def get_new_programmes(_params):
+    """GET /api/programmes/new - 新番組一覧 (EPG の【新】マーカーで検出)"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    epg = _get_db(EPG_DB)
+    rows = epg.execute(
+        "SELECT * FROM programme WHERE title LIKE '%【新】%' AND start_time > ? ORDER BY start_time",
+        (now,),
+    ).fetchall()
+
+    # タイトル正規化してグループ化 (複数チャンネルの重複排除)
+    seen = {}
+    programmes = []
+    for r in rows:
+        d = dict(r)
+        norm = _TITLE_NORMALIZE_RE.sub("", d["title"]).strip()
+        norm = _NEW_MARKER_RE.sub("", norm).strip()
+        d["normalized_title"] = norm
+        if norm not in seen:
+            seen[norm] = len(programmes)
+            d["channels"] = [d["channel"]]
+            programmes.append(d)
+        else:
+            programmes[seen[norm]]["channels"].append(d["channel"])
+
+    # 既存ルールとの照合
+    autorec = _get_db(AUTOREC_DB)
+    rules = autorec.execute("SELECT keyword FROM rule WHERE enabled = 1 AND keyword IS NOT NULL AND keyword != ''").fetchall()
+    keywords = [r["keyword"] for r in rules]
+
+    for p in programmes:
+        p["has_rule"] = any(kw in p["normalized_title"] for kw in keywords)
+        # channels を重複排除
+        p["channels"] = list(dict.fromkeys(p["channels"]))
+
+    return _json_response({"programmes": programmes})
+
+
+def get_ending_rules(_params):
+    """GET /api/rules/ending - 終了候補ルール (未来の番組にマッチしないルール)"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    autorec = _get_db(AUTOREC_DB)
+    rules = autorec.execute("SELECT * FROM rule WHERE enabled = 1 ORDER BY id").fetchall()
+    if not rules:
+        return _json_response({"rules": []})
+
+    epg = _get_db(EPG_DB)
+    ending = []
+    for r in rules:
+        kw = r["keyword"]
+        ch = r["channel"]
+        if not kw and not ch:
+            continue  # 条件なしルールは対象外
+
+        conditions = ["start_time > ?"]
+        args = [now]
+        if kw:
+            conditions.append("title LIKE ?")
+            args.append(f"%{kw}%")
+        if ch:
+            conditions.append("channel = ?")
+            args.append(ch)
+
+        where = " AND ".join(conditions)
+        count = epg.execute(f"SELECT COUNT(*) FROM programme WHERE {where}", args).fetchone()[0]
+        if count == 0:
+            d = dict(r)
+            d["future_count"] = 0
+            ending.append(d)
+
+    return _json_response({"rules": ending})
+
+
 # --- スケジュール API ---
 
 def get_schedules(params):
@@ -1013,6 +1093,12 @@ def handle_request(method, path, params, body=b""):
         return get_programme_stats(params)
     if method == "GET" and path == "/api/categories":
         return get_categories(params)
+
+    # 番組改編
+    if method == "GET" and path == "/api/programmes/new":
+        return get_new_programmes(params)
+    if method == "GET" and path == "/api/rules/ending":
+        return get_ending_rules(params)
 
     # ルール
     if method == "GET" and path == "/api/rules":

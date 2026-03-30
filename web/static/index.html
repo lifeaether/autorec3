@@ -23,8 +23,10 @@
                 <a href="#" data-section="epg" class="nav-tab"><i class="ph ph-calendar-blank"></i>番組表</a>
                 <span class="nav-tab-divider"></span>
                 <a href="#" data-section="recordings" class="nav-tab"><i class="ph ph-film-strip"></i>録画済み</a>
+                <span class="nav-tab-divider"></span>
                 <a href="#" data-section="schedules" class="nav-tab"><i class="ph ph-list-bullets"></i>録画一覧</a>
                 <a href="#" data-section="rules" class="nav-tab"><i class="ph ph-funnel"></i>録画ルール</a>
+                <a href="#" data-section="season" class="nav-tab"><i class="ph ph-swap"></i>番組改編</a>
             </div>
             <div class="nav-actions">
                 <select class="nav-quality-select" id="nav-quality-select" onchange="setStreamQuality(this.value)">
@@ -63,6 +65,7 @@
             </select>
         </div>
         <div class="drawer-divider"></div>
+        <a href="#" data-section="season" onclick="switchFromDrawer('season',event)"><i class="ph ph-swap"></i>番組改編</a>
         <a href="#" data-section="rules" onclick="switchFromDrawer('rules',event)"><i class="ph ph-funnel"></i>録画ルール</a>
         <div class="drawer-divider"></div>
         <a href="epg.html"><i class="ph ph-archive-box"></i>アーカイブ</a>
@@ -79,6 +82,23 @@
             <div id="epg-table" style="overflow-x:auto">
                 <p style="color:var(--text-muted)">読み込み中...</p>
             </div>
+        </div>
+
+        <!-- 番組改編セクション -->
+        <div id="section-season" class="section">
+            <div class="section-header">
+                <div class="toolbar">
+                    <div class="btn-group" id="season-tabs">
+                        <button class="btn btn-filter active" data-value="new" onclick="setSeasonTab(this, 'new')"><i class="ph ph-star"></i> 新番組</button>
+                        <button class="btn btn-filter" data-value="ending" onclick="setSeasonTab(this, 'ending')"><i class="ph ph-flag-checkered"></i> 終了番組</button>
+                    </div>
+                </div>
+            </div>
+            <div id="season-category-filter" class="toolbar" style="padding-top:0">
+                <div class="btn-group" id="season-category-buttons"></div>
+            </div>
+            <div id="season-new-list" class="card-list" style="display:block"></div>
+            <div id="season-ending-list" class="card-list" style="display:none"></div>
         </div>
 
         <!-- 録画ルールセクション -->
