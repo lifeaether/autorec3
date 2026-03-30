@@ -271,37 +271,54 @@
         <!-- ヘルプセクション -->
         <div id="section-help" class="section">
             <div class="card">
+                <h3 style="margin-bottom:0.5rem">録画PC構成</h3>
+                <table style="font-size:0.9rem;line-height:1.8;width:100%;border-collapse:collapse">
+                    <tbody>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">CPU</td><td>Intel Core i3-13100 (4コア/8スレッド)</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">メモリ</td><td>16GB</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">OS</td><td>Ubuntu 24.04 LTS</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">チューナー</td><td>PLEX PXW3PE5 (地デジ x2 / BS x2)</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">システム</td><td>NVMe SSD 465GB</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">録画先</td><td>HDD 5.5TB (/mnt/data)</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">受信</td><td>地上波 8局 / BS 10局</td></tr>
+                        <tr><td style="white-space:nowrap;padding:0.2rem 1rem 0.2rem 0;color:var(--text-muted);vertical-align:top">同時録画</td><td>最大4番組 (地デジ2 + BS2)。ライブ視聴もチューナーを1つ使用します</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
                 <h3 style="margin-bottom:0.5rem">画面構成</h3>
                 <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:0.75rem">
                     デスクトップでは上部のタブバー、モバイルではボトムバーから各画面に移動できます。
                 </p>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">視聴</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてリアルタイム視聴 (同時最大2ストリーム)。画質はナビバー右上またはメニューから変更できます。視聴中にコントロールバーの録画ボタンで即座に録画を開始できます</li>
+                    <li><a href="#" onclick="switchSection('live');return false" style="color:var(--accent);font-weight:500">ライブ</a> — チャンネルカードをタップしてリアルタイム視聴 (同時最大2ストリーム)。画質はナビバー右上またはメニューから変更できます。視聴中にコントロールバーの録画ボタンで即座に録画を開始できます。NX-Jikkyo の実況コメントをオーバーレイまたはサイドバーで表示可能です</li>
                     <li><a href="#" onclick="switchSection('epg');return false" style="color:var(--accent);font-weight:500">番組表</a> — 新聞式グリッドで番組を表示。タップで詳細を開き、録画予約や録画ルール作成ができます</li>
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">録画</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタやキーワード検索で絞り込み、ブラウザ内再生やダウンロードが可能です</li>
-                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — 録画スケジュールの一覧。予定・録画中・完了・失敗などの状態でフィルタできます</li>
-                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワード・ジャンル・チャンネルで自動録画の条件を設定。ルールを削除・無効化すると、紐付く未実行の録画予定も自動で取り消されます</li>
+                    <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタやキーワード検索で絞り込み、ブラウザ内再生やダウンロードが可能です。録画時に保存された実況コメント (.nicojk) も再生中に表示できます</li>
+                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — 録画スケジュールの一覧。予定・録画中・完了・失敗・スキップの状態でフィルタできます</li>
+                    <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワード・ジャンル・チャンネルで自動録画の条件を設定。ルールを削除・無効化すると、紐付く未実行の録画予定も自動で取り消されます。「無効ルールを削除」ボタンで不要なルールの一括削除も可能です</li>
+                    <li><a href="#" onclick="switchSection('season');return false" style="color:var(--accent);font-weight:500">番組改編</a> — シーズン切り替え時の録画ルール入れ替えを支援。EPG の【新】マーカーで新番組を検出し、ジャンルフィルタで絞り込んでルールを作成できます。終了番組タブでは未来にマッチ番組がないルールを検出し、一括無効化できます</li>
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">その他 (···メニュー内)</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="#" onclick="switchSection('storage');return false" style="color:var(--accent);font-weight:500">ストレージ</a> — 録画先ディスクの使用状況とシリーズ別の容量内訳を表示</li>
-                    <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴。レベルでフィルタ可能</li>
-                    <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付・チャンネルで横断検索</li>
+                    <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴。レベル (info/warn/error) でフィルタ可能</li>
+                    <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付・チャンネルで横断検索。EPG データは削除されず永続的に蓄積されます</li>
                 </ul>
             </div>
 
             <div class="card">
                 <h3 style="margin-bottom:0.5rem">録画の流れ</h3>
                 <ol style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
-                    <li><strong>EPG取得</strong> — cron で1時間ごとに自動実行 (録画中は自動スキップ)。番組表データがDBに蓄積されます</li>
-                    <li><strong>録画予約</strong> — <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a>でキーワード条件を設定するか、<a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>から番組を直接追加します</li>
-                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行。ルールに一致する番組が<a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent)">録画一覧</a>に登録されます</li>
-                    <li><strong>録画実行</strong> — 番組開始の直前に cron から自動的に録画が開始されます</li>
-                    <li><strong>完了</strong> — 録画完了後、<a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent)">録画済み</a>に表示されます。Discord等の通知も送信されます</li>
+                    <li><strong>EPG取得</strong> — cron で1時間ごとに自動実行 (録画中はチューナー競合を避けるため自動スキップ)。各チャンネルを30秒間受信し、番組表データをDBに蓄積します</li>
+                    <li><strong>録画予約</strong> — <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a>でキーワード条件を設定するか、<a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>から番組を直接追加します。<a href="#" onclick="switchSection('season');return false" style="color:var(--accent)">番組改編</a>から新番組のルールを作成することもできます</li>
+                    <li><strong>スケジュール生成</strong> — EPG取得後に自動実行。ルールに一致する番組が<a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent)">録画一覧</a>に登録され、crontab が更新されます。同じ番組の重複予約は自動で防止されます</li>
+                    <li><strong>録画実行</strong> — 番組開始の1秒前に cron から自動的に録画が開始されます。recpt1 でチューナーを制御し、実況コメントも並行で保存します</li>
+                    <li><strong>完了</strong> — 録画完了後、<a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent)">録画済み</a>に表示されます。Discord / LINE への通知も送信されます</li>
                 </ol>
             </div>
 
@@ -312,12 +329,52 @@
                     <p style="margin-bottom:0.75rem;padding-left:1rem">
                         <a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a> →「+ 録画ルール」で条件を登録。<br>
                         キーワード (部分一致)・ジャンル・チャンネルを指定すると、一致する番組が自動的に録画予定に追加されます。<br>
-                        ルール作成時にマッチする番組のプレビューを確認できます。
+                        ルール作成時にマッチする番組のプレビューを確認できます。すべての条件は AND で評価され、未指定の項目はワイルドカード扱いになります。
                     </p>
                     <p style="margin-bottom:0.5rem"><strong>方法2: 番組表から直接予約</strong></p>
-                    <p style="padding-left:1rem">
+                    <p style="margin-bottom:0.75rem;padding-left:1rem">
                         <a href="#" onclick="switchSection('epg');return false" style="color:var(--accent)">番組表</a>で番組をタップ →「録画予約」で1番組だけ直接予約。<br>
                         「録画ルールを作成」を押すと、その番組名をキーワードにしたルールを作成できます。
+                    </p>
+                    <p style="margin-bottom:0.5rem"><strong>方法3: 番組改編から新番組を予約</strong></p>
+                    <p style="padding-left:1rem">
+                        <a href="#" onclick="switchSection('season');return false" style="color:var(--accent)">番組改編</a>の新番組タブで、EPG に【新】マーカーが付いた番組を確認。<br>
+                        ジャンルフィルタで「アニメ／特撮」「ドラマ」等に絞り込み、「ルール作成」で録画ルールを作成できます。<br>
+                        既にルールが登録済みの番組は「登録済み」と表示されます。
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">番組改編 (シーズン管理)</h3>
+                <div style="font-size:0.9rem;line-height:1.8">
+                    <p style="margin-bottom:0.5rem">4月・7月・10月・1月のシーズン切り替え時に、録画ルールの入れ替えを効率化するページです。</p>
+                    <p style="margin-bottom:0.5rem"><strong>新番組タブ</strong></p>
+                    <p style="margin-bottom:0.75rem;padding-left:1rem">
+                        EPG データのタイトルに含まれる【新】マーカーで新番組を自動検出します。<br>
+                        ジャンルフィルタ (アニメ／特撮、ドラマ等) で絞り込み可能。<br>
+                        複数チャンネルで放送される番組は自動的にグループ化されます。
+                    </p>
+                    <p style="margin-bottom:0.5rem"><strong>終了番組タブ</strong></p>
+                    <p style="padding-left:1rem">
+                        有効な録画ルールのうち、未来の EPG にマッチする番組が存在しないルールを「終了候補」として表示します。<br>
+                        個別に無効化するか、「すべて無効化」で一括無効化できます。<br>
+                        無効化されたルールは<a href="#" onclick="switchSection('rules');return false" style="color:var(--accent)">録画ルール</a>の「無効ルールを削除」で一括削除できます。
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">録画ファイルの保存先</h3>
+                <div style="font-size:0.9rem;line-height:1.8">
+                    <p style="margin-bottom:0.5rem">録画ファイルはシリーズごとにフォルダ分けして保存されます。</p>
+                    <p style="margin-bottom:0.5rem;padding-left:1rem">
+                        <strong>ルール経由の録画:</strong> ルール名がフォルダ名になります (例: ルール名「進撃の巨人」→ <code>/mnt/data/進撃の巨人/</code>)<br>
+                        <strong>手動予約の録画:</strong> 番組タイトルからエピソード番号やサブタイトルを除去したシリーズ名が使われます
+                    </p>
+                    <p style="margin-bottom:0.5rem;padding-left:1rem">
+                        <strong>ファイル名:</strong> <code>日付_チャンネル_番組タイトル.ts</code><br>
+                        <strong>実況コメント:</strong> NX-Jikkyo のコメントが <code>.nicojk</code> ファイルとして自動保存されます (チャンネルマッピング設定時)
                     </p>
                 </div>
             </div>
@@ -330,10 +387,24 @@
                         ライブ視聴中・録画再生中に変更すると、即座に画質が切り替わります。
                     </p>
                     <ul style="padding-left:1.5rem;margin-top:0.5rem">
-                        <li><strong>高画質</strong> — 元の解像度でトランスコード</li>
-                        <li><strong>低画質</strong> — 640p / 800kbps。回線が遅い環境向け</li>
-                        <li><strong>最低画質</strong> — 480p / 400kbps。モバイル回線向け</li>
+                        <li><strong>高画質</strong> — 元の解像度でトランスコード。LAN 環境向け</li>
+                        <li><strong>中画質</strong> — 640p / 800kbps。回線が遅い環境向け</li>
+                        <li><strong>低画質</strong> — 480p / 400kbps。モバイル回線向け</li>
                     </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">通知</h3>
+                <div style="font-size:0.9rem;line-height:1.8">
+                    <p style="margin-bottom:0.5rem">録画の完了・失敗時に自動で通知を送信します。以下のサービスに対応しています。</p>
+                    <ul style="padding-left:1.5rem">
+                        <li><strong>Discord</strong> — Webhook URL を設定ファイルの <code>DISCORD_WEBHOOK</code> に指定</li>
+                        <li><strong>LINE Notify</strong> — トークンを <code>LINE_NOTIFY_TOKEN</code> に指定</li>
+                    </ul>
+                    <p style="margin-top:0.5rem">
+                        ストレージ使用量がしきい値 (デフォルト: 使用率90%以上 or 残り50GB以下) を超えた場合にも警告通知が送信されます。通知はしきい値を超えた初回のみ送信され、空き容量が回復するとリセットされます。
+                    </p>
                 </div>
             </div>
 
@@ -342,6 +413,34 @@
                 <p style="font-size:0.9rem;line-height:1.8">
                     OS のダークモード設定に自動追従します。手動での切り替えは不要です。
                 </p>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:0.5rem">設定ファイル</h3>
+                <div style="font-size:0.9rem;line-height:1.8">
+                    <p style="margin-bottom:0.5rem"><strong>conf/autorec.conf</strong> — メイン設定</p>
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:0.75rem">
+                        <tbody>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>RECORD_DIR</code></td><td>録画保存先ディレクトリ</td></tr>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>START_OFFSET</code></td><td>番組開始の何秒前に録画開始するか (デフォルト: 1)</td></tr>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>END_OFFSET</code></td><td>番組終了の何秒後に録画停止するか (負値で早く停止、デフォルト: -1)</td></tr>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>DISCORD_WEBHOOK</code></td><td>Discord 通知用 Webhook URL</td></tr>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>LINE_NOTIFY_TOKEN</code></td><td>LINE Notify トークン</td></tr>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>STORAGE_WARN_PERCENT</code></td><td>ストレージ警告しきい値 (使用率%、デフォルト: 90)</td></tr>
+                            <tr><td style="padding:0.15rem 0.75rem 0.15rem 1rem;white-space:nowrap"><code>STORAGE_WARN_FREE_GB</code></td><td>ストレージ警告しきい値 (残りGB、デフォルト: 50)</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-bottom:0.5rem"><strong>conf/channels.conf</strong> — チャンネル定義</p>
+                    <p style="padding-left:1rem;margin-bottom:0.75rem">
+                        <code>チャンネル番号 表示名</code> の形式で、recpt1 のチャンネル番号と表示名を定義します。<br>
+                        EPG 取得・録画・ライブ視聴で使用されます。
+                    </p>
+                    <p style="margin-bottom:0.5rem"><strong>conf/jikkyo-map.conf</strong> — 実況コメント チャンネルマッピング</p>
+                    <p style="padding-left:1rem">
+                        <code>jk_ID チャンネル名</code> の形式で、NX-Jikkyo の実況チャンネルIDとチャンネル名を対応付けます。<br>
+                        設定されたチャンネルの録画時に実況コメントが自動保存されます。
+                    </p>
+                </div>
             </div>
         </div>
       </div>
