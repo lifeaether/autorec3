@@ -541,7 +541,7 @@ let _seasonCategoryFilter = '';
 function loadSeason() {
     const tab = document.querySelector('#season-tabs .btn-filter.active');
     const mode = tab ? tab.dataset.value : 'new';
-    document.getElementById('season-category-filter').style.display = mode === 'new' ? '' : 'none';
+    _updateSeasonVisibility(mode);
     if (mode === 'new') loadNewProgrammes();
     else loadEndingRules();
 }
@@ -549,11 +549,16 @@ function loadSeason() {
 function setSeasonTab(btn, mode) {
     btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    _updateSeasonVisibility(mode);
+    if (mode === 'new') loadNewProgrammes();
+    else loadEndingRules();
+}
+
+function _updateSeasonVisibility(mode) {
     document.getElementById('season-new-list').style.display = mode === 'new' ? 'block' : 'none';
     document.getElementById('season-ending-list').style.display = mode === 'ending' ? 'block' : 'none';
     document.getElementById('season-category-filter').style.display = mode === 'new' ? '' : 'none';
-    if (mode === 'new') loadNewProgrammes();
-    else loadEndingRules();
+    document.getElementById('season-ending-toolbar').style.display = mode === 'ending' ? '' : 'none';
 }
 
 function _primaryCategory(cat) {
@@ -651,11 +656,15 @@ function seasonAddRule(btn) {
     previewRule();
 }
 
+let _endingRuleIds = [];
+
 async function loadEndingRules() {
     const el = document.getElementById('season-ending-list');
     el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">読み込み中...</p>';
     try {
         const data = await API.get('/api/rules/ending');
+        _endingRuleIds = (data.rules || []).map(r => r.id);
+        document.getElementById('season-ending-count').textContent = _endingRuleIds.length > 0 ? `${_endingRuleIds.length}件` : '';
         if (!data.rules || data.rules.length === 0) {
             el.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">終了候補のルールはありません</p>';
             return;
@@ -677,6 +686,24 @@ async function loadEndingRules() {
             </div>`).join('');
     } catch (err) {
         el.innerHTML = `<p style="padding:1rem;color:var(--error)">${escapeHtml(err.message)}</p>`;
+    }
+}
+
+async function seasonDisableAll() {
+    if (_endingRuleIds.length === 0) return;
+    if (!confirm(`終了候補 ${_endingRuleIds.length}件のルールをすべて無効化しますか？`)) return;
+    try {
+        let totalCancelled = 0;
+        for (const id of _endingRuleIds) {
+            const result = await API.put(`/api/rules/${id}`, { enabled: 0 });
+            if (result.cancelled_schedules) totalCancelled += result.cancelled_schedules;
+        }
+        let msg = `${_endingRuleIds.length}件のルールを無効化しました`;
+        if (totalCancelled) msg += `\n${totalCancelled}件の録画予定を取り消しました`;
+        alert(msg);
+        loadEndingRules();
+    } catch (err) {
+        alert(err.message);
     }
 }
 
