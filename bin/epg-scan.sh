@@ -185,6 +185,17 @@ if [ -s "$WORK/insert.sql" ]; then
     # epgdump の日時形式 (YYYYMMDDHHmmSS +0900) を ISO 8601 に変換
     echo "UPDATE programme SET start_time = substr(start_time,1,4)||'-'||substr(start_time,5,2)||'-'||substr(start_time,7,2)||' '||substr(start_time,9,2)||':'||substr(start_time,11,2)||':'||substr(start_time,13,2) WHERE start_time NOT LIKE '____-__-%';" >> "$WORK/batch.sql"
     echo "UPDATE programme SET end_time = substr(end_time,1,4)||'-'||substr(end_time,5,2)||'-'||substr(end_time,7,2)||' '||substr(end_time,9,2)||':'||substr(end_time,11,2)||':'||substr(end_time,13,2) WHERE end_time NOT LIKE '____-__-%';" >> "$WORK/batch.sql"
+    # 同一チャンネル・同一開始時刻でevent_idが異なる古い重複を削除
+    cat >> "$WORK/batch.sql" << 'DEDUP'
+DELETE FROM programme WHERE rowid IN (
+    SELECT p1.rowid FROM programme p1
+    INNER JOIN programme p2
+        ON p1.channel = p2.channel AND p1.start_time = p2.start_time
+    WHERE p1.event_id != p2.event_id
+      AND (p1.updated_at < p2.updated_at
+           OR (p1.updated_at = p2.updated_at AND p1.event_id < p2.event_id))
+);
+DEDUP
     echo "COMMIT;" >> "$WORK/batch.sql"
     sqlite3 "$EPG_DB" < "$WORK/batch.sql"
     echo "[epg-scan] 完了: $COUNT 番組を登録 (ch=$CHANNEL $CHANNEL_NAME)"

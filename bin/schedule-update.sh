@@ -62,8 +62,8 @@ WHERE r.enabled = 1
   -- 既存スケジュールとの重複排除
   AND NOT EXISTS (
       SELECT 1 FROM schedule s
-      WHERE s.event_id = p.event_id
-        AND s.channel = p.channel
+      WHERE s.channel = p.channel
+        AND s.start_time = p.start_time
         AND s.status IN ('scheduled', 'recording', 'done')
   );
 
