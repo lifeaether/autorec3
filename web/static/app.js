@@ -3119,6 +3119,14 @@ const liveControls = (() => {
             _showControls();
         },
 
+        reload() {
+            if (!livePlayer || !liveCurrentCh) return;
+            const ch = liveCurrentCh;
+            const title = document.getElementById('live-player-title').textContent;
+            stopLive(true);
+            startLive(ch, title);
+        },
+
         async toggleRecord() {
             if (!liveCurrentCh) return;
             _showControls();
