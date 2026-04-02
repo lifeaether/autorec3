@@ -12,6 +12,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 AUTOREC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(AUTOREC_DIR, "web"))
 
+import sqlite3
 import api
 
 STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
@@ -351,10 +352,9 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             return
 
         # DB から録画中のスケジュールの output_path を取得
-        import sqlite3 as _sqlite3
         autorec_db = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
         try:
-            conn = _sqlite3.connect(autorec_db)
+            conn = sqlite3.connect(autorec_db)
             row = conn.execute(
                 "SELECT output_path FROM schedule WHERE id = ? AND status = 'recording'",
                 (schedule_id,),

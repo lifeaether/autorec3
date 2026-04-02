@@ -114,8 +114,8 @@ function setStreamQuality(quality) {
         sel.value = quality;
     });
     // ライブ再生中なら再起動
-    if (livePlayer && liveRecordingPath) {
-        const id = liveRecordingPath;
+    if (livePlayer && liveRecScheduleId) {
+        const id = liveRecScheduleId;
         const title = document.getElementById('live-player-title').textContent.replace(' (録画中)', '');
         stopLive(true);
         startLiveFromRecording(id, title);
@@ -2181,7 +2181,7 @@ const jikkyoSettings = (() => {
 /* --- ライブ視聴機能 --- */
 
 let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
-let liveRecordingPath = null;  // 録画ファイルからのライブ視聴時のパス
+let liveRecScheduleId = null;  // 録画ライブ視聴時のスケジュールID
 let liveRecording = false;  // ライブ録画中かどうか
 
 /* --- NX-Jikkyo 実況コメント --- */
@@ -3128,8 +3128,8 @@ const liveControls = (() => {
         reload() {
             if (!livePlayer) return;
             const title = document.getElementById('live-player-title').textContent;
-            if (liveRecordingPath) {
-                const id = liveRecordingPath;
+            if (liveRecScheduleId) {
+                const id = liveRecScheduleId;
                 stopLive(true);
                 startLiveFromRecording(id, title.replace(' (録画中)', ''));
             } else if (liveCurrentCh) {
@@ -3248,12 +3248,12 @@ function startLiveFromRecording(scheduleId, chName) {
     }
 
     // 既に同じ録画を視聴中なら何もしない
-    if (liveRecordingPath === scheduleId && livePlayer) return;
+    if (liveRecScheduleId === scheduleId && livePlayer) return;
 
     // 既に再生中なら停止
     if (livePlayer) stopLive(true);
 
-    liveRecordingPath = scheduleId;
+    liveRecScheduleId = scheduleId;
     liveCurrentCh = null;
 
     // UI 更新
@@ -3475,7 +3475,7 @@ function stopLive(keepGrid) {
     }
 
     liveCurrentCh = null;
-    liveRecordingPath = null;
+    liveRecScheduleId = null;
 
     // UI リセット
     document.getElementById('live-player-area').style.display = 'none';
