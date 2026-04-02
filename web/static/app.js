@@ -3175,11 +3175,18 @@ async function loadLiveChannelGrid() {
 
         // ヘッダー: チャンネル名 + 勢いバッジ
         if (forceInfo && forceInfo.force != null) {
-            const cls = forceInfo.force >= 100 ? 'hot' : forceInfo.force >= 30 ? 'warm' : '';
+            const f = forceInfo.force;
+            // 白(0) → 黄(50) → 赤(150+)
+            const t = Math.min(f / 150, 1);
+            const r = 255;
+            const g = Math.round(255 - t * 105);  // 255→150
+            const b = Math.round(Math.max(0, 255 - f * (255 / 50)));  // 255→0 at 50
+            const forceColor = f <= 10 ? '' : `color:rgb(${r},${g},${b})`;
+            const forceWeight = f >= 100 ? ';font-weight:700' : '';
             html += `<div class="live-ch-header">`;
             html += `<div class="live-ch-name">${escapeHtml(ch.name)}</div>`;
-            html += `<div class="live-ch-force${cls ? ' ' + cls : ''}">`;
-            html += `<span class="live-ch-force-value">${forceInfo.force}</span>`;
+            html += `<div class="live-ch-force">`;
+            html += `<span class="live-ch-force-value" style="${forceColor}${forceWeight}">${f}</span>`;
             html += `<span class="live-ch-force-unit">/min</span>`;
             html += `</div></div>`;
         } else {
