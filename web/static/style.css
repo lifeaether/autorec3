@@ -1557,6 +1557,16 @@ body.fs-landscape-active {
     box-shadow: 0 0 0 2px var(--accent);
 }
 
+.live-ch-rec-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--error);
+    margin-bottom: 0.25rem;
+}
+
 .live-ch-name {
     font-weight: 600;
     font-size: 1rem;

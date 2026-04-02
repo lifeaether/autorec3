@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS schedule (
     title       TEXT NOT NULL,
     start_time  TEXT NOT NULL,
     end_time    TEXT NOT NULL,
-    status      TEXT DEFAULT 'scheduled'  -- scheduled / recording / done / failed / skipped
+    status      TEXT DEFAULT 'scheduled', -- scheduled / recording / done / failed / skipped
+    output_path TEXT                       -- 録画ファイルパス (録画開始時に設定)
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedule_start ON schedule(start_time);

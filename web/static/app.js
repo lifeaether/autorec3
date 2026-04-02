@@ -114,7 +114,12 @@ function setStreamQuality(quality) {
         sel.value = quality;
     });
     // ライブ再生中なら再起動
-    if (livePlayer && liveCurrentCh) {
+    if (livePlayer && liveRecordingPath) {
+        const id = liveRecordingPath;
+        const title = document.getElementById('live-player-title').textContent.replace(' (録画中)', '');
+        stopLive(true);
+        startLiveFromRecording(id, title);
+    } else if (livePlayer && liveCurrentCh) {
         const ch = liveCurrentCh;
         const title = document.getElementById('live-player-title').textContent;
         stopLive(true);
@@ -2176,6 +2181,7 @@ const jikkyoSettings = (() => {
 /* --- ライブ視聴機能 --- */
 
 let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
+let liveRecordingPath = null;  // 録画ファイルからのライブ視聴時のパス
 let liveRecording = false;  // ライブ録画中かどうか
 
 /* --- NX-Jikkyo 実況コメント --- */
@@ -3120,11 +3126,17 @@ const liveControls = (() => {
         },
 
         reload() {
-            if (!livePlayer || !liveCurrentCh) return;
-            const ch = liveCurrentCh;
+            if (!livePlayer) return;
             const title = document.getElementById('live-player-title').textContent;
-            stopLive(true);
-            startLive(ch, title);
+            if (liveRecordingPath) {
+                const id = liveRecordingPath;
+                stopLive(true);
+                startLiveFromRecording(id, title.replace(' (録画中)', ''));
+            } else if (liveCurrentCh) {
+                const ch = liveCurrentCh;
+                stopLive(true);
+                startLive(ch, title);
+            }
         },
 
         async toggleRecord() {
@@ -3154,14 +3166,22 @@ async function loadLiveChannelGrid() {
     const grid = document.getElementById('live-channel-grid');
     if (!grid || channels.length === 0) return;
 
-    // EPG と実況勢いを並列フェッチ
-    const [nowResult, forceResult] = await Promise.allSettled([
+    // EPG・実況勢い・録画中番組を並列フェッチ
+    const [nowResult, forceResult, recResult] = await Promise.allSettled([
         API.get('/api/live/now-all'),
         API.get('/api/jikkyo/force'),
+        API.get('/api/schedules?status=recording'),
     ]);
 
     const nowPlaying = nowResult.status === 'fulfilled' ? (nowResult.value.now_playing || {}) : {};
     const forceMap = forceResult.status === 'fulfilled' ? (forceResult.value.force || {}) : {};
+    // 録画中チャンネル → schedule_id のマップ
+    const recordingMap = {};
+    if (recResult.status === 'fulfilled') {
+        (recResult.value.schedules || []).forEach(s => {
+            if (s.output_path) recordingMap[s.channel] = s.id;
+        });
+    }
 
     const now = new Date();
     let html = '';
@@ -3171,7 +3191,11 @@ async function loadLiveChannelGrid() {
         const jkId = JIKKYO_MAP[ch.name];
         const forceInfo = jkId ? forceMap[jkId] : null;
 
-        html += `<div class="live-ch-card${isPlaying ? ' playing' : ''}" onclick="startLive('${escapeHtml(ch.number)}', '${escapeHtml(ch.name)}')">`;
+        const recId = recordingMap[ch.name];
+        const onclick = recId
+            ? `startLiveFromRecording(${recId}, '${escapeHtml(ch.name)}')`
+            : `startLive('${escapeHtml(ch.number)}', '${escapeHtml(ch.name)}')`;
+        html += `<div class="live-ch-card${isPlaying ? ' playing' : ''}${recId ? ' recording' : ''}" onclick="${onclick}">`;
 
         // ヘッダー: チャンネル名 + 勢いバッジ
         if (forceInfo && forceInfo.force != null) {
@@ -3192,6 +3216,9 @@ async function loadLiveChannelGrid() {
         } else {
             html += `<div class="live-ch-name">${escapeHtml(ch.name)}</div>`;
         }
+        if (recId) {
+            html += `<div class="live-ch-rec-badge"><i class="ph-fill ph-record"></i> 録画中</div>`;
+        }
 
         if (prog) {
             const start = new Date(prog.start_time.replace(' ', 'T'));
@@ -3211,6 +3238,71 @@ async function loadLiveChannelGrid() {
         html += '</div>';
     });
     grid.innerHTML = html;
+}
+
+function startLiveFromRecording(scheduleId, chName) {
+    if (typeof mpegts === 'undefined' || !mpegts.isSupported()) {
+        document.getElementById('live-error').textContent =
+            'このブラウザは mpegts.js に対応していません。Chrome または Edge をお使いください。';
+        return;
+    }
+
+    // 既に同じ録画を視聴中なら何もしない
+    if (liveRecordingPath === scheduleId && livePlayer) return;
+
+    // 既に再生中なら停止
+    if (livePlayer) stopLive(true);
+
+    liveRecordingPath = scheduleId;
+    liveCurrentCh = null;
+
+    // UI 更新
+    document.getElementById('live-error').textContent = '';
+    document.getElementById('live-stream-info').textContent = '';
+    document.getElementById('live-player-title').textContent = chName + ' (録画中)';
+    document.getElementById('live-player-area').style.display = '';
+    document.getElementById('live-status').innerHTML =
+        '<span class="live-indicator"></span> 接続中...';
+
+    loadLiveChannelGrid();
+
+    const videoEl = document.getElementById('live-video');
+
+    livePlayer = mpegts.createPlayer({
+        type: 'mpegts',
+        isLive: true,
+        url: `/recordings/live?schedule_id=${scheduleId}&quality=${streamQuality}`,
+    }, {
+        enableWorker: false,
+        liveBufferLatencyChasing: true,
+        liveBufferLatencyMaxLatency: 5.0,
+        liveBufferLatencyMinRemain: 2.0,
+        liveBufferLatencyChasingSpeed: 1.1,
+        fixAudioTimestampGap: true,
+        accurateSeek: true,
+        autoCleanupSourceBuffer: true,
+        autoCleanupMaxBackwardDuration: 30,
+        autoCleanupMinBackwardDuration: 15,
+    });
+
+    livePlayer.attachMediaElement(videoEl);
+
+    livePlayer.on(mpegts.Events.MEDIA_INFO, () => {
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生中 (録画ファイル)';
+    });
+    livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
+        document.getElementById('live-error').textContent =
+            'ストリームエラー: ' + (detail || type || '');
+    });
+
+    livePlayer.load();
+    videoEl.addEventListener('canplaythrough', () => {
+        videoEl.play().catch(() => {});
+    }, { once: true });
+
+    liveNowTimer = setInterval(loadLiveChannelGrid, 60000);
+    liveControls.init();
 }
 
 function startLive(chNum, chName) {
@@ -3372,6 +3464,7 @@ function stopLive(keepGrid) {
     }
 
     liveCurrentCh = null;
+    liveRecordingPath = null;
 
     // UI リセット
     document.getElementById('live-player-area').style.display = 'none';

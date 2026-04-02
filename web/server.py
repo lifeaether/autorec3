@@ -107,6 +107,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self._handle_api("GET", parsed)
         elif parsed.path == "/recordings/transcode":
             self._serve_recording_transcode(parsed)
+        elif parsed.path == "/recordings/live":
+            self._serve_recording_live(parsed)
         elif parsed.path.startswith("/recordings/"):
             self._serve_recording(parsed)
         elif parsed.path == "/live/stream":
@@ -339,6 +341,100 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             except subprocess.TimeoutExpired:
                 ffmpeg.kill()
                 ffmpeg.wait()
+
+    def _serve_recording_live(self, parsed):
+        """録画中ファイルをライブ配信 (tail -f → ffmpeg → HTTP)"""
+        params = parse_qs(parsed.query)
+        schedule_id = params.get("schedule_id", [""])[0]
+        if not schedule_id:
+            self.send_error(400, "schedule_id parameter is required")
+            return
+
+        # DB から録画中のスケジュールの output_path を取得
+        import sqlite3 as _sqlite3
+        autorec_db = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
+        try:
+            conn = _sqlite3.connect(autorec_db)
+            row = conn.execute(
+                "SELECT output_path FROM schedule WHERE id = ? AND status = 'recording'",
+                (schedule_id,),
+            ).fetchone()
+            conn.close()
+        except Exception:
+            self.send_error(500, "Database error")
+            return
+
+        if not row or not row[0]:
+            self.send_error(404, "Recording not found or not active")
+            return
+
+        file_path = row[0]
+        if not os.path.isfile(file_path):
+            self.send_error(404, "Recording file not found")
+            return
+
+        quality_args = self._get_quality_args(params)
+
+        # tail -f で成長中のファイルの末尾付近から追従 (約10秒分 ≒ 20MB)
+        tail_cmd = ["tail", "-c", "20000000", "-f", file_path]
+        ffmpeg_cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-analyzeduration", "500000", "-probesize", "1000000",
+            "-fflags", "+nobuffer+discardcorrupt+genpts",
+            "-err_detect", "ignore_err",
+            "-f", "mpegts", "-i", "pipe:0",
+            "-map", "0:v:0", "-map", "0:a:0",
+        ] + quality_args + [
+            "-af", "aresample=async=1000:first_pts=0",
+            "-vsync", "cfr",
+            "-f", "mpegts",
+            "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
+            "-flush_packets", "1",
+            "pipe:1",
+        ]
+
+        try:
+            tail = subprocess.Popen(tail_cmd, stdout=subprocess.PIPE)
+            ffmpeg = subprocess.Popen(
+                ffmpeg_cmd,
+                stdin=tail.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            tail.stdout.close()  # ffmpeg が直接読む
+        except FileNotFoundError:
+            self.send_error(503, "ffmpeg or tail not found")
+            return
+
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "video/mp2t")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store")
+            self.send_header("Connection", "close")
+            self.end_headers()
+
+            while True:
+                data = ffmpeg.stdout.read(65536)
+                if not data:
+                    break
+                self.wfile.write(data)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            ffmpeg.terminate()
+            tail.terminate()
+            try:
+                ffmpeg.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                ffmpeg.kill()
+                ffmpeg.wait()
+            try:
+                tail.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                tail.kill()
+                tail.wait()
 
     def _serve_live_stream(self, parsed):
         """ライブTV ストリーム配信 (recpt1 → ffmpeg → HTTP)"""
