@@ -19,7 +19,7 @@ STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
 QUALITY_PRESETS = {
     "high": {
         "video": ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"],
-        "audio": ["-c:a", "aac", "-b:a", "256k"],
+        "audio": ["-c:a", "aac", "-b:a", "256k", "-ac", "2"],
     },
     "medium": {
         "video": [
@@ -32,10 +32,11 @@ QUALITY_PRESETS = {
     "low": {
         "video": [
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-b:v", "400k", "-maxrate", "450k", "-bufsize", "600k",
-            "-vf", "scale=480:-2",
+            "-b:v", "250k", "-maxrate", "300k", "-bufsize", "600k",
+            "-bf", "0",
+            "-vf", "scale=360:-2",
         ],
-        "audio": ["-c:a", "aac", "-b:a", "64k", "-ac", "2"],
+        "audio": ["-c:a", "aac", "-b:a", "32k", "-ac", "2"],
     },
 }
 DEFAULT_QUALITY = "high"
@@ -288,15 +289,18 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         cmd = [
             "ffmpeg",
             "-hide_banner", "-loglevel", "error",
-            "-analyzeduration", "1000000",
-            "-probesize", "2000000",
+            "-analyzeduration", "500000", "-probesize", "1000000",
+            "-fflags", "+nobuffer+discardcorrupt+genpts",
+            "-err_detect", "ignore_err",
         ]
         if ss:
             cmd += ["-ss", ss]
+        cmd += ["-i", file_path]
         quality_args = self._get_quality_args(params)
-        cmd += ["-i", file_path] + quality_args + [
+        cmd += quality_args + [
             "-f", "mpegts",
-            "-mpegts_flags", "+resend_headers",
+            "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
+            "-flush_packets", "1",
             "pipe:1",
         ]
 
@@ -372,10 +376,14 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ffmpeg_cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-analyzeduration", "500000", "-probesize", "1000000",
-            "-fflags", "+nobuffer+discardcorrupt+genpts", "-i", "pipe:0",
+            "-fflags", "+nobuffer+discardcorrupt+genpts",
+            "-err_detect", "ignore_err",
+            "-i", "pipe:0",
         ] + quality_args + [
-            "-af", "aresample=async=1000:first_pts=0",
-            "-f", "mpegts", "-mpegts_flags", "+resend_headers", "-flush_packets", "1", "pipe:1",
+            "-f", "mpegts",
+            "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
+            "-flush_packets", "1",
+            "pipe:1",
         ]
         r_fd, w_fd = os.pipe()
         try:
