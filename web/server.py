@@ -295,9 +295,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ]
         if ss:
             cmd += ["-ss", ss]
-        cmd += ["-i", file_path]
+        cmd += ["-i", file_path, "-map", "0:v:0", "-map", "0:a:0"]
         quality_args = self._get_quality_args(params)
         cmd += quality_args + [
+            "-af", "aresample=async=1000:first_pts=0",
+            "-vsync", "cfr",
             "-f", "mpegts",
             "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
             "-flush_packets", "1",
