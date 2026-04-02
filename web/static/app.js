@@ -933,7 +933,7 @@ async function previewRule() {
     tableEl.innerHTML = '<p style="color:var(--text-muted)">検索中...</p>';
 
     try {
-        let searchUrl = `/api/programmes/search?limit=30`;
+        let searchUrl = `/api/programmes/search?limit=30&date_from=${encodeURIComponent(nowTimestamp())}&sort=asc`;
         if (keyword) searchUrl += `&keyword=${encodeURIComponent(keyword)}`;
         if (channel) searchUrl += `&channel=${encodeURIComponent(channel)}`;
         if (category) searchUrl += `&category=${encodeURIComponent(category)}`;
