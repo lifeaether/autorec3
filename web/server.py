@@ -380,8 +380,10 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-analyzeduration", "500000", "-probesize", "1000000",
             "-fflags", "+nobuffer+discardcorrupt+genpts",
             "-err_detect", "ignore_err",
-            "-i", "pipe:0",
+            "-i", "pipe:0", "-map", "0:v:0", "-map", "0:a:0",
         ] + quality_args + [
+            "-af", "aresample=async=1000:first_pts=0",
+            "-vsync", "cfr",
             "-f", "mpegts",
             "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
             "-flush_packets", "1",
