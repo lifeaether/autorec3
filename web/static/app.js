@@ -3302,6 +3302,17 @@ function startLiveFromRecording(scheduleId, chName) {
     }, { once: true });
 
     liveNowTimer = setInterval(loadLiveChannelGrid, 60000);
+
+    // NX-Jikkyo 実況コメント開始
+    jikkyo.initUI();
+    jikkyo.start(chName);
+
+    // PiP ボタン表示
+    if (jikkyoPip.isSupported()) {
+        document.getElementById('pip-btn').style.display = '';
+        jikkyoPip.warmUp();
+    }
+
     liveControls.init();
 }
 
