@@ -37,10 +37,9 @@ fi
 IFS='|' read -r CHANNEL TITLE START_TIME END_TIME RULE_ID RULE_NAME <<< "$SCHED_INFO"
 
 # チャンネル番号を取得 (channels.conf から逆引き)
-CH_NUM=$(awk -v name="$CHANNEL" '{
-    n=""; for(i=2;i<=NF;i++) n=n (i>2?" ":"") $i
-    if (n == name) { print $1; exit }
-}' "$AUTOREC_DIR/conf/channels.conf")
+CH_NUM=$(awk -F'\t' -v name="$CHANNEL" '
+    $2 == name { print $1; exit }
+' "$AUTOREC_DIR/conf/channels.conf")
 
 if [ -z "$CH_NUM" ]; then
     # チャンネル名がそのまま番号の場合

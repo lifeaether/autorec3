@@ -24,7 +24,7 @@ mkdir -p "$WORK"
 # チャンネル番号から表示名を取得
 get_channel_name() {
     local ch="$1"
-    awk -v ch="$ch" '$1 == ch { for(i=2;i<=NF;i++) printf "%s%s", (i>2?" ":""), $i; print "" }' \
+    awk -F'\t' -v ch="$ch" '$1 == ch { print $2 }' \
         "$AUTOREC_DIR/conf/channels.conf" | head -1
 }
 
@@ -106,7 +106,7 @@ with open(channels_conf) as f:
         line = line.split('#')[0].strip()
         if not line:
             continue
-        parts = line.split(None, 1)
+        parts = line.split('\t')
         if len(parts) >= 2:
             our_channels.add(parts[1])
 

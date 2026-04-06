@@ -46,7 +46,7 @@ while IFS= read -r line; do
     [ -z "$line" ] && continue
 
     CH_NUM="$(echo "$line" | awk '{print $1}')"
-    CH_NAME="$(echo "$line" | awk '{for(i=2;i<=NF;i++) printf "%s%s", (i>2?" ":""), $i; print ""}')"
+    CH_NAME="$(echo "$line" | awk -F'\t' '{print $2}')"
     TOTAL=$((TOTAL + 1))
 
     echo ""
