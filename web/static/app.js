@@ -1727,6 +1727,9 @@ function startRecordingStream(seekTime) {
         liveBufferLatencyChasing: false,
         fixAudioTimestampGap: true,
         accurateSeek: true,
+        autoCleanupSourceBuffer: true,
+        autoCleanupMaxBackwardDuration: 30,
+        autoCleanupMinBackwardDuration: 15,
     });
     recordingPlayer.on(mpegts.Events.ERROR, () => {
         const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
