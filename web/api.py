@@ -561,7 +561,8 @@ def _get_valid_channels():
     return result
 
 
-def register_live_stream(channel_num, channel_name, pid, rec_ref=None):
+def register_live_stream(channel_num, channel_name, pid, rec_ref=None,
+                         stop_event=None, recpt1_proc=None, ffmpeg_proc=None):
     """登録成功時 stream_id を返す。上限超過時は None"""
     with _live_lock:
         if len(_live_streams) >= MAX_LIVE_STREAMS:
@@ -573,6 +574,9 @@ def register_live_stream(channel_num, channel_name, pid, rec_ref=None):
             "pid": pid,
             "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "_rec_ref": rec_ref,
+            "_stop_event": stop_event,
+            "_recpt1_proc": recpt1_proc,
+            "_ffmpeg_proc": ffmpeg_proc,
         }
         return stream_id
 
@@ -590,7 +594,7 @@ def get_live_status(_params):
         for sid, info in _live_streams.items():
             s = {"stream_id": sid}
             for k, v in info.items():
-                if k == "_rec_ref":
+                if k.startswith("_"):
                     continue
                 s[k] = v
             rec_ref = info.get("_rec_ref")
@@ -606,6 +610,59 @@ def get_live_status(_params):
         "max_streams": MAX_LIVE_STREAMS,
         "streams": streams,
     })
+
+
+def stop_all_live_streams(_body=None):
+    """POST /api/live/stop-all — 全ライブ配信を停止 (録画優先)"""
+    with _live_lock:
+        streams_to_stop = list(_live_streams.values())
+
+    stopped = 0
+    for info in streams_to_stop:
+        stop_event = info.get("_stop_event")
+        recpt1_proc = info.get("_recpt1_proc")
+        ffmpeg_proc = info.get("_ffmpeg_proc")
+        if stop_event:
+            stop_event.set()
+        if recpt1_proc:
+            try:
+                recpt1_proc.terminate()
+            except OSError:
+                pass
+        if ffmpeg_proc:
+            try:
+                ffmpeg_proc.terminate()
+            except OSError:
+                pass
+        stopped += 1
+
+    return _json_response({"stopped": stopped})
+
+
+def _recording_guard():
+    """バックグラウンドで録画スケジュールを監視し、録画直前にライブ配信を停止する"""
+    import time
+    while True:
+        time.sleep(30)
+        try:
+            with _live_lock:
+                has_streams = len(_live_streams) > 0
+            if not has_streams:
+                continue
+            conn = _get_db(AUTOREC_DB)
+            threshold = (datetime.now() + timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            row = conn.execute(
+                "SELECT 1 FROM schedule WHERE status = 'scheduled' AND start_time > ? AND start_time <= ? LIMIT 1",
+                (now, threshold),
+            ).fetchone()
+            if row:
+                stop_all_live_streams()
+        except Exception:
+            pass
+
+
+threading.Thread(target=_recording_guard, daemon=True).start()
 
 
 def get_now_playing(params):
@@ -1149,6 +1206,10 @@ def handle_request(method, path, params, body=b""):
         return get_now_playing(params)
     if method == "GET" and path == "/api/live/now-all":
         return get_now_playing_all(params)
+
+    # ライブ制御
+    if method == "POST" and path == "/api/live/stop-all":
+        return stop_all_live_streams(body)
 
     # ライブ録画
     if method == "POST" and path == "/api/live/record/start":

@@ -517,7 +517,10 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         relay.start()
 
         # ストリーム登録 (上限チェック)
-        stream_id = api.register_live_stream(ch, channel_name, recpt1.pid, rec_ref)
+        stream_id = api.register_live_stream(
+            ch, channel_name, recpt1.pid, rec_ref,
+            stop_event=stop_event, recpt1_proc=recpt1, ffmpeg_proc=ffmpeg,
+        )
         if stream_id is None:
             recpt1.terminate()
             ffmpeg.terminate()
