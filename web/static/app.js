@@ -121,9 +121,10 @@ function setStreamQuality(quality) {
         startLiveFromRecording(id, title);
     } else if (livePlayer && liveCurrentCh) {
         const ch = liveCurrentCh;
+        const sid = liveCurrentSid;
         const title = document.getElementById('live-player-title').textContent;
         stopLive(true);
-        startLive(ch, title);
+        startLive(ch, title, sid);
     }
     // 録画再生中なら現在位置から再起動
     if (recordingPlayer && recordingPath) {
@@ -2184,6 +2185,7 @@ const jikkyoSettings = (() => {
 /* --- ライブ視聴機能 --- */
 
 let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
+let liveCurrentSid = null;  // 現在のサービスID (サブチャンネル)
 let liveRecScheduleId = null;  // 録画ライブ視聴時のスケジュールID
 let liveRecording = false;  // ライブ録画中かどうか
 
@@ -3137,9 +3139,20 @@ const liveControls = (() => {
                 startLiveFromRecording(id, title.replace(' (録画中)', ''));
             } else if (liveCurrentCh) {
                 const ch = liveCurrentCh;
+                const sid = liveCurrentSid;
                 stopLive(true);
-                startLive(ch, title);
+                startLive(ch, title, sid);
             }
+        },
+
+        switchService(sid) {
+            if (!liveCurrentCh) return;
+            const chInfo = channels.find(c => c.number === liveCurrentCh);
+            const svc = chInfo && chInfo.services ? chInfo.services.find(s => s.sid === sid) : null;
+            const name = svc ? svc.name : document.getElementById('live-player-title').textContent;
+            const ch = liveCurrentCh;
+            stopLive(true);
+            startLive(ch, name, sid);
         },
 
         async toggleRecord() {
@@ -3197,7 +3210,7 @@ async function loadLiveChannelGrid() {
         const recId = recordingMap[ch.name];
         const onclick = recId
             ? `startLiveFromRecording(${recId}, '${escapeHtml(ch.name)}')`
-            : `startLive('${escapeHtml(ch.number)}', '${escapeHtml(ch.name)}')`;
+            : `startLive('${escapeHtml(ch.number)}', '${escapeHtml(ch.name)}'${ch.sid ? `, '${ch.sid}'` : ''})`;
         html += `<div class="live-ch-card${isPlaying ? ' playing' : ''}${recId ? ' recording' : ''}" onclick="${onclick}">`;
 
         // ヘッダー: チャンネル名 + 勢いバッジ
@@ -3319,20 +3332,33 @@ function startLiveFromRecording(scheduleId, chName) {
     liveControls.init();
 }
 
-function startLive(chNum, chName) {
+function startLive(chNum, chName, sid) {
     if (typeof mpegts === 'undefined' || !mpegts.isSupported()) {
         document.getElementById('live-error').textContent =
             'このブラウザは mpegts.js に対応していません。Chrome または Edge をお使いください。';
         return;
     }
 
-    // 既に同じチャンネルを視聴中なら何もしない
-    if (liveCurrentCh === chNum && livePlayer) return;
+    // 既に同じチャンネル・同じSIDを視聴中なら何もしない
+    if (liveCurrentCh === chNum && liveCurrentSid === (sid || null) && livePlayer) return;
 
     // 既に別チャンネル再生中なら停止
     if (livePlayer) stopLive(true);
 
     liveCurrentCh = chNum;
+    liveCurrentSid = sid || null;
+
+    // サブチャンネルセレクタ更新
+    const subSel = document.getElementById('lc-subchannel');
+    const chInfo = channels.find(c => c.number === chNum);
+    if (chInfo && chInfo.services && chInfo.services.length > 1) {
+        subSel.innerHTML = chInfo.services.map(s =>
+            `<option value="${s.sid || ''}"${(s.sid || '') === (sid || '') ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
+        ).join('');
+        subSel.style.display = '';
+    } else {
+        subSel.style.display = 'none';
+    }
 
     // UI 更新
     document.getElementById('live-error').textContent = '';
@@ -3347,10 +3373,12 @@ function startLive(chNum, chName) {
 
     const videoEl = document.getElementById('live-video');
 
+    let streamUrl = `/live/stream?ch=${chNum}&quality=${streamQuality}`;
+    if (sid) streamUrl += `&sid=${sid}`;
     livePlayer = mpegts.createPlayer({
         type: 'mpegts',
         isLive: true,
-        url: `/live/stream?ch=${chNum}&quality=${streamQuality}`,
+        url: streamUrl,
     }, {
         enableWorker: false,
         liveBufferLatencyChasing: true,
@@ -3478,9 +3506,11 @@ function stopLive(keepGrid) {
     }
 
     liveCurrentCh = null;
+    liveCurrentSid = null;
     liveRecScheduleId = null;
 
     // UI リセット
+    document.getElementById('lc-subchannel').style.display = 'none';
     document.getElementById('live-player-area').style.display = 'none';
     document.getElementById('live-status').textContent = '';
     document.getElementById('live-stream-info').textContent = '';
