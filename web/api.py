@@ -523,9 +523,24 @@ def get_channels(_params):
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                parts = line.split(None, 1)
-                if len(parts) >= 2:
-                    channels.append({"number": parts[0], "name": parts[1]})
+                fields = line.split("\t")
+                fields = [f.strip() for f in fields if f.strip()]
+                if len(fields) < 2:
+                    continue
+                number = fields[0]
+                name = fields[1]
+                sids = fields[2].split(",") if len(fields) >= 3 else []
+                sids = [s.strip() for s in sids if s.strip()]
+                services = []
+                if len(sids) >= 2:
+                    for i, sid in enumerate(sids):
+                        services.append({"name": f"{name}{i + 1}", "sid": sid})
+                channels.append({
+                    "number": number,
+                    "name": name,
+                    "sid": sids[0] if sids else None,
+                    "services": services,
+                })
     return _json_response({"channels": channels})
 
 
@@ -539,9 +554,10 @@ def _get_valid_channels():
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                parts = line.split(None, 1)
-                if len(parts) >= 2:
-                    result[parts[0]] = parts[1]
+                fields = line.split("\t")
+                fields = [f.strip() for f in fields if f.strip()]
+                if len(fields) >= 2:
+                    result[fields[0]] = fields[1]
     return result
 
 

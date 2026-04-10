@@ -471,13 +471,18 @@ class AutorecHandler(SimpleHTTPRequestHandler):
 
         # ffmpeg でトランスコード (MPEG-2 → H.264, ブラウザ MSE 互換)
         quality_args = self._get_quality_args(params)
+        sid = params.get("sid", [""])[0]
+        if sid:
+            map_args = ["-map", f"0:p:{sid}:v:0", "-map", f"0:p:{sid}:a:0"]
+        else:
+            map_args = ["-map", "0:v:0", "-map", "0:a:0"]
         ffmpeg_cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-analyzeduration", "500000", "-probesize", "1000000",
             "-fflags", "+nobuffer+discardcorrupt+genpts",
             "-err_detect", "ignore_err",
-            "-i", "pipe:0", "-map", "0:v:0", "-map", "0:a:0",
-        ] + quality_args + [
+            "-i", "pipe:0",
+        ] + map_args + quality_args + [
             "-af", "aresample=async=1000:first_pts=0",
             "-vsync", "cfr",
             "-f", "mpegts",
