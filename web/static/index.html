@@ -206,6 +206,7 @@
                                     <button class="lc-btn" id="lc-mute" onclick="liveControls.toggleMute()" title="ミュート"></button>
                                     <input type="range" id="lc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="liveControls.setVolume(this.value)">
                                     <div class="lc-spacer"></div>
+                                    <select id="lc-subchannel" class="jikkyo-mode-select" onchange="liveControls.switchService(this.value)" style="display:none"></select>
                                     <button class="lc-btn" id="lc-record" onclick="liveControls.toggleRecord()" title="録画" style="display:none"></button>
                                     <select id="jikkyo-mode-select" class="jikkyo-mode-select" onchange="jikkyo.setMode(this.value)">
                                         <option value="overlay">実況: オーバーレイ</option>
