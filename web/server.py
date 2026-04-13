@@ -473,9 +473,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         quality_args = self._get_quality_args(params)
         sid = params.get("sid", [""])[0]
         if sid:
-            map_args = ["-map", f"0:p:{sid}:v:0", "-map", f"0:p:{sid}:a:0"]
+            map_args = ["-map", f"0:p:{sid}:v:0?", "-map", f"0:p:{sid}:a:0?"]
         else:
-            map_args = ["-map", "0:v:0", "-map", "0:a:0"]
+            # -map を指定しない: ffmpeg の自動ストリーム選択に任せることで
+            # 番組切り替わり時の PMT 変更 (音声PID/構成変更) に追従できる
+            map_args = []
         ffmpeg_cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-analyzeduration", "500000", "-probesize", "1000000",
