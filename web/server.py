@@ -19,7 +19,10 @@ STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
 
 QUALITY_PRESETS = {
     "high": {
-        "video": ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"],
+        "video": [
+            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+            "-b:v", "6000k", "-maxrate", "8000k", "-bufsize", "12000k",
+        ],
         "audio": ["-c:a", "aac", "-b:a", "256k", "-ac", "2"],
     },
     "medium": {
@@ -40,6 +43,22 @@ QUALITY_PRESETS = {
         "audio": ["-c:a", "aac", "-b:a", "32k", "-ac", "2"],
     },
 }
+
+# 録画ファイル再生用プリセット: 低遅延要件がないため zerolatency を外し、
+# B フレーム/ルックアヘッドを有効化して同ビットレートでの画質を底上げする。
+RECORDING_QUALITY_PRESETS = {
+    "high": {
+        "video": [
+            "-c:v", "libx264", "-preset", "veryfast",
+            "-b:v", "6000k", "-maxrate", "8000k", "-bufsize", "12000k",
+            "-g", "120", "-keyint_min", "30",
+        ],
+        "audio": ["-c:a", "aac", "-b:a", "256k", "-ac", "2"],
+    },
+    "medium": QUALITY_PRESETS["medium"],
+    "low": QUALITY_PRESETS["low"],
+}
+
 DEFAULT_QUALITY = "high"
 
 
@@ -97,9 +116,10 @@ class AutorecHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
 
-    def _get_quality_args(self, params):
+    def _get_quality_args(self, params, presets=None):
+        presets = presets or QUALITY_PRESETS
         quality = params.get("quality", [DEFAULT_QUALITY])[0]
-        preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS[DEFAULT_QUALITY])
+        preset = presets.get(quality, presets[DEFAULT_QUALITY])
         return preset["video"] + preset["audio"]
 
     def do_GET(self):
@@ -299,7 +319,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         if ss:
             cmd += ["-ss", ss]
         cmd += ["-i", file_path, "-map", "0:v:0", "-map", "0:a:0"]
-        quality_args = self._get_quality_args(params)
+        quality_args = self._get_quality_args(params, RECORDING_QUALITY_PRESETS)
         cmd += quality_args + [
             "-af", "aresample=async=1000:first_pts=0",
             "-vsync", "cfr",
