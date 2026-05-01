@@ -30,6 +30,7 @@
             </div>
             <div class="nav-actions">
                 <select class="nav-quality-select" id="nav-quality-select" onchange="setStreamQuality(this.value)">
+                    <option value="original">画質：原画</option>
                     <option value="high">画質：高</option>
                     <option value="medium">画質：中</option>
                     <option value="low">画質：低</option>
@@ -59,6 +60,7 @@
         <div class="drawer-quality-row">
             <span>画質</span>
             <select id="drawer-quality-select" onchange="setStreamQuality(this.value); closeMoreDrawer();">
+                <option value="original">原画</option>
                 <option value="high">高</option>
                 <option value="medium">中</option>
                 <option value="low">低</option>
@@ -385,11 +387,12 @@
                 <h3 style="margin-bottom:0.5rem">画質設定</h3>
                 <div style="font-size:0.9rem;line-height:1.8">
                     <p>
-                        デスクトップではナビバー右側のセレクト、モバイルではメニュー内の「画質」から3段階で切り替えられます。<br>
+                        デスクトップではナビバー右側のセレクト、モバイルではメニュー内の「画質」から4段階で切り替えられます。<br>
                         ライブ視聴中・録画再生中に変更すると、即座に画質が切り替わります。
                     </p>
                     <ul style="padding-left:1.5rem;margin-top:0.5rem">
-                        <li><strong>高画質</strong> — 元の解像度でトランスコード。LAN 環境向け</li>
+                        <li><strong>原画質</strong> — 元の解像度・最大15Mbpsでトランスコード。デスクトップ・有線LAN向け</li>
+                        <li><strong>高画質</strong> — 元の解像度・最大8Mbpsでトランスコード。Wi-Fi/モバイル端末向け</li>
                         <li><strong>中画質</strong> — 640p / 800kbps。回線が遅い環境向け</li>
                         <li><strong>低画質</strong> — 480p / 400kbps。モバイル回線向け</li>
                     </ul>

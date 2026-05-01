@@ -18,6 +18,13 @@ import api
 STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
 
 QUALITY_PRESETS = {
+    "original": {
+        "video": [
+            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+            "-b:v", "12000k", "-maxrate", "15000k", "-bufsize", "20000k",
+        ],
+        "audio": ["-c:a", "aac", "-b:a", "320k", "-ac", "2"],
+    },
     "high": {
         "video": [
             "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
@@ -47,6 +54,14 @@ QUALITY_PRESETS = {
 # 録画ファイル再生用プリセット: 低遅延要件がないため zerolatency を外し、
 # B フレーム/ルックアヘッドを有効化して同ビットレートでの画質を底上げする。
 RECORDING_QUALITY_PRESETS = {
+    "original": {
+        "video": [
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+            "-maxrate", "15000k", "-bufsize", "25000k",
+            "-g", "120", "-keyint_min", "30",
+        ],
+        "audio": ["-c:a", "aac", "-b:a", "320k", "-ac", "2"],
+    },
     "high": {
         "video": [
             "-c:v", "libx264", "-preset", "veryfast",
