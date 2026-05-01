@@ -390,6 +390,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         autorec_db = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
         try:
             conn = sqlite3.connect(autorec_db)
+            conn.execute("PRAGMA busy_timeout=5000")
             row = conn.execute(
                 "SELECT output_path FROM schedule WHERE id = ? AND status = 'recording'",
                 (schedule_id,),

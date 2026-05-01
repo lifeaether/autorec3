@@ -13,18 +13,21 @@ RECORD_DIR="${RECORD_DIR:-/mnt/data}"
 START_OFFSET="${START_OFFSET:-1}"
 END_OFFSET="${END_OFFSET:-0}"
 
+# 同時録画中の SQLite ロック競合を吸収するため busy_timeout を 5秒に設定
+SQLITE=(sqlite3 -cmd ".timeout 5000")
+
 SCHEDULE_ID="$1"
 
 # ログ記録関数
 log_msg() {
     local level="$1"
     local msg="$2"
-    sqlite3 "$AUTOREC_DB" "INSERT INTO log (schedule_id, level, message) VALUES ($SCHEDULE_ID, '$level', '$(echo "$msg" | sed "s/'/''/g")');"
+    "${SQLITE[@]}" "$AUTOREC_DB" "INSERT INTO log (schedule_id, level, message) VALUES ($SCHEDULE_ID, '$level', '$(echo "$msg" | sed "s/'/''/g")');"
     echo "[record][$level] $msg"
 }
 
 # スケジュール情報取得
-SCHED_INFO=$(sqlite3 -separator '|' "$AUTOREC_DB" \
+SCHED_INFO=$("${SQLITE[@]}" -separator '|' "$AUTOREC_DB" \
     "SELECT s.channel, s.title, s.start_time, s.end_time, s.rule_id, COALESCE(r.name, 'unknown')
      FROM schedule s LEFT JOIN rule r ON s.rule_id = r.id
      WHERE s.id = $SCHEDULE_ID;")
@@ -73,7 +76,7 @@ fi
 
 if [ "$DURATION" -le 0 ]; then
     log_msg "warn" "録画時間が0以下のためスキップ: $TITLE"
-    sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'skipped' WHERE id = $SCHEDULE_ID;"
+    "${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'skipped' WHERE id = $SCHEDULE_ID;"
     exit 0
 fi
 
@@ -116,7 +119,7 @@ log_msg "info" "録画開始: $TITLE (ch=$CH_NUM, ${DURATION}秒)"
 log_msg "info" "保存先: $OUTPUT_FILE"
 
 # ステータスを recording に更新
-sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'recording', output_path = '$(echo "$OUTPUT_FILE" | sed "s/'/''/g")' WHERE id = $SCHEDULE_ID;"
+"${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'recording', output_path = '$(echo "$OUTPUT_FILE" | sed "s/'/''/g")' WHERE id = $SCHEDULE_ID;"
 "$AUTOREC_DIR/bin/notify.sh" "録画開始" "$TITLE ($CHANNEL)" &
 
 # 実況コメント並行録画 (失敗しても録画に影響しない)
@@ -141,7 +144,7 @@ if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
     # 成功
     FILE_SIZE=$(stat -c%s "$OUTPUT_FILE" 2>/dev/null || echo "0")
     FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
-    sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'done' WHERE id = $SCHEDULE_ID;"
+    "${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'done' WHERE id = $SCHEDULE_ID;"
     log_msg "info" "録画完了: $TITLE (${FILE_SIZE_MB}MB)"
 
     # 実況コメント停止・結果ログ
@@ -164,7 +167,7 @@ else
         kill "$JIKKYO_PID" 2>/dev/null || true
         wait "$JIKKYO_PID" 2>/dev/null || true
     fi
-    sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'failed' WHERE id = $SCHEDULE_ID;"
+    "${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'failed' WHERE id = $SCHEDULE_ID;"
     log_msg "error" "録画失敗: $TITLE (ch=$CH_NUM)"
 
     # エラー通知

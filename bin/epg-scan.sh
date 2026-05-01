@@ -10,6 +10,9 @@ source "$AUTOREC_DIR/conf/autorec.conf"
 
 EPG_DB="${EPG_DB:-$AUTOREC_DIR/db/epg.sqlite}"
 SCAN_DURATION="${2:-30}"
+
+# 録画/Web 側との SQLite ロック競合を吸収
+SQLITE=(sqlite3 -cmd ".timeout 5000")
 CHANNEL="$1"
 TMPDIR="${TMPDIR:-/tmp}"
 WORK="$TMPDIR/autorec-epg-$$"
@@ -197,7 +200,7 @@ DELETE FROM programme WHERE rowid IN (
 );
 DEDUP
     echo "COMMIT;" >> "$WORK/batch.sql"
-    sqlite3 "$EPG_DB" < "$WORK/batch.sql"
+    "${SQLITE[@]}" "$EPG_DB" < "$WORK/batch.sql"
     echo "[epg-scan] 完了: $COUNT 番組を登録 (ch=$CHANNEL $CHANNEL_NAME)"
 else
     echo "[epg-scan] 警告: 番組データが取得できませんでした (ch=$CHANNEL)" >&2

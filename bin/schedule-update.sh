@@ -12,6 +12,9 @@ AUTOREC_DB="${AUTOREC_DB:-$AUTOREC_DIR/db/autorec.sqlite}"
 START_OFFSET="${START_OFFSET:-1}"
 END_OFFSET="${END_OFFSET:-0}"
 
+# 録画実行と同時に走った場合の SQLite ロック競合を吸収
+SQLITE=(sqlite3 -cmd ".timeout 5000")
+
 echo "[schedule] === スケジュール更新開始 ==="
 
 # DB存在チェック
@@ -30,7 +33,7 @@ echo "[schedule] 現在時刻: $NOW"
 
 # epg.sqlite を ATTACH してルールマッチング
 # 未来の番組のみ対象、既にスケジュール済み (同一 event_id + channel) は除外
-sqlite3 "$AUTOREC_DB" <<SQL
+"${SQLITE[@]}" "$AUTOREC_DB" <<SQL
 ATTACH DATABASE '$EPG_DB' AS epg;
 
 -- 有効ルールと番組をマッチングして schedule に INSERT
@@ -71,11 +74,11 @@ DETACH DATABASE epg;
 SQL
 
 # マッチ結果表示
-MATCHED=$(sqlite3 "$AUTOREC_DB" "SELECT COUNT(*) FROM schedule WHERE status = 'scheduled' AND start_time > '$NOW';")
+MATCHED=$("${SQLITE[@]}" "$AUTOREC_DB" "SELECT COUNT(*) FROM schedule WHERE status = 'scheduled' AND start_time > '$NOW';")
 echo "[schedule] スケジュール済み番組数: $MATCHED"
 
 # 過去のスケジュールで scheduled のまま残っているものを skipped に変更
-sqlite3 "$AUTOREC_DB" "UPDATE schedule SET status = 'skipped' WHERE status = 'scheduled' AND start_time < '$NOW';"
+"${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'skipped' WHERE status = 'scheduled' AND start_time < '$NOW';"
 
 # crontab 生成
 echo "[schedule] crontab 更新中..."
@@ -94,7 +97,7 @@ echo "# === 以下は自動生成された録画スケジュール ===" >> "$CRO
 
 # スケジュールから cron エントリを生成
 # 開始時刻の START_OFFSET 秒前に record.sh を起動
-sqlite3 -separator '|' "$AUTOREC_DB" \
+"${SQLITE[@]}" -separator '|' "$AUTOREC_DB" \
     "SELECT id, start_time, end_time, channel, title FROM schedule WHERE status = 'scheduled' AND start_time > '$NOW' ORDER BY start_time;" | \
 while IFS='|' read -r sched_id start_time end_time channel title; do
     # 開始オフセットを考慮した cron 時刻を計算
