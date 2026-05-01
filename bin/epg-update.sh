@@ -11,14 +11,10 @@ source "$AUTOREC_DIR/conf/autorec.conf"
 SCAN_DURATION="${1:-30}"
 CHANNELS_CONF="$AUTOREC_DIR/conf/channels.conf"
 
-# 録画/Web 側との SQLite ロック競合を吸収
-SQLITE=(sqlite3 -cmd ".timeout 5000")
-
-# ログ記録関数 (schedule_id = NULL でDBに記録)
+# ログは stdout のみ (cron が log/epg.log にリダイレクト)
 log_msg() {
     local level="$1"
     local msg="$2"
-    "${SQLITE[@]}" "$AUTOREC_DB" "INSERT INTO log (schedule_id, level, message) VALUES (NULL, '$level', '$(echo "$msg" | sed "s/'/''/g")');"
     echo "[epg-update][$level] $msg"
 }
 

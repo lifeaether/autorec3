@@ -71,26 +71,6 @@ function nowTimestamp() {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
 }
 
-function statusBadge(status) {
-    const icons = {
-        scheduled: '<i class="ph ph-clock"></i>',
-        recording: '<i class="ph-fill ph-record"></i>',
-        done: '<i class="ph ph-check-circle"></i>',
-        failed: '<i class="ph ph-x-circle"></i>',
-        skipped: '<i class="ph ph-skip-forward"></i>',
-    };
-    const label = { scheduled: '予定', recording: '録画中', done: '完了', failed: '失敗', skipped: 'スキップ' };
-    return `<span class="badge badge-${status}" title="${label[status] || status}">${icons[status] || status}</span>`;
-}
-
-function levelBadge(level) {
-    const icons = {
-        info: '<i class="ph ph-info"></i>',
-        warn: '<i class="ph ph-warning-circle"></i>',
-        error: '<i class="ph ph-x-circle"></i>',
-    };
-    return `<span class="badge badge-${level}" title="${level}">${icons[level] || level}</span>`;
-}
 
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 B';
@@ -165,7 +145,6 @@ function switchSection(name) {
     else if (name === 'live') initLiveSection();
     else if (name === 'storage') loadStorage();
     else if (name === 'season') loadSeason();
-    else if (name === 'logs') loadLogs();
 }
 
 /* --- More Drawer (mobile) --- */
@@ -1013,16 +992,12 @@ function getFilterValue(id) {
 /* --- 録画スケジュール --- */
 
 async function loadSchedules() {
-    const status = getFilterValue('schedule-status');
-    let url = '/api/schedules?limit=200';
-    if (status) url += `&status=${status}`;
-
     const tbody = document.getElementById('schedules-table');
     const cardsEl = document.getElementById('schedules-cards');
     try {
-        const data = await API.get(url);
+        const data = await API.get('/api/schedules?limit=200');
         if (!data.schedules || data.schedules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">スケジュールなし</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">スケジュールなし</td></tr>';
             if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">スケジュールなし</p>';
             return;
         }
@@ -1033,69 +1008,21 @@ async function loadSchedules() {
                 <td>${escapeHtml(s.channel)}</td>
                 <td>${formatDateTime(s.start_time)}</td>
                 <td>${formatDateTime(s.end_time)}</td>
-                <td>${statusBadge(s.status)}</td>
                 <td>${escapeHtml(s.rule_name || '-')}</td>
             </tr>
         `).join('');
 
-        // Card list for mobile
         if (cardsEl) {
             cardsEl.innerHTML = data.schedules.map(s => `
                 <div class="schedule-card">
                     <div class="schedule-title">${escapeHtml(s.title)}</div>
                     <div class="schedule-meta">${escapeHtml(s.channel)} | ${formatDateTime(s.start_time)} - ${formatTime(s.end_time)}</div>
-                    ${statusBadge(s.status)}
-                    ${s.rule_name ? ' <span style="font-size:0.8rem;color:var(--text-muted)">' + escapeHtml(s.rule_name) + '</span>' : ''}
+                    ${s.rule_name ? '<span style="font-size:0.8rem;color:var(--text-muted)">' + escapeHtml(s.rule_name) + '</span>' : ''}
                 </div>
             `).join('');
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
-        if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
-    }
-}
-
-/* --- ログ --- */
-
-async function loadLogs() {
-    const level = getFilterValue('log-level');
-    let url = '/api/logs?limit=200';
-    if (level) url += `&level=${level}`;
-
-    const tbody = document.getElementById('logs-table');
-    const cardsEl = document.getElementById('logs-cards');
-    try {
-        const data = await API.get(url);
-        if (!data.logs || data.logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">ログなし</td></tr>';
-            if (cardsEl) cardsEl.innerHTML = '<p style="padding:1rem;color:var(--text-muted)">ログなし</p>';
-            return;
-        }
-        tbody.innerHTML = data.logs.map(l => `
-            <tr>
-                <td>${formatDateTime(l.timestamp)}</td>
-                <td>${levelBadge(l.level)}</td>
-                <td>${escapeHtml(l.schedule_title || '-')}</td>
-                <td>${escapeHtml(l.schedule_channel || '-')}</td>
-                <td>${escapeHtml(l.message)}</td>
-            </tr>
-        `).join('');
-
-        // Card list for mobile
-        if (cardsEl) {
-            cardsEl.innerHTML = data.logs.map(l => `
-                <div class="log-card">
-                    <div class="log-header">
-                        ${levelBadge(l.level)}
-                        <span class="log-time">${formatDateTime(l.timestamp)}</span>
-                    </div>
-                    <div class="log-message">${escapeHtml(l.message)}</div>
-                    ${(l.schedule_title || l.schedule_channel) ? '<div class="log-programme">' + escapeHtml(l.schedule_title || '') + (l.schedule_channel ? ' / ' + escapeHtml(l.schedule_channel) : '') + '</div>' : ''}
-                </div>
-            `).join('');
-        }
-    } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</td></tr>`;
         if (cardsEl) cardsEl.innerHTML = `<p style="padding:1rem;color:var(--error)">読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
     }
 }
@@ -3186,16 +3113,16 @@ async function loadLiveChannelGrid() {
     const [nowResult, forceResult, recResult] = await Promise.allSettled([
         API.get('/api/live/now-all'),
         API.get('/api/jikkyo/force'),
-        API.get('/api/schedules?status=recording'),
+        API.get('/api/recordings/active'),
     ]);
 
     const nowPlaying = nowResult.status === 'fulfilled' ? (nowResult.value.now_playing || {}) : {};
     const forceMap = forceResult.status === 'fulfilled' ? (forceResult.value.force || {}) : {};
-    // 録画中チャンネル → schedule_id のマップ
+    // 録画中チャンネル → schedule_id のマップ (ファイル mtime ベース判定)
     const recordingMap = {};
     if (recResult.status === 'fulfilled') {
-        (recResult.value.schedules || []).forEach(s => {
-            if (s.output_path) recordingMap[s.channel] = s.id;
+        (recResult.value.recordings || []).forEach(s => {
+            recordingMap[s.channel] = s.id;
         });
     }
 

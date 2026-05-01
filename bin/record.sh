@@ -2,27 +2,31 @@
 # record.sh - 録画実行スクリプト
 # schedule_id を引数に取り、recpt1 で録画を実行
 #
+# 設計方針: 録画クリティカルパス上で SQLite に書き込まない (lock 競合で
+# 録画が落ちる事故を構造的に排除)。schedule の SELECT のみ。
+# 実行ログは log/record.log への echo のみ。
+#
 # Usage: record.sh <schedule_id>
 set -euo pipefail
 
 AUTOREC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$AUTOREC_DIR/conf/autorec.conf"
+source "$AUTOREC_DIR/bin/recording_path.sh"
 
 AUTOREC_DB="${AUTOREC_DB:-$AUTOREC_DIR/db/autorec.sqlite}"
 RECORD_DIR="${RECORD_DIR:-/mnt/data}"
 START_OFFSET="${START_OFFSET:-1}"
 END_OFFSET="${END_OFFSET:-0}"
 
-# 同時録画中の SQLite ロック競合を吸収するため busy_timeout を 5秒に設定
+# SELECT 用 (録画完了後の SELECT は無いので書き込み競合リスクなし)
 SQLITE=(sqlite3 -cmd ".timeout 5000")
 
 SCHEDULE_ID="$1"
 
-# ログ記録関数
+# ログは stdout のみ (cron が log/record.log にリダイレクト)
 log_msg() {
     local level="$1"
     local msg="$2"
-    "${SQLITE[@]}" "$AUTOREC_DB" "INSERT INTO log (schedule_id, level, message) VALUES ($SCHEDULE_ID, '$level', '$(echo "$msg" | sed "s/'/''/g")');"
     echo "[record][$level] $msg"
 }
 
@@ -45,7 +49,6 @@ CH_NUM=$(awk -F'\t' -v name="$CHANNEL" '
 ' "$AUTOREC_DIR/conf/channels.conf")
 
 if [ -z "$CH_NUM" ]; then
-    # チャンネル名がそのまま番号の場合
     CH_NUM="$CHANNEL"
 fi
 
@@ -67,7 +70,6 @@ fi
 # 録画時間 = 番組時間 + 前後オフセット
 DURATION=$((END_EPOCH - START_EPOCH + START_OFFSET + END_OFFSET))
 
-# 現在時刻から計算し直す (既に開始時刻を過ぎている場合)
 NOW_EPOCH=$(date '+%s')
 ACTUAL_END=$((END_EPOCH + END_OFFSET))
 if [ "$NOW_EPOCH" -gt "$START_EPOCH" ]; then
@@ -76,50 +78,17 @@ fi
 
 if [ "$DURATION" -le 0 ]; then
     log_msg "warn" "録画時間が0以下のためスキップ: $TITLE"
-    "${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'skipped' WHERE id = $SCHEDULE_ID;"
     exit 0
 fi
 
-# 保存先ディレクトリ作成
-# ルール名があればフォルダ名に使用、なければタイトルからシリーズ名を抽出
-if [ "$RULE_NAME" != "unknown" ] && [ -n "$RULE_NAME" ]; then
-    SERIES_NAME="$RULE_NAME"
-else
-    SERIES_NAME=$(echo "$TITLE" | sed -E \
-        -e 's/【新】//g; s/【終】//g' \
-        -e 's/「[^」]*」//g' \
-        -e "s/『[^』]*』//g" \
-        -e 's/（[０-９]+）//g' \
-        -e 's/（[0-9]+）//g' \
-        -e 's/\([0-9]+\)//g' \
-        -e 's/[　 ]*[★☆][^ 　]*//g' \
-        -e 's/[　 ]*＃[０-９0-9]+//g' \
-        -e 's/[　 ]*#[0-9]+//g' \
-        -e 's/[　 ]*第[０-９0-9一二三四五六七八九十百]+[回話]//g' \
-        -e 's/[　 ]+（/（/g; s/[　 ]+【/【/g' \
-        -e 's/[　 ]{2,}/　/g; s/[　 ]+$//; s/^[　 ]+//')
-    [ -z "$SERIES_NAME" ] && SERIES_NAME="$TITLE"
-fi
-SAFE_SERIES=$(echo "$SERIES_NAME" | sed 's/[\/\\:*?"<>|]/_/g')
-SAFE_TITLE=$(echo "$TITLE" | sed 's/[\/\\:*?"<>|]/_/g')
-DATE_STR=$(date -d "$START_TIME" '+%Y-%m-%d' 2>/dev/null) || \
-    DATE_STR=$(python3 -c "from datetime import datetime; print(datetime.fromisoformat('$START_TIME').strftime('%Y-%m-%d'))")
-SAFE_CHANNEL=$(echo "$CHANNEL" | sed 's/[\/\\:*?"<>|]/_/g')
-
-OUTPUT_DIR="$RECORD_DIR/$SAFE_SERIES"
+# 出力先ファイルパスを命名規則で決定
+OUTPUT_FILE=$(compute_output_path "$RULE_NAME" "$CHANNEL" "$TITLE" "$START_TIME" "$RECORD_DIR")
+OUTPUT_DIR=$(dirname "$OUTPUT_FILE")
 mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="$OUTPUT_DIR/${DATE_STR}_${SAFE_CHANNEL}_${SAFE_TITLE}.ts"
-
-# 既に同名ファイルがある場合はサフィックス追加
-if [ -f "$OUTPUT_FILE" ]; then
-    OUTPUT_FILE="$OUTPUT_DIR/${DATE_STR}_${SAFE_CHANNEL}_${SAFE_TITLE}_$(date '+%H%M%S').ts"
-fi
 
 log_msg "info" "録画開始: $TITLE (ch=$CH_NUM, ${DURATION}秒)"
 log_msg "info" "保存先: $OUTPUT_FILE"
 
-# ステータスを recording に更新
-"${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'recording', output_path = '$(echo "$OUTPUT_FILE" | sed "s/'/''/g")' WHERE id = $SCHEDULE_ID;"
 "$AUTOREC_DIR/bin/notify.sh" "録画開始" "$TITLE ($CHANNEL)" &
 
 # 実況コメント並行録画 (失敗しても録画に影響しない)
@@ -141,13 +110,10 @@ fi
 
 # recpt1 で録画実行
 if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
-    # 成功
     FILE_SIZE=$(stat -c%s "$OUTPUT_FILE" 2>/dev/null || echo "0")
     FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
-    "${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'done' WHERE id = $SCHEDULE_ID;"
     log_msg "info" "録画完了: $TITLE (${FILE_SIZE_MB}MB)"
 
-    # 実況コメント停止・結果ログ
     if [ -n "$JIKKYO_PID" ]; then
         kill "$JIKKYO_PID" 2>/dev/null || true
         wait "$JIKKYO_PID" 2>/dev/null || true
@@ -159,18 +125,14 @@ if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
         fi
     fi
 
-    # 通知
     "$AUTOREC_DIR/bin/notify.sh" "録画完了" "$TITLE ($CHANNEL) - ${FILE_SIZE_MB}MB" || true
 else
-    # 失敗 — 実況コメントも停止
     if [ -n "$JIKKYO_PID" ]; then
         kill "$JIKKYO_PID" 2>/dev/null || true
         wait "$JIKKYO_PID" 2>/dev/null || true
     fi
-    "${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'failed' WHERE id = $SCHEDULE_ID;"
     log_msg "error" "録画失敗: $TITLE (ch=$CH_NUM)"
 
-    # エラー通知
     "$AUTOREC_DIR/bin/notify.sh" "録画失敗" "$TITLE ($CHANNEL)" || true
     exit 1
 fi

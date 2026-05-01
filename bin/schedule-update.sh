@@ -37,15 +37,14 @@ echo "[schedule] 現在時刻: $NOW"
 ATTACH DATABASE '$EPG_DB' AS epg;
 
 -- 有効ルールと番組をマッチングして schedule に INSERT
-INSERT INTO schedule (rule_id, event_id, channel, title, start_time, end_time, status)
+INSERT INTO schedule (rule_id, event_id, channel, title, start_time, end_time)
 SELECT
     r.id,
     p.event_id,
     p.channel,
     p.title,
     p.start_time,
-    p.end_time,
-    'scheduled'
+    p.end_time
 FROM rule r
 JOIN epg.programme p ON 1=1
 WHERE r.enabled = 1
@@ -62,23 +61,19 @@ WHERE r.enabled = 1
   -- 曜日マッチ (0=日, 1=月, ..., 6=土)
   AND (r.weekdays IS NULL OR r.weekdays = '' OR
        instr(r.weekdays, CAST(strftime('%w', p.start_time) AS TEXT)) > 0)
-  -- 既存スケジュールとの重複排除
+  -- 既存スケジュールとの重複排除 (channel + start_time で判定)
   AND NOT EXISTS (
       SELECT 1 FROM schedule s
       WHERE s.channel = p.channel
         AND s.start_time = p.start_time
-        AND s.status IN ('scheduled', 'recording', 'done')
   );
 
 DETACH DATABASE epg;
 SQL
 
 # マッチ結果表示
-MATCHED=$("${SQLITE[@]}" "$AUTOREC_DB" "SELECT COUNT(*) FROM schedule WHERE status = 'scheduled' AND start_time > '$NOW';")
-echo "[schedule] スケジュール済み番組数: $MATCHED"
-
-# 過去のスケジュールで scheduled のまま残っているものを skipped に変更
-"${SQLITE[@]}" "$AUTOREC_DB" "UPDATE schedule SET status = 'skipped' WHERE status = 'scheduled' AND start_time < '$NOW';"
+MATCHED=$("${SQLITE[@]}" "$AUTOREC_DB" "SELECT COUNT(*) FROM schedule WHERE start_time > '$NOW';")
+echo "[schedule] 未来の予約数: $MATCHED"
 
 # crontab 生成
 echo "[schedule] crontab 更新中..."
@@ -98,7 +93,7 @@ echo "# === 以下は自動生成された録画スケジュール ===" >> "$CRO
 # スケジュールから cron エントリを生成
 # 開始時刻の START_OFFSET 秒前に record.sh を起動
 "${SQLITE[@]}" -separator '|' "$AUTOREC_DB" \
-    "SELECT id, start_time, end_time, channel, title FROM schedule WHERE status = 'scheduled' AND start_time > '$NOW' ORDER BY start_time;" | \
+    "SELECT id, start_time, end_time, channel, title FROM schedule WHERE start_time > '$NOW' ORDER BY start_time;" | \
 while IFS='|' read -r sched_id start_time end_time channel title; do
     # 開始オフセットを考慮した cron 時刻を計算
     CRON_TIME=$(date -d "$start_time $START_OFFSET seconds ago" '+%M %H %d %m *' 2>/dev/null) || {

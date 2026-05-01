@@ -379,20 +379,25 @@ class AutorecHandler(SimpleHTTPRequestHandler):
                 ffmpeg.wait()
 
     def _serve_recording_live(self, parsed):
-        """録画中ファイルをライブ配信 (tail -f → ffmpeg → HTTP)"""
+        """録画中ファイルをライブ配信 (tail -f → ffmpeg → HTTP)
+
+        schedule から命名規則で期待ファイルパスを計算し、ファイル存在 + mtime で
+        「録画中」を判定する (status カラムには依存しない)。
+        """
         params = parse_qs(parsed.query)
         schedule_id = params.get("schedule_id", [""])[0]
         if not schedule_id:
             self.send_error(400, "schedule_id parameter is required")
             return
 
-        # DB から録画中のスケジュールの output_path を取得
         autorec_db = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
         try:
             conn = sqlite3.connect(autorec_db)
             conn.execute("PRAGMA busy_timeout=5000")
             row = conn.execute(
-                "SELECT output_path FROM schedule WHERE id = ? AND status = 'recording'",
+                """SELECT s.channel, s.title, s.start_time, COALESCE(r.name, '') as rule_name
+                   FROM schedule s LEFT JOIN rule r ON s.rule_id = r.id
+                   WHERE s.id = ?""",
                 (schedule_id,),
             ).fetchone()
             conn.close()
@@ -400,13 +405,18 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self.send_error(500, "Database error")
             return
 
-        if not row or not row[0]:
-            self.send_error(404, "Recording not found or not active")
+        if not row:
+            self.send_error(404, "Schedule not found")
             return
 
-        file_path = row[0]
+        from recording_path import expected_output_path
+        file_path = expected_output_path(row[3], row[0], row[1], row[2], api.RECORD_DIR)
         if not os.path.isfile(file_path):
             self.send_error(404, "Recording file not found")
+            return
+        # 録画中判定: mtime が直近 (api.RECORDING_MTIME_THRESHOLD 秒以内)
+        if (time.time() - os.path.getmtime(file_path)) >= api.RECORDING_MTIME_THRESHOLD:
+            self.send_error(404, "Recording not active")
             return
 
         quality_args = self._get_quality_args(params)

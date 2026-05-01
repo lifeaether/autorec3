@@ -5,8 +5,11 @@ import sqlite3
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs
+
+from recording_path import expected_output_path
 
 AUTOREC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EPG_DB = os.path.join(AUTOREC_DIR, "db", "epg.sqlite")
@@ -283,11 +286,12 @@ def update_rule(rule_id, body):
     args.append(rule_id)
     conn.execute(f"UPDATE rule SET {', '.join(updates)} WHERE id = ?", args)
 
-    # ルール無効化時は紐付く予定も取り消し
+    # ルール無効化時は紐付く未来の予定も取り消し (過去の履歴は保持)
     cancelled = 0
     if data.get("enabled") == 0:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cancelled = conn.execute(
-            "DELETE FROM schedule WHERE rule_id = ? AND status = 'scheduled'", (rule_id,)
+            "DELETE FROM schedule WHERE rule_id = ? AND start_time > ?", (rule_id, now)
         ).rowcount
 
     conn.commit()
@@ -310,8 +314,9 @@ def delete_rule(rule_id):
     existing = conn.execute("SELECT * FROM rule WHERE id = ?", (rule_id,)).fetchone()
     if not existing:
         return _error("Rule not found", 404)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cancelled = conn.execute(
-        "DELETE FROM schedule WHERE rule_id = ? AND status = 'scheduled'", (rule_id,)
+        "DELETE FROM schedule WHERE rule_id = ? AND start_time > ?", (rule_id, now)
     ).rowcount
     conn.execute("DELETE FROM rule WHERE id = ?", (rule_id,))
     conn.commit()
@@ -401,32 +406,21 @@ def get_ending_rules(_params):
 # --- スケジュール API ---
 
 def get_schedules(params):
-    """GET /api/schedules - 録画予定一覧"""
-    status = params.get("status", [""])[0]
+    """GET /api/schedules - 録画予約一覧 (時系列リスト)"""
     limit = int(params.get("limit", ["100"])[0])
     offset = int(params.get("offset", ["0"])[0])
 
-    conditions = []
-    args = []
-    if status:
-        conditions.append("s.status = ?")
-        args.append(status)
-
-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
-
     conn = _get_db(AUTOREC_DB)
     rows = conn.execute(
-        f"""SELECT s.*, r.name as rule_name
-            FROM schedule s
-            LEFT JOIN rule r ON s.rule_id = r.id
-            {where}
-            ORDER BY s.start_time ASC
-            LIMIT ? OFFSET ?""",
-        args + [limit, offset],
+        """SELECT s.id, s.rule_id, s.event_id, s.channel, s.title,
+                  s.start_time, s.end_time, r.name as rule_name
+           FROM schedule s
+           LEFT JOIN rule r ON s.rule_id = r.id
+           ORDER BY s.start_time ASC
+           LIMIT ? OFFSET ?""",
+        (limit, offset),
     ).fetchall()
-    total = conn.execute(
-        f"SELECT COUNT(*) FROM schedule s {where}", args
-    ).fetchone()[0]
+    total = conn.execute("SELECT COUNT(*) FROM schedule").fetchone()[0]
     return _json_response({
         "schedules": [dict(r) for r in rows],
         "total": total,
@@ -446,16 +440,17 @@ def create_schedule(body):
             return _error(f"{field} is required")
 
     conn = _get_db(AUTOREC_DB)
+    # 重複は (channel, start_time) で判定 (UNIQUE 制約と同じキー)
     dup = conn.execute(
-        "SELECT id FROM schedule WHERE event_id = ? AND channel = ? AND status IN ('scheduled','recording','done')",
-        (data["event_id"], data["channel"]),
+        "SELECT id FROM schedule WHERE channel = ? AND start_time = ?",
+        (data["channel"], data["start_time"]),
     ).fetchone()
     if dup:
         return _error("この番組は既に録画予定に登録されています", 409)
 
     cursor = conn.execute(
-        """INSERT INTO schedule (event_id, channel, title, start_time, end_time, rule_id, status)
-           VALUES (?, ?, ?, ?, ?, NULL, 'scheduled')""",
+        """INSERT INTO schedule (event_id, channel, title, start_time, end_time, rule_id)
+           VALUES (?, ?, ?, ?, ?, NULL)""",
         (data["event_id"], data["channel"], data["title"], data["start_time"], data["end_time"]),
     )
     conn.commit()
@@ -466,49 +461,61 @@ def create_schedule(body):
     if os.path.exists(script):
         subprocess.Popen(["bash", script], cwd=AUTOREC_DIR)
 
-    row = conn.execute("SELECT * FROM schedule WHERE id = ?", (schedule_id,)).fetchone()
+    row = conn.execute(
+        """SELECT id, rule_id, event_id, channel, title, start_time, end_time
+           FROM schedule WHERE id = ?""", (schedule_id,)
+    ).fetchone()
     return _json_response({"schedule": dict(row)}, 201)
 
 
-# --- ログ API ---
+# --- 録画中検出 API ---
 
-def get_logs(params):
-    """GET /api/logs - 録画ログ"""
-    level = params.get("level", [""])[0]
-    schedule_id = params.get("schedule_id", [""])[0]
-    limit = int(params.get("limit", ["100"])[0])
-    offset = int(params.get("offset", ["0"])[0])
+# 録画ファイル mtime がこの秒数以内に更新されていれば「録画中」と判定する。
+# recpt1 は連続書き込みで mtime を頻繁に更新する (数秒以内)。30 秒は十分な余裕。
+RECORDING_MTIME_THRESHOLD = 30
 
-    conditions = []
-    args = []
-    if level:
-        conditions.append("l.level = ?")
-        args.append(level)
-    if schedule_id:
-        conditions.append("l.schedule_id = ?")
-        args.append(int(schedule_id))
 
-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+def _is_actively_recording(path):
+    """ファイルが存在し、mtime が直近なら録画中"""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    return (time.time() - st.st_mtime) < RECORDING_MTIME_THRESHOLD
+
+
+def get_active_recordings(_params):
+    """GET /api/recordings/active - 現在録画中の予約一覧
+
+    - 録画時刻の窓内 (start_time 直前 〜 end_time 直後) の予約を SELECT
+    - 命名規則で期待ファイルパスを計算し、存在 + mtime < 30s なら録画中
+    """
+    now = datetime.now()
+    window_start = (now - timedelta(seconds=10)).strftime("%Y-%m-%d %H:%M:%S")
+    window_end = (now + timedelta(seconds=30)).strftime("%Y-%m-%d %H:%M:%S")
 
     conn = _get_db(AUTOREC_DB)
     rows = conn.execute(
-        f"""SELECT l.*, s.title as schedule_title, s.channel as schedule_channel
-            FROM log l
-            LEFT JOIN schedule s ON l.schedule_id = s.id
-            {where}
-            ORDER BY l.timestamp DESC
-            LIMIT ? OFFSET ?""",
-        args + [limit, offset],
+        """SELECT s.id, s.rule_id, s.event_id, s.channel, s.title,
+                  s.start_time, s.end_time, r.name as rule_name
+           FROM schedule s
+           LEFT JOIN rule r ON s.rule_id = r.id
+           WHERE s.start_time <= ? AND s.end_time >= ?
+           ORDER BY s.start_time""",
+        (window_end, window_start),
     ).fetchall()
-    total = conn.execute(
-        f"SELECT COUNT(*) FROM log l {where}", args
-    ).fetchone()[0]
-    return _json_response({
-        "logs": [dict(r) for r in rows],
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-    })
+
+    active = []
+    for r in rows:
+        path = expected_output_path(
+            r["rule_name"], r["channel"], r["title"], r["start_time"], RECORD_DIR
+        )
+        if _is_actively_recording(path):
+            d = dict(r)
+            d["output_path"] = path
+            active.append(d)
+
+    return _json_response({"recordings": active})
 
 
 # --- チャンネル一覧 API ---
@@ -653,7 +660,7 @@ def _recording_guard():
             threshold = (datetime.now() + timedelta(seconds=6)).strftime("%Y-%m-%d %H:%M:%S")
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             row = conn.execute(
-                "SELECT 1 FROM schedule WHERE status = 'scheduled' AND start_time > ? AND start_time <= ? LIMIT 1",
+                "SELECT 1 FROM schedule WHERE start_time > ? AND start_time <= ? LIMIT 1",
                 (now, threshold),
             ).fetchone()
             if row:
@@ -1191,10 +1198,6 @@ def handle_request(method, path, params, body=b""):
     if method == "POST" and path == "/api/schedules":
         return create_schedule(body)
 
-    # ログ
-    if method == "GET" and path == "/api/logs":
-        return get_logs(params)
-
     # チャンネル
     if method == "GET" and path == "/api/channels":
         return get_channels(params)
@@ -1226,6 +1229,8 @@ def handle_request(method, path, params, body=b""):
         return get_recordings(params)
     if method == "GET" and path == "/api/recordings/duration":
         return get_recording_duration(params)
+    if method == "GET" and path == "/api/recordings/active":
+        return get_active_recordings(params)
 
     # NX-Jikkyo プロキシ
     if method == "GET" and path == "/api/jikkyo/force":

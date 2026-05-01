@@ -39,7 +39,6 @@
                     <button class="nav-dropdown-btn" onclick="this.parentElement.classList.toggle('open')"><i class="ph ph-dots-three"></i></button>
                     <div class="nav-dropdown-menu">
                         <a href="#" data-section="storage" class="nav-link"><i class="ph ph-hard-drive"></i>ストレージ</a>
-                        <a href="#" data-section="logs" class="nav-link"><i class="ph ph-clipboard-text"></i>ログ</a>
                         <a href="epg.html" class="nav-link"><i class="ph ph-archive-box"></i>アーカイブ</a>
                         <a href="#" data-section="help" class="nav-link"><i class="ph ph-question"></i>ヘルプ</a>
                     </div>
@@ -72,7 +71,6 @@
         <div class="drawer-divider"></div>
         <a href="epg.html"><i class="ph ph-archive-box"></i>アーカイブ</a>
         <a href="#" data-section="storage" onclick="switchFromDrawer('storage',event)"><i class="ph ph-hard-drive"></i>ストレージ</a>
-        <a href="#" data-section="logs" onclick="switchFromDrawer('logs',event)"><i class="ph ph-clipboard-text"></i>ログ</a>
         <a href="#" data-section="help" onclick="switchFromDrawer('help',event)"><i class="ph ph-question"></i>ヘルプ</a>
     </div>
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
@@ -137,18 +135,6 @@
 
         <!-- 録画一覧セクション -->
         <div id="section-schedules" class="section">
-            <div class="section-header">
-                <div class="toolbar">
-                    <div class="btn-group" id="schedule-status">
-                        <button class="btn-filter" data-value="" onclick="setFilter(this, loadSchedules)">全て</button>
-                        <button class="btn-filter active" data-value="scheduled" onclick="setFilter(this, loadSchedules)">予定</button>
-                        <button class="btn-filter" data-value="recording" onclick="setFilter(this, loadSchedules)">録画中</button>
-                        <button class="btn-filter" data-value="done" onclick="setFilter(this, loadSchedules)">完了</button>
-                        <button class="btn-filter" data-value="failed" onclick="setFilter(this, loadSchedules)">失敗</button>
-                        <button class="btn-filter" data-value="skipped" onclick="setFilter(this, loadSchedules)">スキップ</button>
-                    </div>
-                </div>
-            </div>
             <div class="card table-card">
                 <table>
                     <thead>
@@ -158,12 +144,11 @@
                             <th>チャンネル</th>
                             <th>開始</th>
                             <th>終了</th>
-                            <th>状態</th>
                             <th>ルール名</th>
                         </tr>
                     </thead>
                     <tbody id="schedules-table">
-                        <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
+                        <tr><td colspan="6" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -242,36 +227,6 @@
             </div>
         </div>
 
-        <!-- ログセクション -->
-        <div id="section-logs" class="section">
-            <div class="section-header">
-                <div class="toolbar">
-                    <div class="btn-group" id="log-level">
-                        <button class="btn-filter active" data-value="" onclick="setFilter(this, loadLogs)">全て</button>
-                        <button class="btn-filter" data-value="info" onclick="setFilter(this, loadLogs)">info</button>
-                        <button class="btn-filter" data-value="warn" onclick="setFilter(this, loadLogs)">warn</button>
-                        <button class="btn-filter" data-value="error" onclick="setFilter(this, loadLogs)">error</button>
-                    </div>
-                </div>
-            </div>
-            <div class="card table-card">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>日時</th>
-                            <th>レベル</th>
-                            <th>番組</th>
-                            <th>チャンネル</th>
-                            <th>メッセージ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logs-table">
-                        <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">読み込み中...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-list" id="logs-cards"></div>
-        </div>
         <!-- ヘルプセクション -->
         <div id="section-help" class="section">
             <div class="card">
@@ -303,14 +258,13 @@
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">録画</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="#" onclick="switchSection('recordings');return false" style="color:var(--accent);font-weight:500">録画済み</a> — 録画ファイルをシリーズ別に一覧表示。頭文字フィルタやキーワード検索で絞り込み、ブラウザ内再生やダウンロードが可能です。録画時に保存された実況コメント (.nicojk) も再生中に表示できます</li>
-                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — 録画スケジュールの一覧。予定・録画中・完了・失敗・スキップの状態でフィルタできます</li>
+                    <li><a href="#" onclick="switchSection('schedules');return false" style="color:var(--accent);font-weight:500">録画一覧</a> — 録画予約の時系列リスト。録画状態は表示せず、予約のみを管理します (録画結果は「録画済み」のファイル一覧から確認)</li>
                     <li><a href="#" onclick="switchSection('rules');return false" style="color:var(--accent);font-weight:500">録画ルール</a> — キーワード・ジャンル・チャンネルで自動録画の条件を設定。ルールを削除・無効化すると、紐付く未実行の録画予定も自動で取り消されます。「無効ルールを削除」ボタンで不要なルールの一括削除も可能です</li>
                     <li><a href="#" onclick="switchSection('season');return false" style="color:var(--accent);font-weight:500">番組改編</a> — シーズン切り替え時の録画ルール入れ替えを支援。EPG の【新】マーカーで新番組を検出し、ジャンルフィルタで絞り込んでルールを作成できます。終了番組タブでは未来にマッチ番組がないルールを検出し、一括無効化できます</li>
                 </ul>
                 <h4 style="font-size:0.9rem;margin:0.75rem 0 0.4rem">その他 (···メニュー内)</h4>
                 <ul style="padding-left:1.5rem;line-height:2;font-size:0.9rem">
                     <li><a href="#" onclick="switchSection('storage');return false" style="color:var(--accent);font-weight:500">ストレージ</a> — 録画先ディスクの使用状況とシリーズ別の容量内訳を表示</li>
-                    <li><a href="#" onclick="switchSection('logs');return false" style="color:var(--accent);font-weight:500">ログ</a> — 録画の開始・完了・エラーなどの履歴。レベル (info/warn/error) でフィルタ可能</li>
                     <li><a href="epg.html" style="color:var(--accent);font-weight:500">アーカイブ</a> — 過去に取得した全番組データをキーワード・ジャンル・日付・チャンネルで横断検索。EPG データは削除されず永続的に蓄積されます</li>
                 </ul>
             </div>

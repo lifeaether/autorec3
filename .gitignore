@@ -1,6 +1,7 @@
 db/*.sqlite
 db/*.sqlite-shm
 db/*.sqlite-wal
+db/*.sqlite.bak-*
 log/
 conf/autorec.conf
 conf/channels.conf

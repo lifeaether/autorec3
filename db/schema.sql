@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS rule (
 );
 
 -- 録画予定 (ルール×番組のマッチ結果)
+-- 録画状態は DB に書かない設計: 録画クリティカルパスから DB 依存を排除する。
+-- 録画済みかどうか・録画中かどうかは録画ファイル (mtime) から派生計算する。
+-- 実行ログは log/record.log にのみ書く (DB に log テーブルは持たない)。
 CREATE TABLE IF NOT EXISTS schedule (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     rule_id     INTEGER REFERENCES rule(id),
@@ -55,23 +58,9 @@ CREATE TABLE IF NOT EXISTS schedule (
     channel     TEXT NOT NULL,
     title       TEXT NOT NULL,
     start_time  TEXT NOT NULL,
-    end_time    TEXT NOT NULL,
-    status      TEXT DEFAULT 'scheduled', -- scheduled / recording / done / failed / skipped
-    output_path TEXT                       -- 録画ファイルパス (録画開始時に設定)
+    end_time    TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedule_start ON schedule(start_time);
-CREATE INDEX IF NOT EXISTS idx_schedule_status ON schedule(status);
-
--- 録画ログ
-CREATE TABLE IF NOT EXISTS log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    schedule_id INTEGER REFERENCES schedule(id),
-    timestamp   TEXT DEFAULT (datetime('now','localtime')),
-    level       TEXT NOT NULL,            -- info / warn / error
-    message     TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_log_schedule ON log(schedule_id);
-CREATE INDEX IF NOT EXISTS idx_log_timestamp ON log(timestamp);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_schedule_channel_start ON schedule(channel, start_time);
 -- [AUTOREC_END]
