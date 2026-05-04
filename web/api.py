@@ -973,6 +973,167 @@ def get_recording_duration(params):
         return _error("Could not determine duration", 500)
 
 
+# --- TS プログラム解析 ---
+# TOKYO MX 等のマルチプログラム TS から「メイン」(最大解像度) を選び、
+# またフロントに program 一覧を返すための補助 API。
+
+_program_cache = {}
+_program_cache_lock = threading.Lock()
+
+
+def _probe_programs(file_path):
+    """ffprobe で TS の programs[] を解析し、構造化したリストを返す。
+
+    結果は (path, mtime, size) をキーにキャッシュ。失敗時は None。
+    返値の各要素: {program_id, name, video, audio}
+        video: {codec, width, height} | None
+        audio: {codec, channels} | None
+    """
+    try:
+        st = os.stat(file_path)
+    except OSError:
+        return None
+    key = (file_path, st.st_mtime, st.st_size)
+    with _program_cache_lock:
+        cached = _program_cache.get(key)
+    if cached is not None:
+        return cached
+
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-hide_banner", "-loglevel", "error",
+             "-analyzeduration", "2000000", "-probesize", "4000000",
+             "-show_programs", "-show_streams", "-of", "json", file_path],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout or "{}")
+    except (FileNotFoundError, json.JSONDecodeError, subprocess.TimeoutExpired,
+            OSError):
+        return None
+
+    programs_raw = data.get("programs") or []
+    programs = []
+    seen_ids = set()
+    for p in programs_raw:
+        pid = p.get("program_id")
+        if pid is None or pid in seen_ids:
+            continue
+        seen_ids.add(pid)
+        tags = p.get("tags") or {}
+        raw_name = tags.get("service_name") or ""
+        # ARIB 8 単位符号の制御文字 (SI/SO/ESC 等) と
+        # UTF-8 デコード不能バイトの置換文字 (U+FFFD) を除去
+        name = "".join(
+            c for c in raw_name if c.isprintable() and c != "�"
+        ).strip()
+        if not name:
+            name = f"program {pid}"
+        video = None
+        audio = None
+        for s in p.get("streams") or []:
+            ctype = s.get("codec_type")
+            if ctype == "video" and video is None:
+                w = s.get("width") or 0
+                h = s.get("height") or 0
+                # EPG 等の解像度なし stream は除外
+                if w and h:
+                    video = {
+                        "codec": s.get("codec_name", ""),
+                        "width": w,
+                        "height": h,
+                    }
+            elif ctype == "audio" and audio is None:
+                audio = {
+                    "codec": s.get("codec_name", ""),
+                    "channels": s.get("channels", 0),
+                }
+        # video/audio どちらも持たない program (EPG のみ等) はスキップ
+        if video is None and audio is None:
+            continue
+        programs.append({
+            "program_id": pid,
+            "name": name.strip() if isinstance(name, str) else f"program {pid}",
+            "video": video,
+            "audio": audio,
+        })
+
+    with _program_cache_lock:
+        _program_cache[key] = programs
+    return programs
+
+
+def _select_main_program(file_path):
+    """最大解像度を持つ program の program_id を返す。
+
+    - 単一 program / program 不明 / ffprobe 失敗時は None
+    - 複数 program があり、video を持つものが 1 つだけなら None (現状の自動選択で十分)
+    """
+    programs = _probe_programs(file_path)
+    if not programs or len(programs) <= 1:
+        return None
+    video_programs = [p for p in programs if p.get("video")]
+    if len(video_programs) <= 1:
+        return None
+    best = max(
+        video_programs,
+        key=lambda p: (p["video"]["width"] * p["video"]["height"], -programs.index(p)),
+    )
+    return best["program_id"]
+
+
+def get_recording_programs(params):
+    """GET /api/recording/programs?path=<rel> | ?schedule_id=<id>
+    TS に含まれる program 一覧と推奨 program_id を返す。
+    """
+    rel_path = params.get("path", [""])[0]
+    schedule_id = params.get("schedule_id", [""])[0]
+
+    if rel_path:
+        file_path = os.path.realpath(os.path.join(RECORD_DIR, rel_path))
+        record_dir_real = os.path.realpath(RECORD_DIR)
+        if (not file_path.startswith(record_dir_real + os.sep)
+                and file_path != record_dir_real):
+            return _error("Forbidden", 403)
+    elif schedule_id:
+        try:
+            row = _get_db(AUTOREC_DB).execute(
+                """SELECT s.channel, s.title, s.start_time,
+                          COALESCE(r.name, '') as rule_name
+                   FROM schedule s LEFT JOIN rule r ON s.rule_id = r.id
+                   WHERE s.id = ?""",
+                (schedule_id,),
+            ).fetchone()
+        except sqlite3.Error:
+            return _error("Database error", 500)
+        if not row:
+            return _error("Schedule not found", 404)
+        file_path = expected_output_path(
+            row["rule_name"], row["channel"], row["title"], row["start_time"],
+            RECORD_DIR,
+        )
+    else:
+        return _error("path or schedule_id parameter is required")
+
+    if not os.path.isfile(file_path):
+        return _error("Not found", 404)
+
+    programs = _probe_programs(file_path) or []
+    default_id = _select_main_program(file_path)
+    if default_id is None and programs:
+        # 単一 program はそれが「メイン」
+        default_id = programs[0]["program_id"]
+
+    return _json_response({
+        "programs": [
+            {**p, "is_main": (p["program_id"] == default_id)}
+            for p in programs
+        ],
+        "default_program_id": default_id,
+    })
+
+
 # --- 録画済みファイル API ---
 
 def get_recordings(_params):
@@ -1231,6 +1392,8 @@ def handle_request(method, path, params, body=b""):
         return get_recording_duration(params)
     if method == "GET" and path == "/api/recordings/active":
         return get_active_recordings(params)
+    if method == "GET" and path == "/api/recording/programs":
+        return get_recording_programs(params)
 
     # NX-Jikkyo プロキシ
     if method == "GET" and path == "/api/jikkyo/force":

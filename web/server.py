@@ -77,6 +77,26 @@ RECORDING_QUALITY_PRESETS = {
 DEFAULT_QUALITY = "high"
 
 
+def _build_program_map_args(file_path, params):
+    """ffmpeg の -map 引数を組み立てる。
+
+    クエリ program=<id> 指定時はそれを優先。未指定時は ffprobe で
+    最大解像度の program を自動選択。判定不能なら従来挙動 (0:v:0/0:a:0)。
+    """
+    program = params.get("program", [""])[0]
+    if program:
+        try:
+            pid = int(program)
+        except ValueError:
+            pid = None
+        if pid is not None:
+            return ["-map", f"0:p:{pid}:v:0?", "-map", f"0:p:{pid}:a:0?"]
+    auto = api._select_main_program(file_path)
+    if auto is not None:
+        return ["-map", f"0:p:{auto}:v:0?", "-map", f"0:p:{auto}:a:0?"]
+    return ["-map", "0:v:0", "-map", "0:a:0"]
+
+
 def _relay_thread(recpt1_stdout, ffmpeg_write_fd, rec_ref, stop_event):
     """recpt1 stdout → ffmpeg stdin に転送しつつ、録画時はファイルにも書き出す"""
     CHUNK = 188 * 64  # TSパケット境界に揃えた 12032 bytes
@@ -333,7 +353,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ]
         if ss:
             cmd += ["-ss", ss]
-        cmd += ["-i", file_path, "-map", "0:v:0", "-map", "0:a:0"]
+        cmd += ["-i", file_path] + _build_program_map_args(file_path, params)
         quality_args = self._get_quality_args(params, RECORDING_QUALITY_PRESETS)
         cmd += quality_args + [
             "-af", "aresample=async=1000:first_pts=0",
@@ -423,14 +443,15 @@ class AutorecHandler(SimpleHTTPRequestHandler):
 
         # tail -f で成長中のファイルの末尾付近から追従 (約10秒分 ≒ 20MB)
         tail_cmd = ["tail", "-c", "20000000", "-f", file_path]
+        # program 自動選択は録画ファイルの先頭から ffprobe する (tail とは独立)
+        map_args = _build_program_map_args(file_path, params)
         ffmpeg_cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-analyzeduration", "500000", "-probesize", "1000000",
             "-fflags", "+nobuffer+discardcorrupt+genpts",
             "-err_detect", "ignore_err",
             "-f", "mpegts", "-i", "pipe:0",
-            "-map", "0:v:0", "-map", "0:a:0",
-        ] + quality_args + [
+        ] + map_args + quality_args + [
             "-af", "aresample=async=1000:first_pts=0",
             "-vsync", "cfr",
             "-f", "mpegts",

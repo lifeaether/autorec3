@@ -1316,6 +1316,8 @@ let recordingPlayer = null;
 let recordingBaseTime = 0;
 let recordingDuration = 0;
 let recordingPath = null;
+let recordingProgramId = null;     // 選択中の program_id (null = 自動)
+let recordingPrograms = [];        // /api/recording/programs の結果キャッシュ
 let seekUpdateTimer = null;
 let seekBarDragging = false;
 
@@ -1555,6 +1557,15 @@ const recControls = (() => {
             _showControls();
         },
 
+        switchProgram(pid) {
+            recordingProgramId = pid ? parseInt(pid, 10) : null;
+            if (!recordingPath) return;
+            const video = _getVideo();
+            const currentTime = recordingBaseTime + ((video && video.currentTime) || 0);
+            startRecordingStream(currentTime);
+            _showControls();
+        },
+
         toggleFullscreen() {
             const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
             if (!wrapper) return;
@@ -1588,6 +1599,32 @@ function playRecording(path, name, hasNicojk) {
         recordingPath = decodeURIComponent(path);
         recordingBaseTime = 0;
         recordingDuration = 0;
+        recordingProgramId = null;
+        recordingPrograms = [];
+
+        // TS に複数 program がある場合のセレクタを構築
+        const sel = document.getElementById('rc-program');
+        if (sel) {
+            sel.innerHTML = '';
+            sel.style.display = 'none';
+        }
+        API.get(`/api/recording/programs?path=${encodeURIComponent(recordingPath)}`)
+            .then(data => {
+                recordingPrograms = data.programs || [];
+                recordingProgramId = data.default_program_id || null;
+                if (sel && recordingPrograms.length >= 2) {
+                    for (const p of recordingPrograms) {
+                        const opt = document.createElement('option');
+                        opt.value = String(p.program_id);
+                        const res = p.video ? `${p.video.width}×${p.video.height}` : '映像なし';
+                        opt.textContent = `${p.name} (${res})`;
+                        if (p.is_main) opt.selected = true;
+                        sel.appendChild(opt);
+                    }
+                    sel.style.display = '';
+                }
+            })
+            .catch(() => {});
 
         // 再生時間を取得してシークバー初期化
         API.get(`/api/recordings/duration?path=${encodeURIComponent(recordingPath)}`)
@@ -1645,6 +1682,7 @@ function startRecordingStream(seekTime) {
 
     let url = `/recordings/transcode?path=${encodeURIComponent(recordingPath)}&quality=${streamQuality}`;
     if (seekTime > 0) url += `&ss=${seekTime}`;
+    if (recordingProgramId) url += `&program=${recordingProgramId}`;
 
     recordingPlayer = mpegts.createPlayer({
         type: 'mpegts',
@@ -1705,7 +1743,14 @@ function closeRecordingPlayer() {
     recordingPath = null;
     recordingBaseTime = 0;
     recordingDuration = 0;
+    recordingProgramId = null;
+    recordingPrograms = [];
     seekBarDragging = false;
+    const progSel = document.getElementById('rc-program');
+    if (progSel) {
+        progSel.innerHTML = '';
+        progSel.style.display = 'none';
+    }
     document.getElementById('video-seek-container').style.display = 'none';
 }
 
