@@ -416,7 +416,7 @@ def get_schedules(params):
                   s.start_time, s.end_time, r.name as rule_name
            FROM schedule s
            LEFT JOIN rule r ON s.rule_id = r.id
-           ORDER BY s.start_time ASC
+           ORDER BY s.start_time DESC
            LIMIT ? OFFSET ?""",
         (limit, offset),
     ).fetchall()
