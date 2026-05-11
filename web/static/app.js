@@ -2210,6 +2210,156 @@ let liveCurrentSid = null;  // 現在のサービスID (サブチャンネル)
 let liveRecScheduleId = null;  // 録画ライブ視聴時のスケジュールID
 let liveRecording = false;  // ライブ録画中かどうか
 
+// NHK ニュース系などで PMT 変化により A/V がずれる症状の対策:
+// MEDIA_INFO 2回目以降を検出したら player を作り直して SourceBuffer をクリーンに戻す。
+let liveLastPlayerRestart = 0;
+let _liveStallDetected = false;
+let _liveOnWaiting = null;
+let _liveOnPlayingResync = null;
+let _liveOnTimeUpdate = null;
+
+function cleanupLiveVideoHandlers(videoEl) {
+    if (_liveOnWaiting) {
+        videoEl.removeEventListener('waiting', _liveOnWaiting);
+        _liveOnWaiting = null;
+    }
+    if (_liveOnPlayingResync) {
+        videoEl.removeEventListener('playing', _liveOnPlayingResync);
+        _liveOnPlayingResync = null;
+    }
+    if (_liveOnTimeUpdate) {
+        videoEl.removeEventListener('timeupdate', _liveOnTimeUpdate);
+        _liveOnTimeUpdate = null;
+    }
+    _liveStallDetected = false;
+}
+
+function showLiveSwitchingBanner() {
+    const el = document.getElementById('live-switching-banner');
+    if (el) el.hidden = false;
+}
+function hideLiveSwitchingBanner() {
+    const el = document.getElementById('live-switching-banner');
+    if (el) el.hidden = true;
+}
+
+function _buildLivePlayer(chNum, sid) {
+    const videoEl = document.getElementById('live-video');
+    cleanupLiveVideoHandlers(videoEl);
+
+    let streamUrl = `/live/stream?ch=${chNum}&quality=${streamQuality}`;
+    if (sid) streamUrl += `&sid=${sid}`;
+    livePlayer = mpegts.createPlayer({
+        type: 'mpegts',
+        isLive: true,
+        url: streamUrl,
+    }, {
+        enableWorker: false,
+        liveBufferLatencyChasing: true,
+        liveBufferLatencyMaxLatency: 3.0,
+        liveBufferLatencyMinRemain: 1.0,
+        liveBufferLatencyChasingSpeed: 1.1,
+        fixAudioTimestampGap: true,
+        accurateSeek: true,
+        autoCleanupSourceBuffer: true,
+        autoCleanupMaxBackwardDuration: 30,
+        autoCleanupMinBackwardDuration: 15,
+    });
+
+    livePlayer.attachMediaElement(videoEl);
+
+    let _mediaInfoCount = 0;
+    livePlayer.on(mpegts.Events.MEDIA_INFO, (info) => {
+        _mediaInfoCount++;
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生中';
+        let infoText = '';
+        if (info.videoCodec) infoText += `映像: ${info.videoCodec}`;
+        if (info.width && info.height) infoText += ` ${info.width}x${info.height}`;
+        if (info.audioCodec) infoText += ` / 音声: ${info.audioCodec}`;
+        document.getElementById('live-stream-info').textContent = infoText;
+
+        // 2回目以降の MEDIA_INFO は PMT 変化 (番組切替・音声構成変更)。
+        // バッファ末尾シークでは A/V ドリフトを直せないため player ごと作り直す。
+        // 5秒のクールダウンで短時間の連続 PMT 変化での再生成暴走を防ぐ。
+        if (_mediaInfoCount > 1 && Date.now() - liveLastPlayerRestart > 5000) {
+            liveLastPlayerRestart = Date.now();
+            restartLivePlayer();
+        }
+    });
+
+    livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
+        document.getElementById('live-error').textContent =
+            `再生エラー: ${detail || type}`;
+    });
+
+    videoEl.addEventListener('playing', () => {
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生中';
+    }, { once: true });
+
+    // stall後の同期修正: バッファ末尾にシークして再同期
+    _liveOnWaiting = () => { _liveStallDetected = true; };
+    _liveOnPlayingResync = () => {
+        if (_liveStallDetected) {
+            _liveStallDetected = false;
+            const buf = videoEl.buffered;
+            if (buf.length > 0) {
+                const liveEdge = buf.end(buf.length - 1);
+                if (liveEdge - 0.5 > videoEl.currentTime) {
+                    videoEl.currentTime = liveEdge - 0.5;
+                }
+            }
+        }
+    };
+    // 定期的なドリフトチェック: ライブエッジから離れすぎたらシークで復帰
+    _liveOnTimeUpdate = () => {
+        if (videoEl.paused || videoEl.seeking) return;
+        const buf = videoEl.buffered;
+        if (buf.length === 0) return;
+        const liveEdge = buf.end(buf.length - 1);
+        const drift = liveEdge - videoEl.currentTime;
+        if (drift > 3.0) {
+            videoEl.currentTime = liveEdge - 0.5;
+        }
+    };
+    videoEl.addEventListener('waiting', _liveOnWaiting);
+    videoEl.addEventListener('playing', _liveOnPlayingResync);
+    videoEl.addEventListener('timeupdate', _liveOnTimeUpdate);
+
+    livePlayer.load();
+    videoEl.addEventListener('canplaythrough', () => {
+        videoEl.play().catch(() => {
+            document.getElementById('live-status').innerHTML =
+                '<span class="live-indicator"></span> 再生ボタンを押してください';
+        });
+    }, { once: true });
+}
+
+function restartLivePlayer() {
+    if (!livePlayer || !liveCurrentCh) return;
+    const ch = liveCurrentCh;
+    const sid = liveCurrentSid;
+    const videoEl = document.getElementById('live-video');
+
+    document.getElementById('live-status').innerHTML =
+        '<span class="live-indicator"></span> 番組切替中…';
+    showLiveSwitchingBanner();
+
+    try { livePlayer.destroy(); } catch (e) {}
+    livePlayer = null;
+    videoEl.pause();
+    // src は意図的にクリアしない (最終フレームを保持して体感ブラックアウトを軽減)
+
+    _buildLivePlayer(ch, sid);
+
+    videoEl.addEventListener('canplay', () => {
+        hideLiveSwitchingBanner();
+        document.getElementById('live-status').innerHTML =
+            '<span class="live-indicator"></span> 再生中';
+    }, { once: true });
+}
+
 /* --- NX-Jikkyo 実況コメント --- */
 
 const JIKKYO_MAP = {
@@ -3392,95 +3542,7 @@ function startLive(chNum, chName, sid) {
     // カードのハイライト: grid 再描画で反映
     loadLiveChannelGrid();
 
-    const videoEl = document.getElementById('live-video');
-
-    let streamUrl = `/live/stream?ch=${chNum}&quality=${streamQuality}`;
-    if (sid) streamUrl += `&sid=${sid}`;
-    livePlayer = mpegts.createPlayer({
-        type: 'mpegts',
-        isLive: true,
-        url: streamUrl,
-    }, {
-        enableWorker: false,
-        liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 3.0,
-        liveBufferLatencyMinRemain: 1.0,
-        liveBufferLatencyChasingSpeed: 1.1,
-        fixAudioTimestampGap: true,
-        accurateSeek: true,
-        autoCleanupSourceBuffer: true,
-        autoCleanupMaxBackwardDuration: 30,
-        autoCleanupMinBackwardDuration: 15,
-    });
-
-    livePlayer.attachMediaElement(videoEl);
-
-    let _mediaInfoCount = 0;
-    livePlayer.on(mpegts.Events.MEDIA_INFO, (info) => {
-        _mediaInfoCount++;
-        document.getElementById('live-status').innerHTML =
-            '<span class="live-indicator"></span> 再生中';
-        let infoText = '';
-        if (info.videoCodec) infoText += `映像: ${info.videoCodec}`;
-        if (info.width && info.height) infoText += ` ${info.width}x${info.height}`;
-        if (info.audioCodec) infoText += ` / 音声: ${info.audioCodec}`;
-        document.getElementById('live-stream-info').textContent = infoText;
-
-        // 番組切り替え時: 2回目以降のMEDIA_INFOはストリーム構成変化を示す
-        // バッファ末尾にシークして古いデータをスキップ
-        if (_mediaInfoCount > 1) {
-            const buf = videoEl.buffered;
-            if (buf.length > 0) {
-                videoEl.currentTime = buf.end(buf.length - 1) - 0.3;
-            }
-        }
-    });
-
-    livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
-        document.getElementById('live-error').textContent =
-            `再生エラー: ${detail || type}`;
-    });
-
-    videoEl.addEventListener('playing', () => {
-        document.getElementById('live-status').innerHTML =
-            '<span class="live-indicator"></span> 再生中';
-    }, { once: true });
-
-    // stall後の同期修正: バッファ末尾にシークして再同期
-    let stallDetected = false;
-    videoEl.addEventListener('waiting', () => { stallDetected = true; });
-    videoEl.addEventListener('playing', () => {
-        if (stallDetected) {
-            stallDetected = false;
-            const buf = videoEl.buffered;
-            if (buf.length > 0) {
-                const liveEdge = buf.end(buf.length - 1);
-                if (liveEdge - 0.5 > videoEl.currentTime) {
-                    videoEl.currentTime = liveEdge - 0.5;
-                }
-            }
-        }
-    });
-
-    // 定期的なドリフトチェック: ライブエッジから離れすぎたらシークで復帰
-    videoEl.addEventListener('timeupdate', () => {
-        if (videoEl.paused || videoEl.seeking) return;
-        const buf = videoEl.buffered;
-        if (buf.length === 0) return;
-        const liveEdge = buf.end(buf.length - 1);
-        const drift = liveEdge - videoEl.currentTime;
-        if (drift > 3.0) {
-            videoEl.currentTime = liveEdge - 0.5;
-        }
-    });
-
-    livePlayer.load();
-    videoEl.addEventListener('canplaythrough', () => {
-        videoEl.play().catch(() => {
-            document.getElementById('live-status').innerHTML =
-                '<span class="live-indicator"></span> 再生ボタンを押してください';
-        });
-    }, { once: true });
+    _buildLivePlayer(chNum, sid);
 
     // 番組情報を定期更新
     if (liveNowTimer) clearInterval(liveNowTimer);
@@ -3521,6 +3583,8 @@ function stopLive(keepGrid) {
         livePlayer.destroy();
         livePlayer = null;
     }
+    cleanupLiveVideoHandlers(document.getElementById('live-video'));
+    hideLiveSwitchingBanner();
     if (liveNowTimer) {
         clearInterval(liveNowTimer);
         liveNowTimer = null;
@@ -3529,6 +3593,7 @@ function stopLive(keepGrid) {
     liveCurrentCh = null;
     liveCurrentSid = null;
     liveRecScheduleId = null;
+    liveLastPlayerRestart = 0;
 
     // UI リセット
     document.getElementById('lc-subchannel').style.display = 'none';
