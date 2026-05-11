@@ -1321,6 +1321,26 @@ let recordingPrograms = [];        // /api/recording/programs の結果キャッ
 let seekUpdateTimer = null;
 let seekBarDragging = false;
 
+// Safari (Mac) の MSE が長時間連続再生中に waiting のまま固まる症状の workaround。
+// waiting 検出後 1.5 秒でバッファ末尾へ微小シーク、5 秒経っても復帰しなければ ffmpeg ストリーム再接続。
+let recordingStallTimer1 = null;
+let recordingStallTimer2 = null;
+let recordingStallOnWaiting = null;
+let recordingStallOnPlaying = null;
+
+function cleanupRecordingStallHandlers(videoEl) {
+    if (recordingStallTimer1) { clearTimeout(recordingStallTimer1); recordingStallTimer1 = null; }
+    if (recordingStallTimer2) { clearTimeout(recordingStallTimer2); recordingStallTimer2 = null; }
+    if (recordingStallOnWaiting) {
+        videoEl.removeEventListener('waiting', recordingStallOnWaiting);
+        recordingStallOnWaiting = null;
+    }
+    if (recordingStallOnPlaying) {
+        videoEl.removeEventListener('playing', recordingStallOnPlaying);
+        recordingStallOnPlaying = null;
+    }
+}
+
 function formatDuration(sec) {
     sec = Math.max(0, Math.floor(sec));
     const h = Math.floor(sec / 3600);
@@ -1669,6 +1689,7 @@ function seekSkip(seconds) {
 function startRecordingStream(seekTime) {
     const videoEl = document.getElementById('video-player');
 
+    cleanupRecordingStallHandlers(videoEl);
     if (recordingPlayer) {
         recordingPlayer.destroy();
         recordingPlayer = null;
@@ -1709,6 +1730,33 @@ function startRecordingStream(seekTime) {
         videoEl.play().catch(() => {});
     }, { once: true });
 
+    // Safari (Mac) で waiting のまま固まる症状への workaround
+    recordingStallOnWaiting = () => {
+        if (recordingStallTimer1) clearTimeout(recordingStallTimer1);
+        if (recordingStallTimer2) clearTimeout(recordingStallTimer2);
+        recordingStallTimer1 = setTimeout(() => {
+            const buf = videoEl.buffered;
+            if (buf.length > 0) {
+                const bufEnd = buf.end(buf.length - 1);
+                if (bufEnd - 0.5 > videoEl.currentTime) {
+                    videoEl.currentTime = bufEnd - 0.5;
+                }
+            }
+        }, 1500);
+        recordingStallTimer2 = setTimeout(() => {
+            const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
+            if (recordingPath && recordingDuration && currentTime < recordingDuration - 1) {
+                startRecordingStream(currentTime);
+            }
+        }, 5000);
+    };
+    recordingStallOnPlaying = () => {
+        if (recordingStallTimer1) { clearTimeout(recordingStallTimer1); recordingStallTimer1 = null; }
+        if (recordingStallTimer2) { clearTimeout(recordingStallTimer2); recordingStallTimer2 = null; }
+    };
+    videoEl.addEventListener('waiting', recordingStallOnWaiting);
+    videoEl.addEventListener('playing', recordingStallOnPlaying);
+
     // シークバー更新開始
     if (seekUpdateTimer) clearInterval(seekUpdateTimer);
     seekUpdateTimer = setInterval(updateSeekBar, 500);
@@ -1733,6 +1781,7 @@ function closeRecordingPlayer() {
     }
     recordingJikkyo.stop();
     const videoEl = document.getElementById('video-player');
+    cleanupRecordingStallHandlers(videoEl);
     if (recordingPlayer) {
         recordingPlayer.destroy();
         recordingPlayer = null;
