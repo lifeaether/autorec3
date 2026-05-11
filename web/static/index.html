@@ -195,6 +195,11 @@
                                     <input type="range" id="lc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="liveControls.setVolume(this.value)">
                                     <div class="lc-spacer"></div>
                                     <select id="lc-subchannel" class="jikkyo-mode-select" onchange="liveControls.switchService(this.value)" style="display:none"></select>
+                                    <select id="lc-audio" class="jikkyo-mode-select" onchange="liveControls.switchAudio(this.value)">
+                                        <option value="stereo">音声: ステレオ</option>
+                                        <option value="main">音声: 主音声</option>
+                                        <option value="sub">音声: 副音声</option>
+                                    </select>
                                     <button class="lc-btn" id="lc-record" onclick="liveControls.toggleRecord()" title="録画" style="display:none"></button>
                                     <select id="jikkyo-mode-select" class="jikkyo-mode-select" onchange="jikkyo.setMode(this.value)">
                                         <option value="overlay">実況: オーバーレイ</option>
@@ -486,6 +491,11 @@
                     <button class="seek-skip-btn" onclick="seekSkip(10)" title="10秒進む"><i class="ph ph-clock-clockwise"></i></button>
                     <span id="video-total-time">0:00</span>
                     <select id="rc-program" class="jikkyo-mode-select" style="display:none" onchange="recControls.switchProgram(this.value)"></select>
+                    <select id="rc-audio" class="jikkyo-mode-select" onchange="recControls.switchAudio(this.value)">
+                        <option value="stereo">音声: ステレオ</option>
+                        <option value="main">音声: 主音声</option>
+                        <option value="sub">音声: 副音声</option>
+                    </select>
                     <select id="rec-jikkyo-mode-select" class="jikkyo-mode-select" style="display:none" onchange="recordingJikkyo.setMode(this.value)">
                         <option value="overlay">実況: オーバーレイ</option>
                         <option value="sidebar">実況: サイドバー</option>

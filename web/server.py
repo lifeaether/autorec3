@@ -77,6 +77,19 @@ RECORDING_QUALITY_PRESETS = {
 DEFAULT_QUALITY = "high"
 
 
+def _audio_filter(params):
+    """audio クエリパラメータに応じて -af の引数を組み立てる。
+    NHK のデュアルモノラル送出 (L=主音声 / R=副音声/解説) を分離して聞くため。
+    """
+    base = "aresample=async=1000:first_pts=0"
+    mode = params.get("audio", [""])[0]
+    if mode == "main":
+        return f"pan=stereo|c0=c0|c1=c0,{base}"
+    if mode == "sub":
+        return f"pan=stereo|c0=c1|c1=c1,{base}"
+    return base
+
+
 def _build_program_map_args(file_path, params):
     """ffmpeg の -map 引数を組み立てる。
 
@@ -356,7 +369,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         cmd += ["-i", file_path] + _build_program_map_args(file_path, params)
         quality_args = self._get_quality_args(params, RECORDING_QUALITY_PRESETS)
         cmd += quality_args + [
-            "-af", "aresample=async=1000:first_pts=0",
+            "-af", _audio_filter(params),
             "-vsync", "cfr",
             "-f", "mpegts",
             "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
@@ -452,7 +465,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-err_detect", "ignore_err",
             "-f", "mpegts", "-i", "pipe:0",
         ] + map_args + quality_args + [
-            "-af", "aresample=async=1000:first_pts=0",
+            "-af", _audio_filter(params),
             "-vsync", "cfr",
             "-f", "mpegts",
             "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
@@ -552,7 +565,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-err_detect", "ignore_err",
             "-i", "pipe:0",
         ] + map_args + quality_args + [
-            "-af", "aresample=async=1000:first_pts=0",
+            "-af", _audio_filter(params),
             "-vsync", "cfr",
             "-f", "mpegts",
             "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",

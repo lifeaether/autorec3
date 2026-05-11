@@ -1586,6 +1586,14 @@ const recControls = (() => {
             _showControls();
         },
 
+        switchAudio(_mode) {
+            if (!recordingPath) return;
+            const video = _getVideo();
+            const currentTime = recordingBaseTime + ((video && video.currentTime) || 0);
+            startRecordingStream(currentTime);
+            _showControls();
+        },
+
         toggleFullscreen() {
             const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
             if (!wrapper) return;
@@ -1704,6 +1712,10 @@ function startRecordingStream(seekTime) {
     let url = `/recordings/transcode?path=${encodeURIComponent(recordingPath)}&quality=${streamQuality}`;
     if (seekTime > 0) url += `&ss=${seekTime}`;
     if (recordingProgramId) url += `&program=${recordingProgramId}`;
+    const recAudioSel = document.getElementById('rc-audio');
+    if (recAudioSel && recAudioSel.value && recAudioSel.value !== 'stereo') {
+        url += `&audio=${recAudioSel.value}`;
+    }
 
     recordingPlayer = mpegts.createPlayer({
         type: 'mpegts',
@@ -1800,6 +1812,8 @@ function closeRecordingPlayer() {
         progSel.innerHTML = '';
         progSel.style.display = 'none';
     }
+    const recAudio = document.getElementById('rc-audio');
+    if (recAudio) recAudio.value = 'stereo';
     document.getElementById('video-seek-container').style.display = 'none';
 }
 
@@ -2249,6 +2263,10 @@ function _buildLivePlayer(chNum, sid) {
 
     let streamUrl = `/live/stream?ch=${chNum}&quality=${streamQuality}`;
     if (sid) streamUrl += `&sid=${sid}`;
+    const audioSel = document.getElementById('lc-audio');
+    if (audioSel && audioSel.value && audioSel.value !== 'stereo') {
+        streamUrl += `&audio=${audioSel.value}`;
+    }
     livePlayer = mpegts.createPlayer({
         type: 'mpegts',
         isLive: true,
@@ -2281,9 +2299,7 @@ function _buildLivePlayer(chNum, sid) {
 
         // 2回目以降の MEDIA_INFO は PMT 変化 (番組切替・音声構成変更)。
         // バッファ末尾シークでは A/V ドリフトを直せないため player ごと作り直す。
-        // 5秒のクールダウンで短時間の連続 PMT 変化での再生成暴走を防ぐ。
-        if (_mediaInfoCount > 1 && Date.now() - liveLastPlayerRestart > 5000) {
-            liveLastPlayerRestart = Date.now();
+        if (_mediaInfoCount > 1) {
             restartLivePlayer();
         }
     });
@@ -2336,8 +2352,11 @@ function _buildLivePlayer(chNum, sid) {
     }, { once: true });
 }
 
-function restartLivePlayer() {
+function restartLivePlayer(force = false) {
     if (!livePlayer || !liveCurrentCh) return;
+    // 5秒のクールダウンで PMT 由来の連続再生成を抑止。ユーザー操作 (force) は無視。
+    if (!force && Date.now() - liveLastPlayerRestart < 5000) return;
+    liveLastPlayerRestart = Date.now();
     const ch = liveCurrentCh;
     const sid = liveCurrentSid;
     const videoEl = document.getElementById('live-video');
@@ -3326,6 +3345,12 @@ const liveControls = (() => {
             startLive(ch, name, sid);
         },
 
+        switchAudio(_mode) {
+            if (!livePlayer) return;
+            restartLivePlayer(true);
+            _showControls();
+        },
+
         async toggleRecord() {
             if (!liveCurrentCh) return;
             _showControls();
@@ -3601,6 +3626,8 @@ function stopLive(keepGrid) {
     document.getElementById('live-status').textContent = '';
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-error').textContent = '';
+    const lcAudio = document.getElementById('lc-audio');
+    if (lcAudio) lcAudio.value = 'stereo';
 
     // カードのハイライト解除
     if (!keepGrid) {
