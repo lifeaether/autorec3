@@ -108,8 +108,32 @@ if [ -f "$JIKKYO_MAP_FILE" ]; then
     fi
 fi
 
-# recpt1 で録画実行
-if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
+# recpt1 で録画実行 (同一チューナの連続録画境目でのチューナ取得失敗を救済するため、
+# 失敗時は短時間 sleep してリトライ)
+MAX_TUNER_RETRIES=3
+TUNER_RETRY_DELAY=2
+
+recpt1_ok=false
+attempt=0
+while [ $attempt -lt $MAX_TUNER_RETRIES ]; do
+    attempt=$((attempt + 1))
+    if [ $attempt -gt 1 ]; then
+        log_msg "warn" "チューナ取得リトライ $((attempt - 1))/$((MAX_TUNER_RETRIES - 1)): $TITLE"
+        sleep "$TUNER_RETRY_DELAY"
+        NOW_EPOCH=$(date '+%s')
+        DURATION=$((ACTUAL_END - NOW_EPOCH))
+        if [ "$DURATION" -le 0 ]; then
+            log_msg "error" "リトライ中に番組終了時刻を超過: $TITLE"
+            break
+        fi
+    fi
+    if recpt1 --b25 "$CH_NUM" "$DURATION" "$OUTPUT_FILE" 2>&1; then
+        recpt1_ok=true
+        break
+    fi
+done
+
+if $recpt1_ok; then
     FILE_SIZE=$(stat -c%s "$OUTPUT_FILE" 2>/dev/null || echo "0")
     FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
     log_msg "info" "録画完了: $TITLE (${FILE_SIZE_MB}MB)"
