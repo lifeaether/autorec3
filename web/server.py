@@ -727,6 +727,9 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-i", "pipe:0",
         ] + map_args + quality_args + [
             "-af", _audio_filter(params),
+            # ARIB 字幕 (地上波 CC) は ffmpeg の HLS muxer がエンコードできず Error binding
+            # するため明示的に捨てる。データ stream も同様に無視。
+            "-sn", "-dn",
             "-vsync", "cfr",
             "-f", "hls",
             "-hls_time", str(HLS_LIVE_SEGMENT_DURATION),
@@ -909,6 +912,9 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         ] + _build_program_map_args(file_path, params) \
           + self._get_quality_args(params, RECORDING_QUALITY_PRESETS) + [
             "-af", _audio_filter(params),
+            # NHK ニュース等で arib_caption / data stream が含まれるとセグメント生成が
+            # 失敗するため除外する。
+            "-sn", "-dn",
             "-vsync", "cfr",
             "-output_ts_offset", f"{start:.3f}",
             "-f", "mpegts",
