@@ -5,6 +5,10 @@ import Observation
 final class ServerConfig {
     static let shared = ServerConfig()
 
+    /// 初回起動時に設定画面の入力欄に出る既定値。実機を別ネットワークに移すまで
+    /// この値が空のまま起動することはまずないので URL もこのまま機能する。
+    static let defaultBaseURL = "http://rec3:8080"
+
     private let defaultsKey = "autorec.serverBaseURL"
 
     var baseURLString: String {
@@ -14,7 +18,8 @@ final class ServerConfig {
     }
 
     private init() {
-        self.baseURLString = UserDefaults.standard.string(forKey: defaultsKey) ?? ""
+        self.baseURLString = UserDefaults.standard.string(forKey: defaultsKey)
+            ?? Self.defaultBaseURL
     }
 
     var baseURL: URL? {

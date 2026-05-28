@@ -921,10 +921,21 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         if not sem.acquire(timeout=15):
             self.send_error(503, "Too many concurrent segments")
             return
+        # ffmpeg stderr を捨てずにセッションごとのログに残す (失敗番組の調査用)。
+        log_dir = os.path.join(HLS_TMP_DIR, f"vod-{key}")
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except OSError:
+            pass
+        log_path = os.path.join(log_dir, f"seg_{seg_num:05d}.log")
+        try:
+            stderr_handle = open(log_path, "wb")
+        except OSError:
+            stderr_handle = subprocess.DEVNULL
         try:
             try:
                 ffmpeg = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    cmd, stdout=subprocess.PIPE, stderr=stderr_handle,
                 )
             except FileNotFoundError:
                 self.send_error(503, "ffmpeg not found")
@@ -951,6 +962,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
                     ffmpeg.kill()
                     ffmpeg.wait()
         finally:
+            if stderr_handle is not subprocess.DEVNULL:
+                try:
+                    stderr_handle.close()
+                except OSError:
+                    pass
             sem.release()
 
     def do_OPTIONS(self):
