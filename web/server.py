@@ -745,11 +745,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         params = parse_qs(parsed.query)
         ch = params.get("ch", [""])[0]
         if not ch:
-            self.send_error(400, "ch parameter is required")
+            self._serve_plain_error(400, "ch parameter is required")
             return
         valid_channels = api._get_valid_channels()
         if ch not in valid_channels:
-            self.send_error(400, f"Invalid channel: {ch}")
+            self._serve_plain_error(400, f"Invalid channel: {ch}")
             return
 
         channel_name = valid_channels[ch]
@@ -763,7 +763,7 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             ch, channel_name, params, cmd_builder, api.register_live_stream,
         )
         if session is None:
-            self.send_error(503, err or "Failed to start HLS session")
+            self._serve_plain_error(503, err or "Failed to start HLS session")
             return
 
         playlist = session.read_playlist()
@@ -968,6 +968,24 @@ class AutorecHandler(SimpleHTTPRequestHandler):
                 except OSError:
                     pass
             sem.release()
+
+    def _serve_plain_error(self, status, message):
+        """send_error は status line に message を入れるため改行/長文で HTTP が壊れる。
+        ここでは plaintext 本文として返し、ステータス行は短い理由語に固定する。"""
+        body = (message or "").encode("utf-8", "replace")
+        reasons = {400: "Bad Request", 404: "Not Found", 503: "Service Unavailable",
+                   416: "Range Not Satisfiable"}
+        self.send_response(status, reasons.get(status, "Error"))
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
 
     def do_OPTIONS(self):
         """CORS プリフライト対応"""

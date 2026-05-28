@@ -24,6 +24,11 @@ _live_lock = threading.Lock()
 _vod_sessions = {}
 _vod_lock = threading.Lock()
 
+# 直近 N 回の失敗を覚えておく (失敗時にディレクトリは消えるため、ログを保持する)
+_failure_log_max = 8
+_failures = []
+_failure_lock = threading.Lock()
+
 _vod_semaphore = threading.BoundedSemaphore(value=HLS_VOD_MAX_CONCURRENT)
 
 
@@ -278,6 +283,14 @@ def get_or_create_live_session(channel, channel_name, params, build_ffmpeg_cmd,
     # 起動成功。ロック外で playlist を待つ (他キーの並行リクエストを止めないため)
     if not new_session.wait_for_playlist():
         err = new_session.start_error or "Playlist generation timeout"
+        # ディレクトリを消す前にログを保全
+        _record_failure(
+            key=key,
+            channel=channel,
+            error=err,
+            ffmpeg_log=new_session._read_log_tail("ffmpeg.log", 2000),
+            recpt1_log=new_session._read_log_tail("recpt1.log", 2000),
+        )
         with _live_lock:
             _live_sessions.pop(key, None)
         try:
@@ -286,6 +299,21 @@ def get_or_create_live_session(channel, channel_name, params, build_ffmpeg_cmd,
             pass
         return None, err
     return new_session, None
+
+
+def _record_failure(*, key, channel, error, ffmpeg_log, recpt1_log):
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "key": key,
+        "channel": channel,
+        "error": error,
+        "ffmpeg_log": ffmpeg_log,
+        "recpt1_log": recpt1_log,
+    }
+    with _failure_lock:
+        _failures.append(entry)
+        if len(_failures) > _failure_log_max:
+            del _failures[0:len(_failures) - _failure_log_max]
 
 
 def get_live_session(key):
@@ -425,7 +453,10 @@ def debug_dump():
         "tmp_dir": HLS_TMP_DIR,
         "live_sessions": [],
         "tmp_dirs": [],
+        "recent_failures": [],
     }
+    with _failure_lock:
+        result["recent_failures"] = list(_failures)
     with _live_lock:
         for s in _live_sessions.values():
             result["live_sessions"].append({
