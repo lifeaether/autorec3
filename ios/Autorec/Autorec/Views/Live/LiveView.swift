@@ -10,6 +10,8 @@ struct LiveView: View {
     @State private var isLoading = false
     @State private var selectedChannel: Channel? = nil
     @AppStorage("autorec.commentsEnabled") private var commentsEnabled: Bool = true
+    @AppStorage("autorec.defaultQuality") private var defaultQuality: String = "high"
+    @AppStorage("autorec.defaultAudio") private var defaultAudio: String = "stereo"
 
     private var api: APIClient { APIClient(config: config) }
 
@@ -26,23 +28,52 @@ struct LiveView: View {
                     .aspectRatio(16.0 / 9.0, contentMode: .fit)
 
                 if let title = currentTitle {
-                    HStack {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                            .foregroundStyle(.red)
-                        Text(title).bold()
-                        externalBadge
-                        Spacer()
-                        Toggle("実況", isOn: $commentsEnabled)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                            .scaleEffect(0.85)
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .foregroundStyle(commentsEnabled ? Color.accentColor : Color.secondary)
-                            .font(.caption)
-                        Button("停止", role: .destructive) {
-                            stopAll()
+                    VStack(spacing: 6) {
+                        HStack {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                .foregroundStyle(.red)
+                            Text(title).bold()
+                            externalBadge
+                            Spacer()
+                            Button("停止", role: .destructive) {
+                                stopAll()
+                            }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
+                        HStack {
+                            Picker("音声", selection: Binding(
+                                get: { player.audioMode },
+                                set: { newVal in
+                                    player.audioMode = newVal
+                                    player.reload(api: api)
+                                }
+                            )) {
+                                ForEach(PlayerViewModel.AudioMode.allCases) { Text($0.label).tag($0) }
+                            }
+                            .pickerStyle(.menu)
+
+                            Picker("画質", selection: Binding(
+                                get: { player.quality },
+                                set: { newVal in
+                                    player.quality = newVal
+                                    player.reload(api: api)
+                                }
+                            )) {
+                                ForEach(PlayerViewModel.Quality.allCases) { Text($0.label).tag($0) }
+                            }
+                            .pickerStyle(.menu)
+
+                            Spacer()
+
+                            Toggle("実況", isOn: $commentsEnabled)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                                .scaleEffect(0.85)
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .foregroundStyle(commentsEnabled ? Color.accentColor : Color.secondary)
+                                .font(.caption)
+                        }
+                        .font(.caption)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 8)
@@ -86,7 +117,7 @@ struct LiveView: View {
 
     private var currentTitle: String? {
         switch player.currentSource {
-        case .live(let ch, _, _): return "\(ch.name)"
+        case .live(let ch): return ch.name
         case .recording, .none: return nil
         }
     }
@@ -108,6 +139,8 @@ struct LiveView: View {
                 ForEach(channels) { ch in
                     Button {
                         selectedChannel = ch
+                        player.audioMode = PlayerViewModel.AudioMode(rawValue: defaultAudio) ?? .stereo
+                        player.quality = PlayerViewModel.Quality(rawValue: defaultQuality) ?? .high
                         player.playLive(channel: ch, api: api)
                         jikkyo.start(channelName: ch.name)
                     } label: {

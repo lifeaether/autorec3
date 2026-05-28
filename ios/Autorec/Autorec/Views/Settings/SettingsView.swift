@@ -5,6 +5,9 @@ struct SettingsView: View {
     @State private var urlText: String = ""
     @State private var testState: TestState = .idle
     @State private var serverInfo: ServerInfo?
+    @AppStorage("autorec.defaultQuality") private var defaultQuality: String = "high"
+    @AppStorage("autorec.defaultAudio") private var defaultAudio: String = "stereo"
+    @AppStorage("autorec.commentsEnabled") private var commentsEnabled: Bool = true
 
     var firstRun: Bool = false
 
@@ -66,6 +69,29 @@ struct SettingsView: View {
                     LabeledContent("HLS 配信", value: info.hlsEnabled ? "有効" : "無効")
                     LabeledContent("同時ライブ上限", value: String(info.maxLiveStreams))
                 }
+            }
+
+            Section("再生既定値") {
+                Picker("既定画質", selection: $defaultQuality) {
+                    Text("低").tag("low")
+                    Text("中").tag("medium")
+                    Text("高").tag("high")
+                    Text("原画質").tag("original")
+                }
+                Picker("既定音声", selection: $defaultAudio) {
+                    Text("ステレオ").tag("stereo")
+                    Text("主音声").tag("main")
+                    Text("副音声").tag("sub")
+                }
+                Toggle("実況コメント標準で表示", isOn: $commentsEnabled)
+            }
+
+            Section {
+                Link(destination: URL(string: "https://github.com/anthropics/claude-code/issues")!) {
+                    Label("不具合報告", systemImage: "ant")
+                }
+            } footer: {
+                Text("AirPlay/外部ディスプレイ:\n・スクリーンミラーリング: 実況コメント込みで TV に表示\n・AVPlayer の AirPlay ボタン: 映像のみ転送 (コメントは iPhone に残る)\n・HDMI 接続: 映像が TV に転送、コントロールは iPhone\n再生中の動画から下スワイプで Picture in Picture も使えます。")
             }
         }
         .navigationTitle("設定")

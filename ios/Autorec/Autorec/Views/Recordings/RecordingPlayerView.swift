@@ -24,6 +24,26 @@ struct RecordingPlayerView: View {
                 }
 
                 List {
+                    Section("再生設定") {
+                        Picker("音声", selection: Binding(
+                            get: { player.audioMode },
+                            set: { newVal in
+                                player.audioMode = newVal
+                                player.reload(api: api)
+                            }
+                        )) {
+                            ForEach(PlayerViewModel.AudioMode.allCases) { Text($0.label).tag($0) }
+                        }
+                        Picker("画質", selection: Binding(
+                            get: { player.quality },
+                            set: { newVal in
+                                player.quality = newVal
+                                player.reload(api: api)
+                            }
+                        )) {
+                            ForEach(PlayerViewModel.Quality.allCases) { Text($0.label).tag($0) }
+                        }
+                    }
                     Section("情報") {
                         LabeledContent("ファイル", value: file.name)
                         LabeledContent("録画日時", value: file.mtime)
