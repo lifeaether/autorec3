@@ -36,7 +36,7 @@ struct ChannelListResponse: Decodable {
 }
 
 struct Programme: Decodable, Identifiable, Hashable {
-    let id: Int?
+    let eventId: Int?
     let channel: String
     let title: String
     let startTime: String
@@ -44,8 +44,10 @@ struct Programme: Decodable, Identifiable, Hashable {
     let category: String?
     let description: String?
 
+    var id: String { "\(channel)-\(eventId ?? 0)-\(startTime)" }
+
     enum CodingKeys: String, CodingKey {
-        case id
+        case eventId = "event_id"
         case channel
         case title
         case startTime = "start_time"
@@ -53,6 +55,19 @@ struct Programme: Decodable, Identifiable, Hashable {
         case category
         case description
     }
+
+    var startDate: Date? { Programme.parse(startTime) }
+    var endDate: Date? { endTime.flatMap(Programme.parse) }
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Tokyo")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return f
+    }()
+
+    static func parse(_ s: String) -> Date? { dateFormatter.date(from: s) }
 }
 
 struct ProgrammeListResponse: Decodable {

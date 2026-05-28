@@ -18,6 +18,15 @@ enum APIError: LocalizedError {
     }
 }
 
+extension APIError {
+    func withMessage(_ msg: String) -> APIError {
+        struct WrappedError: LocalizedError {
+            var errorDescription: String?
+        }
+        return .transport(WrappedError(errorDescription: msg))
+    }
+}
+
 final class APIClient {
     private let config: ServerConfig
     private let session: URLSession
@@ -73,6 +82,53 @@ final class APIClient {
     func recordings() async throws -> [RecordingSeries] {
         let resp: RecordingsResponse = try await get("/api/recordings")
         return resp.series
+    }
+
+    func programmes(date: String? = nil, channel: String? = nil,
+                    limit: Int = 500) async throws -> [Programme] {
+        var query: [String: String] = ["limit": String(limit)]
+        if let d = date { query["date"] = d }
+        if let c = channel { query["channel"] = c }
+        let resp: ProgrammeListResponse = try await get("/api/programmes", query: query)
+        return resp.programmes
+    }
+
+    /// `true` 作成成功 / `false` 既に登録済み (409)
+    func createSchedule(programme: Programme) async throws -> Bool {
+        guard let base = config.baseURL else { throw APIError.notConfigured }
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.path = "/api/schedules"
+        guard let url = components.url else { throw APIError.invalidURL }
+
+        let body: [String: Any] = [
+            "event_id": programme.eventId ?? 0,
+            "channel": programme.channel,
+            "title": programme.title,
+            "start_time": programme.startTime,
+            "end_time": programme.endTime ?? "",
+        ]
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        req.timeoutInterval = 15
+        do {
+            let (data, response) = try await session.data(for: req)
+            guard let http = response as? HTTPURLResponse else { throw APIError.http(0) }
+            if (200..<300).contains(http.statusCode) { return true }
+            if http.statusCode == 409 { return false }
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let msg = obj["error"] as? String {
+                throw APIError.http(http.statusCode).withMessage(msg)
+            }
+            throw APIError.http(http.statusCode)
+        } catch let err as APIError {
+            throw err
+        } catch {
+            throw APIError.transport(error)
+        }
     }
 
     // HLS の m3u8 URL は AVPlayer に直接渡すため、ここでは URL 構築だけ提供する。
