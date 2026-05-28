@@ -719,13 +719,25 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         else:
             map_args = []
         quality_args = self._get_quality_args(params, QUALITY_PRESETS)
+        # GOP をセグメント長 (2秒) と同じ秒数に強制する。libx264 既定 (-g 250 ≒ 8秒) のままだと
+        # ffmpeg は次の IDR まで待ってセグメントを切るため、最初のセグメントが 8 秒前後になり
+        # 初期遅延の増大と AVPlayer の周期的な stall (再バッファリング) を招く。
+        # sc_threshold=0 でシーン検出由来の追加 IDR も止めて間隔を一定化する。
+        gop_frames = HLS_LIVE_SEGMENT_DURATION * 30  # 30fps 前提
+        keyframe_args = [
+            "-g", str(gop_frames),
+            "-keyint_min", str(gop_frames),
+            "-sc_threshold", "0",
+            "-force_key_frames",
+            f"expr:gte(t,n_forced*{HLS_LIVE_SEGMENT_DURATION})",
+        ]
         return [
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-analyzeduration", "500000", "-probesize", "1000000",
             "-fflags", "+nobuffer+discardcorrupt+genpts",
             "-err_detect", "ignore_err",
             "-i", "pipe:0",
-        ] + map_args + quality_args + [
+        ] + map_args + quality_args + keyframe_args + [
             "-af", _audio_filter(params),
             # ARIB 字幕 (地上波 CC) は ffmpeg の HLS muxer がエンコードできず Error binding
             # するため明示的に捨てる。データ stream も同様に無視。
