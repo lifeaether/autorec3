@@ -3,17 +3,24 @@ import SwiftUI
 struct LiveView: View {
     @Environment(ServerConfig.self) private var config
     @State private var player = PlayerViewModel()
+    @State private var jikkyo = JikkyoClient()
     @State private var channels: [Channel] = []
     @State private var loadError: String? = nil
     @State private var isLoading = false
     @State private var selectedChannel: Channel? = nil
+    @AppStorage("autorec.commentsEnabled") private var commentsEnabled: Bool = true
 
     private var api: APIClient { APIClient(config: config) }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                PlayerContainerView(player: player.player)
+                ZStack {
+                    PlayerContainerView(player: player.player)
+                    if commentsEnabled && selectedChannel != nil {
+                        CommentOverlayView(client: jikkyo)
+                    }
+                }
                     .background(Color.black)
                     .aspectRatio(16.0 / 9.0, contentMode: .fit)
 
@@ -23,8 +30,17 @@ struct LiveView: View {
                             .foregroundStyle(.red)
                         Text(title).bold()
                         Spacer()
-                        Button("停止", role: .destructive) { player.stop(); selectedChannel = nil }
-                            .buttonStyle(.bordered)
+                        Toggle("実況", isOn: $commentsEnabled)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                            .scaleEffect(0.85)
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .foregroundStyle(commentsEnabled ? Color.accentColor : Color.secondary)
+                            .font(.caption)
+                        Button("停止", role: .destructive) {
+                            stopAll()
+                        }
+                        .buttonStyle(.bordered)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 8)
@@ -73,6 +89,7 @@ struct LiveView: View {
                     Button {
                         selectedChannel = ch
                         player.playLive(channel: ch, api: api)
+                        jikkyo.start(channelName: ch.name)
                     } label: {
                         HStack {
                             VStack(alignment: .leading) {
@@ -90,6 +107,12 @@ struct LiveView: View {
             }
             .listStyle(.plain)
         }
+    }
+
+    private func stopAll() {
+        player.stop()
+        jikkyo.stop()
+        selectedChannel = nil
     }
 
     private func loadChannels() async {
