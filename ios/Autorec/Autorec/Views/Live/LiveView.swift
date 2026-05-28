@@ -4,6 +4,7 @@ struct LiveView: View {
     @Environment(ServerConfig.self) private var config
     @State private var player = PlayerViewModel()
     @State private var jikkyo = JikkyoClient()
+    @State private var externalDisplay = ExternalDisplayManager()
     @State private var channels: [Channel] = []
     @State private var loadError: String? = nil
     @State private var isLoading = false
@@ -29,6 +30,7 @@ struct LiveView: View {
                         Image(systemName: "antenna.radiowaves.left.and.right")
                             .foregroundStyle(.red)
                         Text(title).bold()
+                        externalBadge
                         Spacer()
                         Toggle("実況", isOn: $commentsEnabled)
                             .toggleStyle(.switch)
@@ -61,6 +63,24 @@ struct LiveView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await loadChannels() }
             .refreshable { await loadChannels() }
+            .onAppear { externalDisplay.observe(player: player.player) }
+        }
+    }
+
+    @ViewBuilder
+    private var externalBadge: some View {
+        switch externalDisplay.state {
+        case .none: EmptyView()
+        case .screen(let dim):
+            Label("TV (\(dim))", systemImage: "tv")
+                .font(.caption)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Color.accentColor.opacity(0.2), in: Capsule())
+        case .airplayVideo:
+            Label("AirPlay 出力中", systemImage: "airplayvideo")
+                .font(.caption)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Color.accentColor.opacity(0.2), in: Capsule())
         }
     }
 
