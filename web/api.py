@@ -1406,7 +1406,17 @@ def handle_request(method, path, params, body=b""):
     if method == "GET" and path == "/api/server/info":
         return get_server_info(params)
 
+    # HLS 配信の診断ダンプ (失敗時のログ確認用)
+    if method == "GET" and path == "/api/hls/debug":
+        return get_hls_debug(params)
+
     return _error("Not found", 404)
+
+
+def get_hls_debug(_params):
+    """GET /api/hls/debug - HLS セッション稼働状況と ffmpeg/recpt1 ログを返す"""
+    import hls
+    return _json_response(hls.debug_dump())
 
 
 # --- サーバ情報 ---

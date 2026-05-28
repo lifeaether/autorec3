@@ -417,3 +417,72 @@ def live_status():
             }
             for s in _live_sessions.values()
         ]
+
+
+def debug_dump():
+    """全セッションの稼働状況 + ログ末尾 + tmp ディレクトリ内容を返す診断用ダンプ。"""
+    result = {
+        "tmp_dir": HLS_TMP_DIR,
+        "live_sessions": [],
+        "tmp_dirs": [],
+    }
+    with _live_lock:
+        for s in _live_sessions.values():
+            result["live_sessions"].append({
+                "key": s.key,
+                "channel": s.channel,
+                "alive": s.is_alive(),
+                "last_access_ago": round(time.time() - s.last_access, 1),
+                "start_error": s.start_error,
+                "ffmpeg_log_tail": s._read_log_tail("ffmpeg.log", 800),
+                "recpt1_log_tail": s._read_log_tail("recpt1.log", 800),
+            })
+    try:
+        for entry in sorted(os.listdir(HLS_TMP_DIR)):
+            path = os.path.join(HLS_TMP_DIR, entry)
+            if not os.path.isdir(path):
+                continue
+            files = []
+            try:
+                for name in sorted(os.listdir(path)):
+                    full = os.path.join(path, name)
+                    try:
+                        sz = os.path.getsize(full)
+                    except OSError:
+                        sz = 0
+                    files.append({"name": name, "size": sz})
+            except OSError:
+                pass
+            # 各ログファイルの末尾も同梱
+            logs = {}
+            for log_name in ("ffmpeg.log", "recpt1.log"):
+                log_path = os.path.join(path, log_name)
+                if os.path.isfile(log_path):
+                    try:
+                        with open(log_path, "rb") as f:
+                            f.seek(0, os.SEEK_END)
+                            size = f.tell()
+                            f.seek(max(0, size - 1500))
+                            logs[log_name] = f.read().decode("utf-8", "replace")
+                    except OSError:
+                        pass
+            # VOD セッションは seg_*.log が複数できる
+            seg_logs = {}
+            for name in files:
+                if name["name"].startswith("seg_") and name["name"].endswith(".log"):
+                    try:
+                        with open(os.path.join(path, name["name"]), "rb") as f:
+                            content = f.read()
+                        if content:
+                            seg_logs[name["name"]] = content.decode("utf-8", "replace")[-1500:]
+                    except OSError:
+                        pass
+            result["tmp_dirs"].append({
+                "dir": entry,
+                "files": files,
+                "logs": logs,
+                "seg_logs": seg_logs,
+            })
+    except OSError:
+        pass
+    return result
