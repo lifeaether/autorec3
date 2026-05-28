@@ -114,7 +114,9 @@ final class PlayerViewModel {
     private func configureAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
+            // .playback は AirPlay/外部再生を標準で許可するので追加オプション不要。
+            // .allowAirPlay は .playAndRecord 専用で、ここで指定すると OSStatus -50 になる。
+            try session.setCategory(.playback, mode: .moviePlayback)
             try session.setActive(true, options: [])
         } catch {
             lastError = "オーディオセッション初期化失敗: \(error.localizedDescription)"
