@@ -59,3 +59,41 @@ struct ProgrammeListResponse: Decodable {
     let programmes: [Programme]
     let total: Int?
 }
+
+struct RecordingFile: Decodable, Identifiable, Hashable {
+    let name: String
+    let size: Int64
+    let mtime: String
+    let path: String
+    let hasNicojk: Bool
+
+    var id: String { path }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case size
+        case mtime
+        case path
+        case hasNicojk = "has_nicojk"
+    }
+}
+
+struct RecordingSeries: Decodable, Identifiable, Hashable {
+    let name: String
+    let fileCount: Int
+    let totalSize: Int64
+    let files: [RecordingFile]
+
+    var id: String { name }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case fileCount = "file_count"
+        case totalSize = "total_size"
+        case files
+    }
+}
+
+struct RecordingsResponse: Decodable {
+    let series: [RecordingSeries]
+}

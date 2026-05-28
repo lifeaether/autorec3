@@ -70,6 +70,11 @@ final class APIClient {
         return resp.channels
     }
 
+    func recordings() async throws -> [RecordingSeries] {
+        let resp: RecordingsResponse = try await get("/api/recordings")
+        return resp.series
+    }
+
     // HLS の m3u8 URL は AVPlayer に直接渡すため、ここでは URL 構築だけ提供する。
     func hlsLiveURL(channel: String, quality: String? = nil, sid: Int? = nil,
                     audio: String? = nil) -> URL? {
