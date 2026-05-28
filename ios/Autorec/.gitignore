@@ -1,0 +1,7 @@
+Autorec.xcodeproj/
+Autorec.xcworkspace/
+DerivedData/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+build/
