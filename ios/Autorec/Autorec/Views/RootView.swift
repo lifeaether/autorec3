@@ -17,7 +17,7 @@ struct RootView: View {
 struct MainTabView: View {
     var body: some View {
         TabView {
-            LivePlaceholderView()
+            LiveView()
                 .tabItem { Label("ライブ", systemImage: "antenna.radiowaves.left.and.right") }
 
             EPGPlaceholderView()
@@ -38,10 +38,6 @@ struct MainTabView: View {
 }
 
 // 後続マイルストーンで本実装と差し替えるプレースホルダ。
-private struct LivePlaceholderView: View {
-    var body: some View { ComingSoonView(title: "ライブ視聴") }
-}
-
 private struct EPGPlaceholderView: View {
     var body: some View { ComingSoonView(title: "番組表") }
 }
