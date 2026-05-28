@@ -122,7 +122,9 @@ struct EPGView: View {
             }
             .frame(width: channelWidth, height: totalHeight, alignment: .top)
 
-            ForEach(programmes.filter { $0.channel == channel.channel }) { p in
+            // programme.channel は番組表 DB 上の表示名 ("NHK総合" 等)。
+            // Channel.name と一致する。チューナ番号 (number) ではない点に注意。
+            ForEach(programmes.filter { $0.channel == channel.name }) { p in
                 programmeCell(p)
                     .offset(x: 0, y: yOffset(for: p))
             }

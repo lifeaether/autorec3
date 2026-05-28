@@ -92,11 +92,16 @@ class HLSLiveSession:
 
     def start(self, register_live_stream_fn):
         os.makedirs(self.dir, exist_ok=True)
+        # デバッグ用に stderr をログファイルに残す (失敗時の原因特定用)
+        recpt1_log = open(os.path.join(self.dir, "recpt1.log"), "wb")
+        ffmpeg_log = open(os.path.join(self.dir, "ffmpeg.log"), "wb")
+        self._recpt1_log = recpt1_log
+        self._ffmpeg_log = ffmpeg_log
         try:
             self.recpt1 = subprocess.Popen(
                 ["recpt1", "--b25", "--strip", self.channel, "-", "-"],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=recpt1_log,
             )
         except FileNotFoundError:
             self.start_error = "recpt1 not found"
@@ -104,11 +109,12 @@ class HLSLiveSession:
 
         time.sleep(0.5)
         if self.recpt1.poll() is not None:
-            err = b""
             try:
-                err = self.recpt1.stderr.read() or b""
+                recpt1_log.flush()
+                with open(os.path.join(self.dir, "recpt1.log"), "rb") as f:
+                    err = f.read()
             except OSError:
-                pass
+                err = b""
             self.start_error = f"recpt1 failed: {err.decode('utf-8', 'replace')[:200]}"
             return False
 
@@ -118,7 +124,7 @@ class HLSLiveSession:
                 cmd,
                 stdin=self.recpt1.stdout,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=ffmpeg_log,
             )
         except FileNotFoundError:
             self.start_error = "ffmpeg not found"
@@ -148,8 +154,10 @@ class HLSLiveSession:
         deadline = time.time() + (timeout or HLS_PLAYLIST_WAIT_TIMEOUT)
         while time.time() < deadline:
             if self.ffmpeg and self.ffmpeg.poll() is not None:
+                self.start_error = self._read_log_tail("ffmpeg.log")
                 return False
             if self.recpt1 and self.recpt1.poll() is not None:
+                self.start_error = self._read_log_tail("recpt1.log")
                 return False
             try:
                 with open(self.playlist_path) as f:
@@ -159,7 +167,19 @@ class HLSLiveSession:
             except (FileNotFoundError, IOError):
                 pass
             time.sleep(0.1)
+        self.start_error = f"Playlist timeout (12s). ffmpeg.log tail: {self._read_log_tail('ffmpeg.log')}"
         return False
+
+    def _read_log_tail(self, name, bytes_to_read=400):
+        try:
+            path = os.path.join(self.dir, name)
+            with open(path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                f.seek(max(0, size - bytes_to_read))
+                return f.read().decode("utf-8", "replace").strip()
+        except OSError:
+            return ""
 
     def is_alive(self):
         return (
@@ -192,6 +212,14 @@ class HLSLiveSession:
             except Exception:
                 pass
             self.api_stream_id = None
+        for handle_attr in ("_recpt1_log", "_ffmpeg_log"):
+            handle = getattr(self, handle_attr, None)
+            if handle is not None:
+                try:
+                    handle.close()
+                except OSError:
+                    pass
+                setattr(self, handle_attr, None)
         try:
             shutil.rmtree(self.dir, ignore_errors=True)
         except OSError:

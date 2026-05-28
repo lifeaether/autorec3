@@ -19,16 +19,19 @@ struct ServerInfo: Decodable {
 }
 
 struct Channel: Decodable, Identifiable, Hashable {
-    let channel: String
+    let number: String
     let name: String
+    let sid: String?
     let services: [ChannelService]?
 
-    var id: String { channel }
+    var id: String { number }
+    /// 既存呼び出し互換: ライブストリーム URL の `ch=` パラメータに使う ID。
+    var channel: String { number }
 }
 
 struct ChannelService: Decodable, Hashable {
-    let sid: Int?
     let name: String?
+    let sid: String?
 }
 
 struct ChannelListResponse: Decodable {
