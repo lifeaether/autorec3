@@ -1402,4 +1402,33 @@ def handle_request(method, path, params, body=b""):
         jk_id = path.split("/")[-1]
         return proxy_jikkyo_channel(jk_id)
 
+    # サーバ情報 (iOS アプリ等の疎通確認・機能検出用)
+    if method == "GET" and path == "/api/server/info":
+        return get_server_info(params)
+
     return _error("Not found", 404)
+
+
+# --- サーバ情報 ---
+
+SERVER_API_VERSION = 1
+
+
+def get_server_info(_params):
+    """GET /api/server/info - クライアント向けサーバ機能情報"""
+    return _json_response({
+        "name": "autorec",
+        "api_version": SERVER_API_VERSION,
+        "max_live_streams": MAX_LIVE_STREAMS,
+        "hls_enabled": True,
+        "endpoints": {
+            "hls_live": "/hls/live",
+            "hls_recording": "/hls/recording",
+            "mpegts_live": "/live/stream",
+            "mpegts_recording_transcode": "/recordings/transcode",
+            "mpegts_recording_live": "/recordings/live",
+            "recording_file": "/recordings/",
+        },
+        "quality_presets": ["original", "high", "medium", "low"],
+        "audio_modes": ["stereo", "main", "sub"],
+    })

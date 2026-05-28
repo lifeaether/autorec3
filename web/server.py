@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(AUTOREC_DIR, "web"))
 
 import sqlite3
 import api
+import hls
 
 STATIC_DIR = os.path.join(AUTOREC_DIR, "web", "static")
 
@@ -143,16 +144,42 @@ def _relay_thread(recpt1_stdout, ffmpeg_write_fd, rec_ref, stop_event):
             rec_ref["file"] = None
 
 
-# conf からポートを読み込み
+# conf からポートと HLS 設定を読み込み
 WEB_PORT = 8080
+HLS_TMP_DIR = "/tmp/autorec-hls"
+HLS_IDLE_TIMEOUT = 30
+HLS_LIVE_SEGMENT_DURATION = 2
+HLS_VOD_SEGMENT_DURATION = 6
 _conf_path = os.path.join(AUTOREC_DIR, "conf", "autorec.conf")
 if os.path.exists(_conf_path):
     with open(_conf_path) as f:
         for line in f:
             line = line.strip()
-            if line.startswith("WEB_PORT="):
+            if line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            val = val.strip().strip('"').strip("'")
+            key = key.strip()
+            if key == "WEB_PORT":
                 try:
-                    WEB_PORT = int(line.split("=", 1)[1].strip().strip('"').strip("'"))
+                    WEB_PORT = int(val)
+                except ValueError:
+                    pass
+            elif key == "HLS_TMP_DIR" and val:
+                HLS_TMP_DIR = val
+            elif key == "HLS_IDLE_TIMEOUT" and val:
+                try:
+                    HLS_IDLE_TIMEOUT = int(val)
+                except ValueError:
+                    pass
+            elif key == "HLS_LIVE_SEGMENT_DURATION" and val:
+                try:
+                    HLS_LIVE_SEGMENT_DURATION = int(val)
+                except ValueError:
+                    pass
+            elif key == "HLS_VOD_SEGMENT_DURATION" and val:
+                try:
+                    HLS_VOD_SEGMENT_DURATION = int(val)
                 except ValueError:
                     pass
 
@@ -182,6 +209,14 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self._serve_recording(parsed)
         elif parsed.path == "/live/stream":
             self._serve_live_stream(parsed)
+        elif parsed.path == "/hls/live":
+            self._serve_hls_live_playlist(parsed)
+        elif parsed.path.startswith("/hls/live/seg/"):
+            self._serve_hls_live_segment(parsed)
+        elif parsed.path == "/hls/recording":
+            self._serve_hls_recording_playlist(parsed)
+        elif parsed.path.startswith("/hls/recording/seg/"):
+            self._serve_hls_recording_segment(parsed)
         else:
             # 静的ファイル配信
             if parsed.path == "/":
@@ -191,7 +226,10 @@ class AutorecHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         """静的ファイルに Cache-Control ヘッダを追加"""
         parsed = urlparse(self.path)
-        if not parsed.path.startswith("/api/") and not parsed.path.startswith("/recordings/") and not parsed.path.startswith("/live/"):
+        if (not parsed.path.startswith("/api/")
+                and not parsed.path.startswith("/recordings/")
+                and not parsed.path.startswith("/live/")
+                and not parsed.path.startswith("/hls/")):
             self.send_header("Cache-Control", "no-cache, must-revalidate")
         super().end_headers()
 
@@ -671,6 +709,250 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             relay.join(timeout=5)
             api.unregister_live_stream(stream_id)
 
+    # ---- HLS (iOS/AVPlayer 向け) ----
+
+    def _build_hls_live_cmd(self, params, output_dir, playlist_path, base_url):
+        """ライブ HLS の ffmpeg コマンドを組み立てる。"""
+        sid = params.get("sid", [""])[0]
+        if sid:
+            map_args = ["-map", f"0:p:{sid}:v:0?", "-map", f"0:p:{sid}:a:0?"]
+        else:
+            map_args = []
+        quality_args = self._get_quality_args(params, QUALITY_PRESETS)
+        return [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-analyzeduration", "500000", "-probesize", "1000000",
+            "-fflags", "+nobuffer+discardcorrupt+genpts",
+            "-err_detect", "ignore_err",
+            "-i", "pipe:0",
+        ] + map_args + quality_args + [
+            "-af", _audio_filter(params),
+            "-vsync", "cfr",
+            "-f", "hls",
+            "-hls_time", str(HLS_LIVE_SEGMENT_DURATION),
+            "-hls_list_size", "6",
+            "-hls_flags",
+            "delete_segments+independent_segments+omit_endlist+program_date_time",
+            "-hls_segment_type", "mpegts",
+            "-hls_segment_filename", os.path.join(output_dir, "seg_%05d.ts"),
+            "-hls_allow_cache", "0",
+            "-hls_base_url", base_url,
+            playlist_path,
+        ]
+
+    def _serve_hls_live_playlist(self, parsed):
+        """GET /hls/live?ch=27&quality=high&...  →  m3u8"""
+        params = parse_qs(parsed.query)
+        ch = params.get("ch", [""])[0]
+        if not ch:
+            self.send_error(400, "ch parameter is required")
+            return
+        valid_channels = api._get_valid_channels()
+        if ch not in valid_channels:
+            self.send_error(400, f"Invalid channel: {ch}")
+            return
+
+        channel_name = valid_channels[ch]
+        key = hls.live_key(ch, params)
+        base_url = f"/hls/live/seg/{key}/"
+
+        def cmd_builder(output_dir, playlist_path):
+            return self._build_hls_live_cmd(params, output_dir, playlist_path, base_url)
+
+        session, err = hls.get_or_create_live_session(
+            ch, channel_name, params, cmd_builder, api.register_live_stream,
+        )
+        if session is None:
+            self.send_error(503, err or "Failed to start HLS session")
+            return
+
+        playlist = session.read_playlist()
+        if playlist is None:
+            self.send_error(503, "Playlist not ready")
+            return
+
+        body = playlist.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+
+    def _serve_hls_live_segment(self, parsed):
+        """GET /hls/live/seg/<key>/<seg_xxxxx.ts>  →  ライブ HLS セグメント"""
+        rest = parsed.path[len("/hls/live/seg/"):]
+        parts = rest.split("/", 1)
+        if len(parts) != 2:
+            self.send_error(404)
+            return
+        key, name = parts[0], parts[1]
+        session = hls.get_live_session(key)
+        if session is None:
+            self.send_error(404, "Session not found or expired")
+            return
+        seg_path = session.segment_path(name)
+        if not seg_path or not os.path.isfile(seg_path):
+            self.send_error(404, "Segment not found")
+            return
+        try:
+            size = os.path.getsize(seg_path)
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "video/mp2t")
+        self.send_header("Content-Length", str(size))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.end_headers()
+        try:
+            with open(seg_path, "rb") as f:
+                out_fd = self.wfile.fileno()
+                in_fd = f.fileno()
+                offset = 0
+                remaining = size
+                while remaining > 0:
+                    sent = os.sendfile(out_fd, in_fd, offset, min(remaining, 4 * 1024 * 1024))
+                    if sent == 0:
+                        break
+                    offset += sent
+                    remaining -= sent
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+
+    def _serve_hls_recording_playlist(self, parsed):
+        """GET /hls/recording?path=...  →  事前計算した VOD m3u8"""
+        params = parse_qs(parsed.query)
+        rel_path = params.get("path", [""])[0]
+        if not rel_path:
+            self.send_error(400, "path parameter is required")
+            return
+        file_path = os.path.realpath(os.path.join(api.RECORD_DIR, rel_path))
+        record_dir_real = os.path.realpath(api.RECORD_DIR)
+        if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
+            self.send_error(403, "Forbidden")
+            return
+        if not os.path.isfile(file_path):
+            self.send_error(404, "Not Found")
+            return
+        # ffprobe で duration を取得
+        try:
+            result = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", file_path],
+                capture_output=True, text=True, timeout=10,
+            )
+            duration = float(result.stdout.strip())
+        except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
+            self.send_error(500, "Could not determine duration")
+            return
+        if duration <= 0:
+            self.send_error(500, "Invalid duration")
+            return
+
+        key = hls.register_vod_session(file_path, params, duration)
+        playlist = hls.build_vod_playlist(key, duration, "/hls/recording/seg")
+        body = playlist.encode("utf-8")
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+
+    def _serve_hls_recording_segment(self, parsed):
+        """GET /hls/recording/seg/<key>/seg_<N>.ts  →  ffmpeg で 1 セグメント生成"""
+        rest = parsed.path[len("/hls/recording/seg/"):]
+        parts = rest.split("/", 1)
+        if len(parts) != 2:
+            self.send_error(404)
+            return
+        key, name = parts[0], parts[1]
+        seg_num = hls.parse_segment_name(name)
+        if seg_num is None:
+            self.send_error(404, "Invalid segment name")
+            return
+        session = hls.get_vod_session(key)
+        if session is None:
+            self.send_error(404, "Session not found or expired")
+            return
+
+        file_path = session["path"]
+        params = session["params"]
+        duration = session["duration"]
+        seg_dur = hls.HLS_VOD_SEGMENT_DURATION
+        start = seg_num * seg_dur
+        if start >= duration:
+            self.send_error(416, "Segment out of range")
+            return
+        seg_len = min(seg_dur, duration - start)
+
+        if not os.path.isfile(file_path):
+            self.send_error(404, "Source not found")
+            return
+
+        cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-ss", f"{start:.3f}",
+            "-i", file_path,
+            "-t", f"{seg_len:.3f}",
+        ] + _build_program_map_args(file_path, params) \
+          + self._get_quality_args(params, RECORDING_QUALITY_PRESETS) + [
+            "-af", _audio_filter(params),
+            "-vsync", "cfr",
+            "-output_ts_offset", f"{start:.3f}",
+            "-f", "mpegts",
+            "-mpegts_flags", "+resend_headers+pat_pmt_at_frames",
+            "-flush_packets", "1",
+            "pipe:1",
+        ]
+
+        sem = hls.vod_semaphore()
+        if not sem.acquire(timeout=15):
+            self.send_error(503, "Too many concurrent segments")
+            return
+        try:
+            try:
+                ffmpeg = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                )
+            except FileNotFoundError:
+                self.send_error(503, "ffmpeg not found")
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp2t")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-cache, no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                while True:
+                    data = ffmpeg.stdout.read(65536)
+                    if not data:
+                        break
+                    self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            finally:
+                ffmpeg.terminate()
+                try:
+                    ffmpeg.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    ffmpeg.kill()
+                    ffmpeg.wait()
+        finally:
+            sem.release()
+
     def do_OPTIONS(self):
         """CORS プリフライト対応"""
         self.send_response(204)
@@ -692,16 +974,25 @@ def main():
         except ValueError:
             pass
 
+    hls.init(
+        base_dir=HLS_TMP_DIR,
+        idle_timeout=HLS_IDLE_TIMEOUT,
+        live_segment_duration=HLS_LIVE_SEGMENT_DURATION,
+        vod_segment_duration=HLS_VOD_SEGMENT_DURATION,
+    )
+
     server = ThreadingHTTPServer(("0.0.0.0", port), AutorecHandler)
     print(f"[web] autorec Web UI 起動: http://0.0.0.0:{port}")
     print(f"[web] 静的ファイル: {STATIC_DIR}")
     print(f"[web] EPG DB: {api.EPG_DB}")
     print(f"[web] 管理 DB: {api.AUTOREC_DB}")
     print(f"[web] 録画先: {api.RECORD_DIR}")
+    print(f"[web] HLS tmp: {HLS_TMP_DIR}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n[web] サーバー停止")
+        hls.shutdown()
         server.server_close()
 
 

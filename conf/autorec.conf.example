@@ -12,3 +12,8 @@ WEB_PORT=8080
 # DBパス
 EPG_DB="$AUTOREC_DIR/db/epg.sqlite"
 AUTOREC_DB="$AUTOREC_DIR/db/autorec.sqlite"
+# HLS 配信 (iOS アプリ向け) のテンポラリディレクトリと挙動
+HLS_TMP_DIR="/tmp/autorec-hls"
+HLS_IDLE_TIMEOUT=30
+HLS_LIVE_SEGMENT_DURATION=2
+HLS_VOD_SEGMENT_DURATION=6
