@@ -112,3 +112,87 @@ struct RecordingSeries: Decodable, Identifiable, Hashable {
 struct RecordingsResponse: Decodable {
     let series: [RecordingSeries]
 }
+
+struct Rule: Decodable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let keyword: String?
+    let channel: String?
+    let category: String?
+    let timeFrom: String?
+    let timeTo: String?
+    let weekdays: String?
+    let enabled: Int
+    let priority: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, keyword, channel, category, weekdays, enabled, priority
+        case timeFrom = "time_from"
+        case timeTo = "time_to"
+    }
+
+    var isEnabled: Bool { enabled != 0 }
+}
+
+struct RulesResponse: Decodable {
+    let rules: [Rule]
+}
+
+struct Schedule: Decodable, Identifiable, Hashable {
+    let id: Int
+    let ruleId: Int?
+    let eventId: Int?
+    let channel: String
+    let title: String
+    let startTime: String
+    let endTime: String
+    let ruleName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case ruleId = "rule_id"
+        case eventId = "event_id"
+        case channel
+        case title
+        case startTime = "start_time"
+        case endTime = "end_time"
+        case ruleName = "rule_name"
+    }
+}
+
+struct SchedulesResponse: Decodable {
+    let schedules: [Schedule]
+    let total: Int
+}
+
+struct DiskInfo: Decodable, Hashable {
+    let path: String
+    let total: Int64
+    let used: Int64
+    let free: Int64
+    let usagePercent: Double
+
+    enum CodingKeys: String, CodingKey {
+        case path, total, used, free
+        case usagePercent = "usage_percent"
+    }
+}
+
+struct SeriesUsage: Decodable, Identifiable, Hashable {
+    let name: String
+    let fileCount: Int
+    let totalSize: Int64
+
+    var id: String { name }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case fileCount = "file_count"
+        case totalSize = "total_size"
+    }
+}
+
+struct StorageResponse: Decodable {
+    let disk: DiskInfo
+    let series: [SeriesUsage]
+}

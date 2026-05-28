@@ -145,6 +145,69 @@ final class APIClient {
         return c.url
     }
 
+    func rules() async throws -> [Rule] {
+        let resp: RulesResponse = try await get("/api/rules")
+        return resp.rules
+    }
+
+    func schedules(limit: Int = 200) async throws -> [Schedule] {
+        let resp: SchedulesResponse = try await get("/api/schedules", query: ["limit": String(limit)])
+        return resp.schedules
+    }
+
+    func storage() async throws -> StorageResponse {
+        try await get("/api/storage")
+    }
+
+    func upsertRule(id: Int?, body: [String: Any]) async throws -> Rule {
+        guard let base = config.baseURL else { throw APIError.notConfigured }
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.path = id == nil ? "/api/rules" : "/api/rules/\(id!)"
+        guard let url = components.url else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = id == nil ? "POST" : "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        req.timeoutInterval = 15
+        do {
+            let (data, response) = try await session.data(for: req)
+            guard let http = response as? HTTPURLResponse else { throw APIError.http(0) }
+            guard (200..<300).contains(http.statusCode) else { throw APIError.http(http.statusCode) }
+            struct Wrap: Decodable { let rule: Rule }
+            let wrap = try JSONDecoder().decode(Wrap.self, from: data)
+            return wrap.rule
+        } catch let err as APIError {
+            throw err
+        } catch let err as DecodingError {
+            throw APIError.decoding(err)
+        } catch {
+            throw APIError.transport(error)
+        }
+    }
+
+    func deleteRule(id: Int) async throws {
+        guard let base = config.baseURL else { throw APIError.notConfigured }
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.path = "/api/rules/\(id)"
+        guard let url = components.url else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.timeoutInterval = 15
+        do {
+            let (_, response) = try await session.data(for: req)
+            guard let http = response as? HTTPURLResponse else { throw APIError.http(0) }
+            guard (200..<300).contains(http.statusCode) else { throw APIError.http(http.statusCode) }
+        } catch let err as APIError {
+            throw err
+        } catch {
+            throw APIError.transport(error)
+        }
+    }
+
     func hlsRecordingURL(path: String, quality: String? = nil, audio: String? = nil,
                          program: Int? = nil) -> URL? {
         guard let base = config.baseURL,
