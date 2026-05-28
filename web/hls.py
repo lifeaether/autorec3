@@ -277,13 +277,14 @@ def get_or_create_live_session(channel, channel_name, params, build_ffmpeg_cmd,
         _live_sessions[key] = new_session
     # 起動成功。ロック外で playlist を待つ (他キーの並行リクエストを止めないため)
     if not new_session.wait_for_playlist():
+        err = new_session.start_error or "Playlist generation timeout"
         with _live_lock:
             _live_sessions.pop(key, None)
         try:
             new_session.stop()
         except Exception:
             pass
-        return None, "Playlist generation timeout"
+        return None, err
     return new_session, None
 
 

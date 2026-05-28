@@ -54,23 +54,23 @@ final class PlayerViewModel {
         let source = Source.live(channel: channel)
         currentSource = source
         reload(api: api)
-        player.play()
     }
 
     func playRecording(path: String, title: String, api: APIClient) {
         let source = Source.recording(path: path, title: title)
         currentSource = source
         reload(api: api)
-        player.play()
     }
 
     /// 音声/画質変更時に URL を再構築してプレイヤーを差し替える。
+    /// AVPlayer に直接渡すと HTTP エラー本文が握りつぶされるため、先に URL を
+    /// 取得して 200 を確認してから再生する。サーバ側のエラー本文がそのまま UI に出る。
     func reload(api: APIClient) {
         guard let source = currentSource else { return }
         let url: URL?
         switch source {
         case .live(let ch):
-            url = api.hlsLiveURL(channel: ch.channel, quality: quality.rawValue, audio: audioMode.rawValue)
+            url = api.hlsLiveURL(channel: ch.number, quality: quality.rawValue, audio: audioMode.rawValue)
         case .recording(let path, _):
             url = api.hlsRecordingURL(path: path, quality: quality.rawValue, audio: audioMode.rawValue)
         }
@@ -78,14 +78,31 @@ final class PlayerViewModel {
             lastError = "再生 URL を構築できませんでした"
             return
         }
+        Task { await preflightAndAttach(url: url) }
+    }
+
+    private func preflightAndAttach(url: URL) async {
+        do {
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 25  // ライブは ffmpeg HLS muxer の初回セグメント書き出しまで待つ
+            let (data, response) = try await URLSession.shared.data(for: req)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                let body = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                lastError = "HTTP \(http.statusCode)\n\(String(body.prefix(1200)))"
+                return
+            }
+        } catch {
+            lastError = "再生 URL 取得失敗: \(error.localizedDescription)"
+            return
+        }
         let asset = AVURLAsset(url: url, options: [
             "AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": "autorec-ios/1.0"],
         ])
         let item = AVPlayerItem(asset: asset)
-        // 録画再生は最後の再生位置を引き継ぎたいケースが多いが、HLS の再ストリームで
-        // 復元するには current time を保持して seek し直す必要がある。MVP では先頭から。
         player.replaceCurrentItem(with: item)
         lastError = nil
+        player.play()
     }
 
     func stop() {
