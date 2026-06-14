@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=26">
+    <link rel="stylesheet" href="/style.css?v=29">
 </head>
 <body>
     <nav>
@@ -29,6 +29,7 @@
                 <a href="#" data-section="season" class="nav-tab"><i class="ph ph-swap"></i>番組改編</a>
             </div>
             <div class="nav-actions">
+                <span id="nav-disk-usage" class="nav-disk-usage" title="録画ディスク使用率" hidden><i class="ph ph-hard-drives"></i><span class="nav-disk-usage-value"></span></span>
                 <select class="nav-quality-select" id="nav-quality-select" onchange="setStreamQuality(this.value)">
                     <option value="original">画質：原画</option>
                     <option value="high">画質：高</option>

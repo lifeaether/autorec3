@@ -3702,6 +3702,9 @@ async function init() {
     const initialSection = location.hash.replace('#', '') || 'live';
     switchSection(initialSection);
 
+    loadDiskUsage();
+    setInterval(loadDiskUsage, 60000);
+
     // チャンネル一覧と番組表を並列取得
     const now = nowTimestamp();
     try {
@@ -3744,6 +3747,23 @@ async function init() {
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
             `<p style="color:var(--error)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+    }
+}
+
+async function loadDiskUsage() {
+    const el = document.getElementById('nav-disk-usage');
+    if (!el) return;
+    const valEl = el.querySelector('.nav-disk-usage-value');
+    try {
+        const data = await API.get('/api/storage');
+        const pct = data?.disk?.usage_percent;
+        if (typeof pct !== 'number') { el.hidden = true; return; }
+        if (valEl) valEl.textContent = `${Math.round(pct)}%`;
+        el.classList.toggle('warn',  pct >= 80 && pct < 90);
+        el.classList.toggle('error', pct >= 90);
+        el.hidden = false;
+    } catch {
+        el.hidden = true;
     }
 }
 

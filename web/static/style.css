@@ -1687,6 +1687,29 @@ body.fs-landscape-active {
     box-shadow: none;
 }
 
+/* ===== Nav disk usage indicator (desktop only) ===== */
+.nav-disk-usage {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 32px;
+    padding: 0 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+.nav-disk-usage i[class*="ph"] {
+    font-size: 1rem;
+    line-height: 1;
+}
+.nav-disk-usage.warn  { color: var(--warning); }
+.nav-disk-usage.error { color: var(--error); }
+
+@media (max-width: 768px) {
+    .nav-disk-usage { display: none !important; }
+}
+
 /* ===== Drawer quality row (mobile) ===== */
 .drawer-quality-row {
     display: flex;
