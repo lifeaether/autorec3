@@ -22,9 +22,52 @@
     --shadow-md: 0 2px 12px rgba(0,0,0,0.06), 0 0 0.5px rgba(0,0,0,0.04);
     --shadow-lg: 0 8px 32px rgba(0,0,0,0.08), 0 0 0.5px rgba(0,0,0,0.04);
 
-    /* Glow effects — disabled for Apple style */
-    --glow-accent: none;
-    --glow-red: none;
+    /* Spacing scale (4px grid) */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+    --space-8: 3rem;
+
+    /* Typography scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.85rem;
+    --text-base: 0.9rem;
+    --text-md: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.375rem;
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+    --lh-tight: 1.25;
+    --lh-normal: 1.5;
+    --lh-relaxed: 1.8;
+
+    /* Z-index scale */
+    --z-base: 0;
+    --z-raised: 10;
+    --z-sticky: 100;
+    --z-dropdown: 150;
+    --z-overlay: 200;
+    --z-modal: 210;
+    --z-toast: 300;
+    --z-fullscreen: 9999;
+
+    /* Semantic status colors (badges) — value-only light/dark override */
+    --status-info-bg: rgba(0, 122, 255, 0.12);   --status-info-fg: #007AFF;
+    --status-warn-bg: rgba(255, 149, 0, 0.12);   --status-warn-fg: #CC7700;
+    --status-ok-bg:   rgba(52, 199, 89, 0.12);   --status-ok-fg:   #248A3D;
+    --status-err-bg:  rgba(255, 59, 48, 0.12);   --status-err-fg:  #D70015;
+    --status-mute-bg: rgba(142, 142, 147, 0.12); --status-mute-fg: #8e8e93;
+
+    /* Category accent colors — value-only light/dark override */
+    --cat-news: #3a7cc8;      --cat-sports: #c88a20;   --cat-drama: #d05878;
+    --cat-anime: #9040b6;     --cat-movie: #3098c0;    --cat-variety: #3aa060;
+    --cat-music: #d05050;     --cat-documentary: #609840;
+    --cat-education: #907060; --cat-info: #607888;
 
     /* Radii — Apple rounded rectangles */
     --radius-sm: 10px;
@@ -68,6 +111,19 @@
         --shadow-sm: none;
         --shadow-md: none;
         --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+
+        /* Semantic status colors — brighter for dark */
+        --status-info-bg: rgba(10, 132, 255, 0.18);  --status-info-fg: #409CFF;
+        --status-warn-bg: rgba(255, 159, 10, 0.18);  --status-warn-fg: #FFB340;
+        --status-ok-bg:   rgba(48, 209, 88, 0.18);   --status-ok-fg:   #30D158;
+        --status-err-bg:  rgba(255, 69, 58, 0.18);   --status-err-fg:  #FF6961;
+        --status-mute-bg: rgba(152, 152, 157, 0.18); --status-mute-fg: #98989d;
+
+        /* Category accent colors — brighter for dark */
+        --cat-news: #5a9ce8;      --cat-sports: #e8aa40;   --cat-drama: #f07898;
+        --cat-anime: #b060d6;     --cat-movie: #50b8e0;    --cat-variety: #5ac080;
+        --cat-music: #f07070;     --cat-documentary: #80b860;
+        --cat-education: #b09080; --cat-info: #8098a8;
     }
 }
 
@@ -125,7 +181,7 @@ nav {
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 100;
+    z-index: var(--z-sticky);
 }
 
 /* Desktop inner layout */
@@ -746,16 +802,16 @@ table tr:last-child td {
 }
 
 /* Category colors — slightly bolder for light background */
-.cat-news      { border-left-color: #3a7cc8; }
-.cat-sports    { border-left-color: #c88a20; }
-.cat-drama     { border-left-color: #d05878; }
-.cat-anime     { border-left-color: #9040b6; }
-.cat-movie     { border-left-color: #3098c0; }
-.cat-variety   { border-left-color: #3aa060; }
-.cat-music     { border-left-color: #d05050; }
-.cat-documentary { border-left-color: #609840; }
-.cat-education { border-left-color: #907060; }
-.cat-info      { border-left-color: #607888; }
+.cat-news      { border-left-color: var(--cat-news); }
+.cat-sports    { border-left-color: var(--cat-sports); }
+.cat-drama     { border-left-color: var(--cat-drama); }
+.cat-anime     { border-left-color: var(--cat-anime); }
+.cat-movie     { border-left-color: var(--cat-movie); }
+.cat-variety   { border-left-color: var(--cat-variety); }
+.cat-music     { border-left-color: var(--cat-music); }
+.cat-documentary { border-left-color: var(--cat-documentary); }
+.cat-education { border-left-color: var(--cat-education); }
+.cat-info      { border-left-color: var(--cat-info); }
 
 /* ===== Forms ===== */
 .form-group {
@@ -948,14 +1004,14 @@ button i[class*="ph"],
     line-height: 1;
 }
 
-.badge-scheduled { background: rgba(0, 122, 255, 0.12); color: #007AFF; }
-.badge-recording { background: rgba(255, 149, 0, 0.12); color: #CC7700; }
-.badge-done { background: rgba(52, 199, 89, 0.12); color: #248A3D; }
-.badge-failed { background: rgba(255, 59, 48, 0.12); color: #D70015; }
-.badge-skipped { background: rgba(142, 142, 147, 0.12); color: #8e8e93; }
-.badge-info { background: rgba(0, 122, 255, 0.12); color: #007AFF; }
-.badge-warn { background: rgba(255, 149, 0, 0.12); color: #CC7700; }
-.badge-error { background: rgba(255, 59, 48, 0.12); color: #D70015; }
+.badge-scheduled { background: var(--status-info-bg); color: var(--status-info-fg); }
+.badge-recording { background: var(--status-warn-bg); color: var(--status-warn-fg); }
+.badge-done { background: var(--status-ok-bg); color: var(--status-ok-fg); }
+.badge-failed { background: var(--status-err-bg); color: var(--status-err-fg); }
+.badge-skipped { background: var(--status-mute-bg); color: var(--status-mute-fg); }
+.badge-info { background: var(--status-info-bg); color: var(--status-info-fg); }
+.badge-warn { background: var(--status-warn-bg); color: var(--status-warn-fg); }
+.badge-error { background: var(--status-err-bg); color: var(--status-err-fg); }
 /* ===== Toggle Switch ===== */
 .switch {
     position: relative;
@@ -1013,7 +1069,7 @@ button i[class*="ph"],
     background: rgba(0, 0, 0, 0.35);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    z-index: 200;
+    z-index: var(--z-overlay);
     justify-content: center;
     align-items: center;
 }
@@ -1102,7 +1158,7 @@ button i[class*="ph"],
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 1.5rem;
-    z-index: 150;
+    z-index: var(--z-dropdown);
     max-width: 400px;
     box-shadow: var(--shadow-lg);
     display: none;
@@ -1479,7 +1535,7 @@ button i[class*="ph"],
     position: fixed !important;
     top: 0;
     left: 0;
-    z-index: 999999;
+    z-index: var(--z-fullscreen);
     background: #000;
 }
 .fs-landscape video,
@@ -2827,16 +2883,7 @@ body.fs-landscape-active {
     }
 
     /* EPG category border colors — brighter for dark */
-    .cat-news      { border-left-color: #5a9ce8; }
-    .cat-sports    { border-left-color: #e8aa40; }
-    .cat-drama     { border-left-color: #f07898; }
-    .cat-anime     { border-left-color: #b060d6; }
-    .cat-movie     { border-left-color: #50b8e0; }
-    .cat-variety   { border-left-color: #5ac080; }
-    .cat-music     { border-left-color: #f07070; }
-    .cat-documentary { border-left-color: #80b860; }
-    .cat-education { border-left-color: #b09080; }
-    .cat-info      { border-left-color: #8098a8; }
+    /* category accent colors are handled by dark token overrides in :root */
 
     /* Modal */
     .modal {
@@ -2899,15 +2946,7 @@ body.fs-landscape-active {
         box-shadow: 0 1px 4px rgba(10, 132, 255, 0.45);
     }
 
-    /* Badges — brighter Apple system colors for dark */
-    .badge-scheduled { background: rgba(10, 132, 255, 0.18); color: #409CFF; }
-    .badge-recording { background: rgba(255, 159, 10, 0.18); color: #FFB340; }
-    .badge-done { background: rgba(48, 209, 88, 0.18); color: #30D158; }
-    .badge-failed { background: rgba(255, 69, 58, 0.18); color: #FF6961; }
-    .badge-skipped { background: rgba(152, 152, 157, 0.18); color: #98989d; }
-    .badge-info { background: rgba(10, 132, 255, 0.18); color: #409CFF; }
-    .badge-warn { background: rgba(255, 159, 10, 0.18); color: #FFB340; }
-    .badge-error { background: rgba(255, 69, 58, 0.18); color: #FF6961; }
+    /* badge colors are handled by dark token overrides in :root */
     .switch-slider {
         background: #636366;
     }
