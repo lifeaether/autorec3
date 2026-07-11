@@ -387,6 +387,11 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             "-analyzeduration", "500000", "-probesize", "1000000",
             "-fflags", "+nobuffer+discardcorrupt+genpts",
             "-err_detect", "ignore_err",
+            # 入力を実時間ペースで読む。これが無いと ffmpeg が CPU 全速で先行生成し、
+            # ブラウザ側 (mpegts.js MSE) の前方 SourceBuffer が上限に達して ~10分おきに
+            # stall する。initial_burst で最初の 15秒だけ全速で吐き、初回再生の食いつきと
+            # 前方クッションを確保してから 1x に落とす。
+            "-re", "-readrate_initial_burst", "15",
         ]
         if ss:
             cmd += ["-ss", ss]
