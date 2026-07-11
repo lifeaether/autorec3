@@ -118,7 +118,8 @@ function setStreamQuality(quality) {
 let channels = [];
 let categories = [];
 
-function switchSection(name) {
+// セクションの DOM 適用のみを行う (履歴操作なし)。hashchange/popstate からも呼ぶ。
+function applySection(name) {
     // セクション切替時、ライブ視聴中なら停止
     if (name !== 'live' && livePlayer) stopLive();
 
@@ -145,6 +146,15 @@ function switchSection(name) {
     else if (name === 'live') initLiveSection();
     else if (name === 'storage') loadStorage();
     else if (name === 'season') loadSeason();
+}
+
+// ナビ操作の入口。DOM を即時適用しつつ、URL ハッシュに履歴エントリを積んで
+// ブラウザの戻る/進むでセクション遷移できるようにする (popstate で applySection)。
+function switchSection(name) {
+    applySection(name);
+    if ((location.hash.slice(1) || 'live') !== name) {
+        history.pushState({ section: name }, '', location.pathname + '#' + name);
+    }
 }
 
 /* --- More Drawer (mobile) --- */
@@ -3747,9 +3757,10 @@ function stopLive(keepGrid) {
     // カードのハイライト解除
     if (!keepGrid) {
         document.querySelectorAll('.live-ch-card').forEach(c => c.classList.remove('playing'));
-        // 完全停止時は URL の ?ch= を消す (切替時は直後の startLive が再設定する)
+        // 完全停止時は URL の ?ch= を消す (切替時は直後の startLive が再設定する)。
+        // セクションの hash は残す (ハッシュルーティングを壊さない)。
         try {
-            history.replaceState(null, '', location.pathname);
+            history.replaceState(null, '', location.pathname + location.hash);
         } catch (e) { /* 無視 */ }
     }
 }
@@ -3827,9 +3838,13 @@ async function init() {
     const deepCh = q.get('ch');
     const deepSid = q.get('sid') || null;
 
-    // 初期セクション表示 (直リンクがあれば live 固定、なければ hash → 既定 live)
+    // 初期セクション表示 (直リンクがあれば live 固定、なければ hash → 既定 live)。
+    // 初期表示は履歴を積まず適用のみ。以降の戻る/進むは popstate で反映。
     const initialSection = deepCh ? 'live' : (location.hash.replace('#', '') || 'live');
-    switchSection(initialSection);
+    applySection(initialSection);
+    window.addEventListener('popstate', () => {
+        applySection(location.hash.slice(1) || 'live');
+    });
 
     loadDiskUsage();
     setInterval(loadDiskUsage, 60000);

@@ -2099,6 +2099,14 @@ body.fs-landscape-active {
         margin: 0.25rem 1.25rem;
     }
 
+    .drawer-group-label {
+        padding: var(--space-2) 1.25rem 0.15rem;
+        font-size: var(--text-xs);
+        font-weight: var(--fw-semibold);
+        color: var(--text-muted);
+        letter-spacing: 0.03em;
+    }
+
     .more-drawer a i[class*="ph"] {
         font-size: 1.35rem;
         margin-right: 0.75rem;

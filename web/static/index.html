@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=33">
+    <link rel="stylesheet" href="/style.css?v=34">
 </head>
 <body>
     <nav>
@@ -19,11 +19,12 @@
         <div class="nav-inner">
             <a href="/" class="logo"><i class="ph ph-house"></i>autorec</a>
             <div class="nav-tabs">
+                <!-- 見る -->
                 <a href="#" data-section="live" class="nav-tab active"><i class="ph ph-television"></i>ライブ</a>
                 <a href="#" data-section="epg" class="nav-tab"><i class="ph ph-calendar-blank"></i>番組表</a>
-                <span class="nav-tab-divider"></span>
                 <a href="#" data-section="recordings" class="nav-tab"><i class="ph ph-film-strip"></i>録画済み</a>
                 <span class="nav-tab-divider"></span>
+                <!-- 録画管理 -->
                 <a href="#" data-section="schedules" class="nav-tab"><i class="ph ph-list-bullets"></i>録画一覧</a>
                 <a href="#" data-section="rules" class="nav-tab"><i class="ph ph-funnel"></i>録画ルール</a>
                 <a href="#" data-section="season" class="nav-tab"><i class="ph ph-swap"></i>番組改編</a>
@@ -67,11 +68,14 @@
             </select>
         </div>
         <div class="drawer-divider"></div>
-        <a href="#" data-section="season" onclick="switchFromDrawer('season',event)"><i class="ph ph-swap"></i>番組改編</a>
+        <div class="drawer-group-label">録画管理</div>
+        <a href="#" data-section="schedules" onclick="switchFromDrawer('schedules',event)"><i class="ph ph-list-bullets"></i>録画一覧</a>
         <a href="#" data-section="rules" onclick="switchFromDrawer('rules',event)"><i class="ph ph-funnel"></i>録画ルール</a>
+        <a href="#" data-section="season" onclick="switchFromDrawer('season',event)"><i class="ph ph-swap"></i>番組改編</a>
         <div class="drawer-divider"></div>
-        <a href="epg.html"><i class="ph ph-archive-box"></i>アーカイブ</a>
+        <div class="drawer-group-label">設定</div>
         <a href="#" data-section="storage" onclick="switchFromDrawer('storage',event)"><i class="ph ph-hard-drive"></i>ストレージ</a>
+        <a href="epg.html"><i class="ph ph-archive-box"></i>アーカイブ</a>
         <a href="#" data-section="help" onclick="switchFromDrawer('help',event)"><i class="ph ph-question"></i>ヘルプ</a>
     </div>
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
@@ -526,7 +530,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=30"></script>
+    <script src="/app.js?v=31"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
