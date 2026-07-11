@@ -3374,19 +3374,22 @@ function initLiveSection() {
     loadLiveChannelGrid();
 }
 
+// 実況勢い (/api/jikkyo/force) の直近取得結果。外部HTTPS(最大5秒)で遅いため、
+// これを待たずにグリッドを描画し、届いた時点でバッジだけ更新する。
+let _liveForceMap = {};
+
 async function loadLiveChannelGrid() {
     const grid = document.getElementById('live-channel-grid');
     if (!grid || channels.length === 0) return;
 
-    // EPG・実況勢い・録画中番組を並列フェッチ
-    const [nowResult, forceResult, recResult] = await Promise.allSettled([
+    // カード内容 (現在番組) と録画中判定だけ待って即描画する。
+    // 録画中判定は onclick 分岐・バッジに必須なので待つが、いずれも通常は軽い。
+    const [nowResult, recResult] = await Promise.allSettled([
         API.get('/api/live/now-all'),
-        API.get('/api/jikkyo/force'),
         API.get('/api/recordings/active'),
     ]);
 
     const nowPlaying = nowResult.status === 'fulfilled' ? (nowResult.value.now_playing || {}) : {};
-    const forceMap = forceResult.status === 'fulfilled' ? (forceResult.value.force || {}) : {};
     // 録画中チャンネル → schedule_id のマップ (ファイル mtime ベース判定)
     const recordingMap = {};
     if (recResult.status === 'fulfilled') {
@@ -3395,6 +3398,17 @@ async function loadLiveChannelGrid() {
         });
     }
 
+    // まず直近キャッシュの勢いで描画 → 外部APIを待たせない
+    _renderLiveGrid(grid, nowPlaying, _liveForceMap, recordingMap);
+
+    // 勢いは後追い取得。届いたらキャッシュ更新してバッジだけ再描画。
+    API.get('/api/jikkyo/force').then(res => {
+        _liveForceMap = (res && res.force) || {};
+        _renderLiveGrid(grid, nowPlaying, _liveForceMap, recordingMap);
+    }).catch(() => {});
+}
+
+function _renderLiveGrid(grid, nowPlaying, forceMap, recordingMap) {
     const now = new Date();
     let html = '';
     channels.forEach(ch => {
@@ -3544,6 +3558,12 @@ function startLive(chNum, chName, sid) {
     liveCurrentCh = chNum;
     liveCurrentSid = sid || null;
 
+    // 視聴中チャンネルを URL に反映 (?ch=..) してブックマーク/共有できるようにする
+    try {
+        const qs = '?ch=' + encodeURIComponent(chNum) + (sid ? '&sid=' + encodeURIComponent(sid) : '');
+        history.replaceState(null, '', qs);
+    } catch (e) { /* replaceState 非対応環境は無視 */ }
+
     // サブチャンネルセレクタ更新
     const subSel = document.getElementById('lc-subchannel');
     const chInfo = channels.find(c => c.number === chNum);
@@ -3628,10 +3648,15 @@ function stopLive(keepGrid) {
     document.getElementById('live-error').textContent = '';
     const lcAudio = document.getElementById('lc-audio');
     if (lcAudio) lcAudio.value = 'stereo';
+    hideLiveUnmuteHint();
 
     // カードのハイライト解除
     if (!keepGrid) {
         document.querySelectorAll('.live-ch-card').forEach(c => c.classList.remove('playing'));
+        // 完全停止時は URL の ?ch= を消す (切替時は直後の startLive が再設定する)
+        try {
+            history.replaceState(null, '', location.pathname);
+        } catch (e) { /* 無視 */ }
     }
 }
 
@@ -3698,22 +3723,24 @@ async function init() {
         sel.value = streamQuality;
     });
 
-    // 初期セクション表示 (hash があればそのセクションを開く)
-    const initialSection = location.hash.replace('#', '') || 'live';
+    // 直リンク (?ch=27[&sid=...]) を解析。あればライブを開いてそのチャンネルを再生する。
+    const q = new URLSearchParams(location.search);
+    const deepCh = q.get('ch');
+    const deepSid = q.get('sid') || null;
+
+    // 初期セクション表示 (直リンクがあれば live 固定、なければ hash → 既定 live)
+    const initialSection = deepCh ? 'live' : (location.hash.replace('#', '') || 'live');
     switchSection(initialSection);
 
     loadDiskUsage();
     setInterval(loadDiskUsage, 60000);
 
-    // チャンネル一覧と番組表を並列取得
     const now = nowTimestamp();
-    try {
-        const [chData, epgData, catData] = await Promise.all([
-            API.get('/api/channels'),
-            API.get(`/api/programmes?limit=10000&active_after=${encodeURIComponent(now)}`),
-            API.get('/api/categories'),
-        ]);
 
+    // チャンネル一覧を先に取得 (channels.conf を読むだけの軽量 API)。
+    // グリッド描画・直リンク再生を、番組表 (最大1万件) の取得でブロックしない。
+    try {
+        const chData = await API.get('/api/channels');
         channels = chData.channels || [];
 
         // チャンネルセレクトボックスを生成
@@ -3728,6 +3755,30 @@ async function init() {
             sel.value = current;
         });
 
+        if (deepCh) {
+            // 直リンク再生 (channels 解決後)
+            startLiveDeepLink(deepCh, deepSid);
+        } else if (document.getElementById('section-live').classList.contains('active')) {
+            loadLiveChannelGrid();
+        }
+    } catch (err) {
+        document.getElementById('epg-table').innerHTML =
+            `<p style="color:var(--error)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+    }
+
+    // 番組表・ジャンルは後追いで背景取得 (ライブ表示をブロックしない)。
+    // 番組表タブは開いた時にも loadEPG() が取得するため、間に合わなくても支障はない。
+    loadInitialEPG(now);
+}
+
+// 番組表 (最大1万件) とジャンルを背景取得して EPG タブを事前ポピュレートする。
+async function loadInitialEPG(now) {
+    try {
+        const [epgData, catData] = await Promise.all([
+            API.get(`/api/programmes?limit=10000&active_after=${encodeURIComponent(now)}`),
+            API.get('/api/categories'),
+        ]);
+
         categories = catData.categories || [];
         const catGroup = document.getElementById('epg-category');
         if (catGroup) {
@@ -3739,14 +3790,72 @@ async function init() {
         }
 
         renderEPGTable(epgData.programmes);
-
-        // チャンネルデータ取得完了後、ライブセクション表示中ならグリッド再描画
-        if (document.getElementById('section-live').classList.contains('active')) {
-            loadLiveChannelGrid();
-        }
     } catch (err) {
-        document.getElementById('epg-table').innerHTML =
-            `<p style="color:var(--error)">データの読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+        const el = document.getElementById('epg-table');
+        if (el) {
+            el.innerHTML =
+                `<p style="color:var(--error)">番組表の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
+        }
+    }
+}
+
+// 直リンク (?ch=) からの再生開始。ユーザー操作を伴わない自動再生はブラウザに
+// ブロックされるため、muted で開始し「タップで音声ON」ヒントを出す。
+function startLiveDeepLink(chNum, sid) {
+    const chInfo = channels.find(c => c.number === chNum);
+    if (!chInfo) {
+        switchSection('live');
+        document.getElementById('live-error').textContent =
+            `不明なチャンネル: ${escapeHtml(chNum)}`;
+        return;
+    }
+    const useSid = sid || chInfo.sid || null;
+    const videoEl = document.getElementById('live-video');
+    if (videoEl) videoEl.muted = true;
+    showLiveUnmuteHint();
+    startLive(chNum, chInfo.name, useSid);
+}
+
+// muted 自動再生時に表示する「タップで音声ON」ヒント。
+// 明示クリックに加え、最初のユーザー操作 (どこでも) で自動的に音声を有効化する。
+// これにより、直リンクで muted 開始後に別チャンネルへ切り替えても無音のまま残らない。
+let _liveUnmuteHandler = null;
+
+function _liveUnmute() {
+    const v = document.getElementById('live-video');
+    if (v) {
+        v.muted = false;
+        if (v.volume === 0) v.volume = 1;
+    }
+    hideLiveUnmuteHint();
+}
+
+function showLiveUnmuteHint() {
+    const wrapper = document.getElementById('live-video-wrapper');
+    if (!wrapper) return;
+    let hint = document.getElementById('live-unmute-hint');
+    if (!hint) {
+        hint = document.createElement('button');
+        hint.id = 'live-unmute-hint';
+        hint.type = 'button';
+        hint.className = 'live-unmute-hint';
+        hint.innerHTML = '<i class="ph-fill ph-speaker-simple-slash"></i> タップで音声ON';
+        hint.addEventListener('click', (e) => { e.stopPropagation(); _liveUnmute(); });
+        wrapper.appendChild(hint);
+    }
+    hint.style.display = '';
+    if (!_liveUnmuteHandler) {
+        _liveUnmuteHandler = () => _liveUnmute();
+        document.addEventListener('pointerdown', _liveUnmuteHandler, { once: true });
+    }
+}
+
+function hideLiveUnmuteHint() {
+    const hint = document.getElementById('live-unmute-hint');
+    if (hint) hint.remove();
+    if (_liveUnmuteHandler) {
+        document.removeEventListener('pointerdown', _liveUnmuteHandler);
+        _liveUnmuteHandler = null;
     }
 }
 
