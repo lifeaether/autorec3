@@ -390,7 +390,8 @@ h3 {
 
 .schedule-card,
 .log-card,
-.rule-card {
+.rule-card,
+.season-item {
     background: var(--bg-card);
     padding: 0.85rem 1rem;
     border-bottom: 1px solid var(--border);
@@ -398,14 +399,16 @@ h3 {
 
 .schedule-card:first-child,
 .log-card:first-child,
-.rule-card:first-child {
+.rule-card:first-child,
+.season-item:first-child {
     border-top: 1px solid var(--border);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .schedule-card:last-child,
 .log-card:last-child,
-.rule-card:last-child {
+.rule-card:last-child,
+.season-item:last-child {
     border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
@@ -448,18 +451,6 @@ h3 {
 }
 
 /* ===== Season (番組改編) ===== */
-.season-item {
-    background: var(--bg-card);
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--border);
-}
-.season-item:first-child {
-    border-top: 1px solid var(--border);
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-}
-.season-item:last-child {
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
 .season-item-done {
     opacity: 0.55;
 }
