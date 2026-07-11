@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=31">
+    <link rel="stylesheet" href="/style.css?v=32">
 </head>
 <body>
     <nav>
@@ -188,6 +188,15 @@
                             <div class="live-video-wrapper" id="live-video-wrapper">
                                 <video id="live-video" autoplay playsinline></video>
                                 <div id="live-switching-banner" hidden>番組切替中…</div>
+                                <div id="live-loading" class="player-loading">
+                                    <div class="player-spinner"></div>
+                                    <span class="player-loading-label">接続中…</span>
+                                </div>
+                                <div id="live-error-card" class="player-error" hidden>
+                                    <i class="ph ph-warning-circle"></i>
+                                    <span class="player-error-msg"></span>
+                                    <button class="btn btn-primary btn-sm" onclick="liveControls.reload()">再試行</button>
+                                </div>
                                 <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
                                 <div id="live-controls" class="live-controls">
                                     <button class="lc-btn" id="lc-play" onclick="liveControls.togglePlay()" title="再生/一時停止"></button>
@@ -219,8 +228,8 @@
                         <div id="jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
                     </div>
                 </div>
-                <div id="live-stream-info" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem"></div>
-                <div id="live-error" style="color:var(--error);margin-bottom:1rem"></div>
+                <div id="live-stream-info" class="live-stream-info"></div>
+                <div id="live-error"></div>
             </div>
             <div id="live-channel-grid" class="live-channel-grid">
                 <p style="color:var(--text-muted)">読み込み中...</p>
@@ -512,7 +521,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=28"></script>
+    <script src="/app.js?v=29"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {

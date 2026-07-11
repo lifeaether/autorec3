@@ -2257,6 +2257,30 @@ function hideLiveSwitchingBanner() {
     if (el) el.hidden = true;
 }
 
+// --- 共通プレイヤー chrome (loading spinner / error card。live・rec で id を変えて共用) ---
+function setPlayerLoading(id, on, label) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (label) {
+        const s = el.querySelector('.player-loading-label');
+        if (s) s.textContent = label;
+    }
+    el.classList.toggle('show', !!on);
+}
+
+function showPlayerError(id, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const m = el.querySelector('.player-error-msg');
+    if (m) m.textContent = msg || '再生に失敗しました';
+    el.hidden = false;
+}
+
+function hidePlayerError(id) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+}
+
 function _buildLivePlayer(chNum, sid) {
     const videoEl = document.getElementById('live-video');
     cleanupLiveVideoHandlers(videoEl);
@@ -2289,6 +2313,8 @@ function _buildLivePlayer(chNum, sid) {
     let _mediaInfoCount = 0;
     livePlayer.on(mpegts.Events.MEDIA_INFO, (info) => {
         _mediaInfoCount++;
+        setPlayerLoading('live-loading', false);
+        hidePlayerError('live-error-card');
         document.getElementById('live-status').innerHTML =
             '<span class="live-indicator"></span> 再生中';
         let infoText = '';
@@ -2305,18 +2331,23 @@ function _buildLivePlayer(chNum, sid) {
     });
 
     livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
-        document.getElementById('live-error').textContent =
-            `再生エラー: ${detail || type}`;
+        setPlayerLoading('live-loading', false);
+        showPlayerError('live-error-card', `再生エラー: ${detail || type}`);
     });
 
     videoEl.addEventListener('playing', () => {
+        setPlayerLoading('live-loading', false);
         document.getElementById('live-status').innerHTML =
             '<span class="live-indicator"></span> 再生中';
     }, { once: true });
 
     // stall後の同期修正: バッファ末尾にシークして再同期
-    _liveOnWaiting = () => { _liveStallDetected = true; };
+    _liveOnWaiting = () => {
+        _liveStallDetected = true;
+        setPlayerLoading('live-loading', true, '再接続中…');
+    };
     _liveOnPlayingResync = () => {
+        setPlayerLoading('live-loading', false);
         if (_liveStallDetected) {
             _liveStallDetected = false;
             const buf = videoEl.buffered;
@@ -3489,6 +3520,8 @@ function startLiveFromRecording(scheduleId, chName) {
     document.getElementById('live-player-area').style.display = '';
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
+    setPlayerLoading('live-loading', true, '接続中…');
+    hidePlayerError('live-error-card');
 
     loadLiveChannelGrid();
 
@@ -3583,6 +3616,8 @@ function startLive(chNum, chName, sid) {
     document.getElementById('live-player-area').style.display = '';
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
+    setPlayerLoading('live-loading', true, '接続中…');
+    hidePlayerError('live-error-card');
 
     // カードのハイライト: grid 再描画で反映
     loadLiveChannelGrid();
@@ -3646,6 +3681,8 @@ function stopLive(keepGrid) {
     document.getElementById('live-status').textContent = '';
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-error').textContent = '';
+    setPlayerLoading('live-loading', false);
+    hidePlayerError('live-error-card');
     const lcAudio = document.getElementById('lc-audio');
     if (lcAudio) lcAudio.value = 'stereo';
     hideLiveUnmuteHint();
