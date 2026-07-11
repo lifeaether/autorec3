@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=32">
+    <link rel="stylesheet" href="/style.css?v=33">
 </head>
 <body>
     <nav>
@@ -473,11 +473,15 @@
     <div id="video-modal" class="modal-overlay">
         <div class="modal">
             <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');"><i class="ph ph-x"></i></button>
-            <h3 id="video-modal-title" style="margin-bottom:0.75rem">再生</h3>
+            <h3 id="video-modal-title">再生</h3>
             <div class="rec-player-with-sidebar">
                 <div class="rec-player-main">
                     <div class="rec-video-wrapper">
-                        <video id="video-player" autoplay playsinline style="width:100%;background:#000"></video>
+                        <video id="video-player" autoplay playsinline></video>
+                        <div id="rec-loading" class="player-loading">
+                            <div class="player-spinner"></div>
+                            <span class="player-loading-label">読み込み中…</span>
+                        </div>
                         <div id="rec-jikkyo-overlay" class="jikkyo-overlay"></div>
                         <div id="rec-controls" class="live-controls">
                             <button class="lc-btn" id="rc-play" onclick="recControls.togglePlay()" title="再生/一時停止"></button>
@@ -495,6 +499,7 @@
                 </div>
             </div>
             <div id="video-seek-container">
+                <div id="seek-tooltip" class="seek-tooltip" hidden></div>
                 <div>
                     <span id="video-current-time">0:00</span>
                     <button class="seek-skip-btn" onclick="seekSkip(-10)" title="10秒戻る"><i class="ph ph-clock-counter-clockwise"></i></button>
@@ -521,7 +526,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=29"></script>
+    <script src="/app.js?v=30"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {

@@ -11,6 +11,7 @@
     --accent: #007AFF;
     --accent-hover: #0066DD;
     --accent-light: rgba(0, 122, 255, 0.08);
+    --seek-buffered: rgba(0, 122, 255, 0.32);
     --success: #34C759;
     --warning: #FF9500;
     --error: #FF3B30;
@@ -103,6 +104,7 @@
         --accent: #0A84FF;
         --accent-hover: #409CFF;
         --accent-light: rgba(10, 132, 255, 0.15);
+        --seek-buffered: rgba(10, 132, 255, 0.45);
         --success: #30D158;
         --warning: #FF9F0A;
         --error: #FF453A;
@@ -1881,7 +1883,28 @@ body.fs-landscape-active {
 /* ===== Seek bar ===== */
 #video-seek-container {
     display: none;
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
+    position: relative;
+}
+
+/* シーク時のホバー/ドラッグ時刻プレビュー */
+.seek-tooltip {
+    position: absolute;
+    bottom: calc(100% + var(--space-1));
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg-card);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: var(--z-raised);
+    box-shadow: var(--shadow-md);
+}
+.seek-tooltip[hidden] {
+    display: none;
 }
 
 #video-seek-container > div {
@@ -2828,6 +2851,15 @@ body.fs-landscape-active {
 .rec-video-wrapper {
     position: relative;
     background: #000;
+}
+
+#video-player {
+    width: 100%;
+    background: #000;
+}
+
+#video-modal-title {
+    margin-bottom: var(--space-3);
 }
 
 @media (min-width: 769px) {

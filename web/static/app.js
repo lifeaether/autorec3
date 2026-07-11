@@ -1706,6 +1706,8 @@ function startRecordingStream(seekTime) {
     videoEl.removeAttribute('src');
     videoEl.load();
 
+    setPlayerLoading('rec-loading', true, '読み込み中…');
+
     recordingBaseTime = seekTime;
     recordingJikkyo.onSeek();
 
@@ -1744,6 +1746,7 @@ function startRecordingStream(seekTime) {
 
     // Safari (Mac) で waiting のまま固まる症状への workaround
     recordingStallOnWaiting = () => {
+        setPlayerLoading('rec-loading', true, '再接続中…');
         if (recordingStallTimer1) clearTimeout(recordingStallTimer1);
         if (recordingStallTimer2) clearTimeout(recordingStallTimer2);
         recordingStallTimer1 = setTimeout(() => {
@@ -1763,6 +1766,7 @@ function startRecordingStream(seekTime) {
         }, 5000);
     };
     recordingStallOnPlaying = () => {
+        setPlayerLoading('rec-loading', false);
         if (recordingStallTimer1) { clearTimeout(recordingStallTimer1); recordingStallTimer1 = null; }
         if (recordingStallTimer2) { clearTimeout(recordingStallTimer2); recordingStallTimer2 = null; }
     };
@@ -1782,6 +1786,55 @@ function updateSeekBar() {
     const currentEl = document.getElementById('video-current-time');
     if (bar) bar.value = Math.min(currentTime, recordingDuration);
     if (currentEl) currentEl.textContent = formatDuration(currentTime);
+    _paintSeekBar();
+}
+
+// シークバーに再生済み(accent)+バッファ済み(seek-buffered)の帯を描く。
+// bar.value 基準なのでドラッグ中も帯がつまみに追従する。
+function _paintSeekBar() {
+    const bar = document.getElementById('video-seek-bar');
+    if (!bar || !recordingDuration) return;
+    const videoEl = document.getElementById('video-player');
+    const playedPct = Math.max(0, Math.min(100, (parseFloat(bar.value) || 0) / recordingDuration * 100));
+    let bufPct = playedPct;
+    const buf = videoEl && videoEl.buffered;
+    if (buf && buf.length > 0) {
+        const bufEndAbs = recordingBaseTime + buf.end(buf.length - 1);
+        bufPct = Math.max(playedPct, Math.min(100, bufEndAbs / recordingDuration * 100));
+    }
+    bar.style.background =
+        'linear-gradient(to right, var(--accent) ' + playedPct + '%, ' +
+        'var(--seek-buffered) ' + playedPct + '%, var(--seek-buffered) ' + bufPct + '%, ' +
+        'var(--bg-input) ' + bufPct + '%)';
+}
+
+// シーク時刻ツールチップ (ポインタ位置の時刻を上に表示。高コストなシーク前の狙い定め用)
+function _showSeekTooltipAt(clientX) {
+    if (!recordingDuration) return;
+    const bar = document.getElementById('video-seek-bar');
+    const tip = document.getElementById('seek-tooltip');
+    const container = document.getElementById('video-seek-container');
+    if (!bar || !tip || !container) return;
+    const barRect = bar.getBoundingClientRect();
+    let ratio = (clientX - barRect.left) / barRect.width;
+    ratio = Math.max(0, Math.min(1, ratio));
+    tip.textContent = formatDuration(ratio * recordingDuration);
+    const cRect = container.getBoundingClientRect();
+    tip.style.left = Math.max(0, Math.min(cRect.width, clientX - cRect.left)) + 'px';
+    tip.hidden = false;
+}
+
+function _showSeekTooltipAtValue() {
+    const bar = document.getElementById('video-seek-bar');
+    if (!bar || !recordingDuration) return;
+    const barRect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (parseFloat(bar.value) || 0) / recordingDuration));
+    _showSeekTooltipAt(barRect.left + ratio * barRect.width);
+}
+
+function _hideSeekTooltip() {
+    const tip = document.getElementById('seek-tooltip');
+    if (tip) tip.hidden = true;
 }
 
 function closeRecordingPlayer() {
@@ -1791,6 +1844,10 @@ function closeRecordingPlayer() {
         clearInterval(seekUpdateTimer);
         seekUpdateTimer = null;
     }
+    setPlayerLoading('rec-loading', false);
+    _hideSeekTooltip();
+    const _bar = document.getElementById('video-seek-bar');
+    if (_bar) _bar.style.background = '';
     recordingJikkyo.stop();
     const videoEl = document.getElementById('video-player');
     cleanupRecordingStallHandlers(videoEl);
@@ -3718,13 +3775,18 @@ async function init() {
             seekBarDragging = true;
             document.getElementById('video-current-time').textContent =
                 formatDuration(parseFloat(seekBar.value));
+            _paintSeekBar();
+            _showSeekTooltipAtValue();
         });
         seekBar.addEventListener('change', () => {
             seekBarDragging = false;
+            _hideSeekTooltip();
             if (recordingPath && recordingDuration) {
                 startRecordingStream(parseFloat(seekBar.value));
             }
         });
+        seekBar.addEventListener('mousemove', (e) => _showSeekTooltipAt(e.clientX));
+        seekBar.addEventListener('mouseleave', _hideSeekTooltip);
     }
 
     // 録画ルールプレビュー: debounce 付き input イベント
