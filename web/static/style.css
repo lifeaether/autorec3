@@ -2982,3 +2982,84 @@ body.fs-landscape-active {
         background: rgba(0, 0, 0, 0.55);
     }
 }
+
+/* ===== Toast (通知) ===== */
+.toast-container {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    z-index: var(--z-toast);
+    pointer-events: none;
+    width: max-content;
+    max-width: min(92vw, 460px);
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--text-base);
+    line-height: var(--lh-tight);
+    max-width: 100%;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
+    cursor: default;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast i {
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.toast-msg {
+    white-space: pre-line;
+}
+
+.toast-success i { color: var(--status-ok-fg); }
+.toast-info i    { color: var(--status-info-fg); }
+.toast-warn i    { color: var(--status-warn-fg); }
+.toast-error i   { color: var(--status-err-fg); }
+
+@media (max-width: 768px) {
+    /* モバイル下部ナビに被らない高さへ */
+    .toast-container {
+        bottom: calc(var(--bottom-nav-height) + var(--space-3) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* ===== Confirm dialog (.modal / .modal-overlay を再利用) ===== */
+.confirm-dialog {
+    max-width: 420px;
+    padding: var(--space-6);
+}
+
+.confirm-message {
+    white-space: pre-line;
+    line-height: var(--lh-normal);
+    font-size: var(--text-base);
+    color: var(--text);
+}
+
+.confirm-actions {
+    border-top: none;
+    padding-top: 0;
+    margin-top: var(--space-5);
+}

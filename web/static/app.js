@@ -673,7 +673,7 @@ async function loadEndingRules() {
 
 async function seasonDisableAll() {
     if (_endingRuleIds.length === 0) return;
-    if (!confirm(`終了候補 ${_endingRuleIds.length}件のルールをすべて無効化しますか？`)) return;
+    if (!await confirmDialog(`終了候補 ${_endingRuleIds.length}件のルールをすべて無効化しますか？`, { okLabel: '無効化する' })) return;
     try {
         let totalCancelled = 0;
         for (const id of _endingRuleIds) {
@@ -682,25 +682,25 @@ async function seasonDisableAll() {
         }
         let msg = `${_endingRuleIds.length}件のルールを無効化しました`;
         if (totalCancelled) msg += `\n${totalCancelled}件の録画予定を取り消しました`;
-        alert(msg);
+        toast(msg, { type: 'success' });
         loadEndingRules();
     } catch (err) {
-        alert(err.message);
+        toast(err.message, { type: 'error' });
     }
 }
 
 async function seasonDisableRule(btn) {
     const id = btn.dataset.ruleId;
     const name = btn.dataset.ruleName;
-    if (!confirm(`「${name}」を無効化しますか？`)) return;
+    if (!await confirmDialog(`「${name}」を無効化しますか？`, { okLabel: '無効化する' })) return;
     try {
         const result = await API.put(`/api/rules/${id}`, { enabled: 0 });
         let msg = 'ルールを無効化しました';
         if (result.cancelled_schedules) msg += `\n${result.cancelled_schedules}件の録画予定を取り消しました`;
-        alert(msg);
+        toast(msg, { type: 'success' });
         loadEndingRules();
     } catch (err) {
-        alert(err.message);
+        toast(err.message, { type: 'error' });
     }
 }
 
@@ -817,32 +817,32 @@ async function editRule(id) {
 }
 
 async function deleteRule(id, name) {
-    if (!confirm(`ルール「${name}」を削除しますか?\n※ 未実行の録画予定も取り消されます`)) return;
+    if (!await confirmDialog(`ルール「${name}」を削除しますか?\n※ 未実行の録画予定も取り消されます`, { danger: true, okLabel: '削除' })) return;
     try {
         const result = await API.del(`/api/rules/${id}`);
         if (result.cancelled_schedules > 0) {
-            alert(`ルールを削除し、${result.cancelled_schedules}件の録画予定を取り消しました`);
+            toast(`ルールを削除し、${result.cancelled_schedules}件の録画予定を取り消しました`, { type: 'success' });
         }
         loadRules();
     } catch (err) {
-        alert('削除に失敗しました: ' + err.message);
+        toast('削除に失敗しました: ' + err.message, { type: 'error' });
     }
 }
 
 async function deleteDisabledRules() {
     const data = await API.get('/api/rules');
     const disabled = (data.rules || []).filter(r => !r.enabled);
-    if (disabled.length === 0) { alert('無効なルールはありません'); return; }
+    if (disabled.length === 0) { toast('無効なルールはありません', { type: 'info' }); return; }
     const names = disabled.map(r => r.name).join('\n');
-    if (!confirm(`無効な${disabled.length}件のルールを削除しますか？\n\n${names}`)) return;
+    if (!await confirmDialog(`無効な${disabled.length}件のルールを削除しますか？\n\n${names}`, { danger: true, okLabel: '削除' })) return;
     try {
         for (const r of disabled) {
             await API.del(`/api/rules/${r.id}`);
         }
-        alert(`${disabled.length}件のルールを削除しました`);
+        toast(`${disabled.length}件のルールを削除しました`, { type: 'success' });
         loadRules();
     } catch (err) {
-        alert('削除に失敗しました: ' + err.message);
+        toast('削除に失敗しました: ' + err.message, { type: 'error' });
     }
 }
 
@@ -851,11 +851,11 @@ async function toggleRuleEnabled(id, currentEnabled) {
     try {
         const result = await API.put(`/api/rules/${id}`, { enabled: newEnabled });
         if (result.cancelled_schedules > 0) {
-            alert(`ルールを無効化し、${result.cancelled_schedules}件の録画予定を取り消しました`);
+            toast(`ルールを無効化し、${result.cancelled_schedules}件の録画予定を取り消しました`, { type: 'success' });
         }
         loadRules();
     } catch (err) {
-        alert('変更に失敗しました: ' + err.message);
+        toast('変更に失敗しました: ' + err.message, { type: 'error' });
     }
 }
 
@@ -875,7 +875,7 @@ async function saveRule() {
     };
 
     if (!data.name) {
-        alert('ルール名を入力してください');
+        toast('ルール名を入力してください', { type: 'warn' });
         return;
     }
 
@@ -888,14 +888,14 @@ async function saveRule() {
         }
         document.getElementById('rule-modal').classList.remove('active');
         if (result.cancelled_schedules > 0) {
-            alert(`ルールを無効化し、${result.cancelled_schedules}件の録画予定を取り消しました`);
+            toast(`ルールを無効化し、${result.cancelled_schedules}件の録画予定を取り消しました`, { type: 'success' });
         }
         loadRules();
         // スケジュール更新を待って録画予定を表示
         switchSection('schedules');
         setTimeout(loadSchedules, 3000);
     } catch (err) {
-        alert('保存に失敗しました: ' + err.message);
+        toast('保存に失敗しました: ' + err.message, { type: 'error' });
     }
 }
 
@@ -963,16 +963,16 @@ function quickAddRule(title) {
 
 async function directSchedule(idx) {
     const p = window._programmes[idx];
-    if (!confirm(`「${p.title}」を録画予約しますか？`)) return;
+    if (!await confirmDialog(`「${p.title}」を録画予約しますか？`, { okLabel: '予約する' })) return;
     try {
         await API.post('/api/schedules', {
             event_id: p.event_id, channel: p.channel,
             title: p.title, start_time: p.start_time, end_time: p.end_time,
         });
-        alert('録画予約しました');
+        toast('録画予約しました', { type: 'success' });
         document.getElementById('programme-detail').classList.remove('active');
     } catch (err) {
-        alert(err.message);
+        toast(err.message, { type: 'error' });
     }
 }
 
