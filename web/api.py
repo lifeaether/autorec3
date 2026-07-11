@@ -15,6 +15,7 @@ AUTOREC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EPG_DB = os.path.join(AUTOREC_DIR, "db", "epg.sqlite")
 AUTOREC_DB = os.path.join(AUTOREC_DIR, "db", "autorec.sqlite")
 RECORD_DIR = "/mnt/data"
+PLAYBACK_DIRS = ""
 
 MAX_LIVE_STREAMS = 2
 _live_streams = {}   # {stream_id: {"channel", "channel_name", "pid", "started_at"}}
@@ -37,6 +38,32 @@ if os.path.exists(_conf_path):
                 AUTOREC_DB = val
             elif key.strip() == "RECORD_DIR" and val:
                 RECORD_DIR = val
+            elif key.strip() == "PLAYBACK_DIRS" and val:
+                PLAYBACK_DIRS = val
+
+
+# 再生対象ルート一覧 (RECORD_DIR を必ず先頭・優先。旧ディスク等を PLAYBACK_DIRS で追加)
+PLAYBACK_ROOTS = [RECORD_DIR]
+for _d in PLAYBACK_DIRS.split(":"):
+    _d = _d.strip()
+    if _d and _d not in PLAYBACK_ROOTS:
+        PLAYBACK_ROOTS.append(_d)
+
+
+def resolve_playback_path(rel_path):
+    """rel_path ("シリーズ/ファイル") を再生ルート群から解決。実ファイルパス or None。
+
+    各ルートごとに realpath 後の startswith 判定を行い、シンボリックリンク/".." による
+    境界外流出を防ぎつつ、先頭ルート (RECORD_DIR) を優先して最初に見つかった実ファイルを返す。
+    """
+    for root in PLAYBACK_ROOTS:
+        root_real = os.path.realpath(root)
+        file_path = os.path.realpath(os.path.join(root, rel_path))
+        if file_path != root_real and not file_path.startswith(root_real + os.sep):
+            continue  # このルートの外 → 次のルートへ
+        if os.path.isfile(file_path):
+            return file_path
+    return None
 
 
 _connections = {}
@@ -933,12 +960,8 @@ def get_recording_duration(params):
     if not rel_path:
         return _error("path parameter is required")
 
-    file_path = os.path.realpath(os.path.join(RECORD_DIR, rel_path))
-    record_dir_real = os.path.realpath(RECORD_DIR)
-    if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
-        return _error("Forbidden", 403)
-
-    if not os.path.isfile(file_path):
+    file_path = resolve_playback_path(rel_path)
+    if not file_path:
         return _error("Not found", 404)
 
     try:
@@ -1091,11 +1114,9 @@ def get_recording_programs(params):
     schedule_id = params.get("schedule_id", [""])[0]
 
     if rel_path:
-        file_path = os.path.realpath(os.path.join(RECORD_DIR, rel_path))
-        record_dir_real = os.path.realpath(RECORD_DIR)
-        if (not file_path.startswith(record_dir_real + os.sep)
-                and file_path != record_dir_real):
-            return _error("Forbidden", 403)
+        file_path = resolve_playback_path(rel_path)
+        if not file_path:
+            return _error("Not found", 404)
     elif schedule_id:
         try:
             row = _get_db(AUTOREC_DB).execute(
@@ -1137,33 +1158,41 @@ def get_recording_programs(params):
 # --- 録画済みファイル API ---
 
 def get_recordings(_params):
-    """GET /api/recordings - 録画済みファイル一覧"""
-    series = []
-    if not os.path.isdir(RECORD_DIR):
-        return _json_response({"series": []})
+    """GET /api/recordings - 録画済みファイル一覧 (全再生ルートを横断してマージ)"""
+    # シリーズ名をキーにマージ。ルートは PLAYBACK_ROOTS の優先順で走査し、
+    # 同名シリーズ・同名ファイルは先頭ルート (RECORD_DIR) を優先して後続をスキップ。
+    series_map = {}   # name -> {"files", "seen", "total_size", "max_mtime"}
 
-    try:
-        with os.scandir(RECORD_DIR) as entries:
-            for entry in entries:
-                if not entry.is_dir(follow_symlinks=False):
-                    continue
-                files = []
-                total_size = 0
-                max_mtime = 0.0
-                try:
-                    with os.scandir(entry.path) as sub_entries:
-                        for f in sub_entries:
-                            if not f.is_file(follow_symlinks=False):
-                                continue
-                            if not f.name.endswith(".ts"):
-                                continue
-                            try:
-                                stat = f.stat()
+    for root in PLAYBACK_ROOTS:
+        if not os.path.isdir(root):
+            continue
+        try:
+            with os.scandir(root) as entries:
+                for entry in entries:
+                    if not entry.is_dir(follow_symlinks=False):
+                        continue
+                    s = series_map.setdefault(entry.name, {
+                        "files": [], "seen": set(), "total_size": 0, "max_mtime": 0.0,
+                    })
+                    try:
+                        with os.scandir(entry.path) as sub_entries:
+                            for f in sub_entries:
+                                if not f.is_file(follow_symlinks=False):
+                                    continue
+                                if not f.name.endswith(".ts"):
+                                    continue
+                                if f.name in s["seen"]:
+                                    continue  # 先頭ルート優先: 後続ルートの同名ファイルは無視
+                                try:
+                                    stat = f.stat()
+                                except OSError:
+                                    continue
                                 mtime = stat.st_mtime
-                                if mtime > max_mtime:
-                                    max_mtime = mtime
+                                if mtime > s["max_mtime"]:
+                                    s["max_mtime"] = mtime
                                 nicojk_path = os.path.join(entry.path, f.name.rsplit('.', 1)[0] + '.nicojk')
-                                files.append({
+                                s["seen"].add(f.name)
+                                s["files"].append({
                                     "name": f.name,
                                     "size": stat.st_size,
                                     "mtime": datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S"),
@@ -1171,24 +1200,27 @@ def get_recordings(_params):
                                     "path": f"{entry.name}/{f.name}",
                                     "has_nicojk": os.path.isfile(nicojk_path),
                                 })
-                                total_size += stat.st_size
-                            except OSError:
-                                continue
-                except OSError:
-                    continue
-                if files:
-                    files.sort(key=lambda f: f["mtime_ts"], reverse=True)
-                    for f in files:
-                        del f["mtime_ts"]
-                    series.append({
-                        "name": entry.name,
-                        "file_count": len(files),
-                        "total_size": total_size,
-                        "max_mtime": max_mtime,
-                        "files": files,
-                    })
-    except OSError:
-        return _json_response({"series": []})
+                                s["total_size"] += stat.st_size
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+
+    series = []
+    for name, s in series_map.items():
+        files = s["files"]
+        if not files:
+            continue
+        files.sort(key=lambda f: f["mtime_ts"], reverse=True)
+        for f in files:
+            del f["mtime_ts"]
+        series.append({
+            "name": name,
+            "file_count": len(files),
+            "total_size": s["total_size"],
+            "max_mtime": s["max_mtime"],
+            "files": files,
+        })
 
     series.sort(key=lambda s: s["max_mtime"], reverse=True)
     for s in series:

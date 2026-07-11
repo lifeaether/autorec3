@@ -282,17 +282,10 @@ class AutorecHandler(SimpleHTTPRequestHandler):
 
     def _serve_recording(self, parsed):
         """録画ファイル配信 (Range リクエスト対応)"""
-        # パスをデコードして RECORD_DIR 配下のファイルパスを構築
+        # パスをデコードして再生ルート群からファイルを解決 (トラバーサル防止込み)
         rel_path = unquote(parsed.path[len("/recordings/"):])
-        file_path = os.path.realpath(os.path.join(api.RECORD_DIR, rel_path))
-
-        # パストラバーサル防止
-        record_dir_real = os.path.realpath(api.RECORD_DIR)
-        if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
-            self.send_error(403, "Forbidden")
-            return
-
-        if not os.path.isfile(file_path):
+        file_path = api.resolve_playback_path(rel_path)
+        if not file_path:
             self.send_error(404, "Not Found")
             return
 
@@ -374,15 +367,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
             self.send_error(400, "path parameter is required")
             return
 
-        file_path = os.path.realpath(os.path.join(api.RECORD_DIR, rel_path))
-
-        # パストラバーサル防止
-        record_dir_real = os.path.realpath(api.RECORD_DIR)
-        if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
-            self.send_error(403, "Forbidden")
-            return
-
-        if not os.path.isfile(file_path):
+        file_path = api.resolve_playback_path(rel_path)
+        if not file_path:
             self.send_error(404, "Not Found")
             return
 
@@ -847,12 +833,8 @@ class AutorecHandler(SimpleHTTPRequestHandler):
         if not rel_path:
             self.send_error(400, "path parameter is required")
             return
-        file_path = os.path.realpath(os.path.join(api.RECORD_DIR, rel_path))
-        record_dir_real = os.path.realpath(api.RECORD_DIR)
-        if not file_path.startswith(record_dir_real + os.sep) and file_path != record_dir_real:
-            self.send_error(403, "Forbidden")
-            return
-        if not os.path.isfile(file_path):
+        file_path = api.resolve_playback_path(rel_path)
+        if not file_path:
             self.send_error(404, "Not Found")
             return
         # ffprobe で duration を取得
@@ -1039,6 +1021,7 @@ def main():
     print(f"[web] EPG DB: {api.EPG_DB}")
     print(f"[web] 管理 DB: {api.AUTOREC_DB}")
     print(f"[web] 録画先: {api.RECORD_DIR}")
+    print(f"[web] 再生ルート: {', '.join(api.PLAYBACK_ROOTS)}")
     print(f"[web] HLS tmp: {HLS_TMP_DIR}")
     try:
         server.serve_forever()
