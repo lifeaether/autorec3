@@ -673,32 +673,6 @@ def stop_all_live_streams(_body=None):
     return _json_response({"stopped": stopped})
 
 
-def _recording_guard():
-    """バックグラウンドで録画スケジュールを監視し、録画直前にライブ配信を停止する"""
-    import time
-    while True:
-        time.sleep(2)
-        try:
-            with _live_lock:
-                has_streams = len(_live_streams) > 0
-            if not has_streams:
-                continue
-            conn = _get_db(AUTOREC_DB)
-            threshold = (datetime.now() + timedelta(seconds=6)).strftime("%Y-%m-%d %H:%M:%S")
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            row = conn.execute(
-                "SELECT 1 FROM schedule WHERE start_time > ? AND start_time <= ? LIMIT 1",
-                (now, threshold),
-            ).fetchone()
-            if row:
-                stop_all_live_streams()
-        except Exception:
-            pass
-
-
-threading.Thread(target=_recording_guard, daemon=True).start()
-
-
 def get_now_playing(params):
     """GET /api/live/now?channel=NHK総合"""
     channel = params.get("channel", [""])[0]
