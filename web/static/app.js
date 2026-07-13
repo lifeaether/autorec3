@@ -3614,13 +3614,20 @@ function startLiveFromRecording(scheduleId, chName) {
     livePlayer.attachMediaElement(videoEl);
 
     livePlayer.on(mpegts.Events.MEDIA_INFO, () => {
+        setPlayerLoading('live-loading', false);
+        hidePlayerError('live-error-card');
         document.getElementById('live-status').innerHTML =
             '<span class="live-indicator"></span> 再生中 (録画ファイル)';
     });
     livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
+        setPlayerLoading('live-loading', false);
         document.getElementById('live-error').textContent =
             'ストリームエラー: ' + (detail || type || '');
     });
+
+    videoEl.addEventListener('playing', () => {
+        setPlayerLoading('live-loading', false);
+    }, { once: true });
 
     livePlayer.load();
     videoEl.addEventListener('canplaythrough', () => {
