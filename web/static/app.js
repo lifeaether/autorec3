@@ -112,6 +112,8 @@ function setStreamQuality(quality) {
     if (recordingPlayer && recordingPath) {
         const currentTime = recordingBaseTime + (document.getElementById('video-player').currentTime || 0);
         startRecordingStream(currentTime);
+    } else if (recAirplayMode && recordingPath) {
+        _reloadRecHls();  // 外部出力(HLS)中は HLS のまま画質を組み直す
     }
 }
 
@@ -1418,6 +1420,7 @@ let recordingProgramId = null;     // 選択中の program_id (null = 自動)
 let recordingPrograms = [];        // /api/recording/programs の結果キャッシュ
 let seekUpdateTimer = null;
 let seekBarDragging = false;
+let recAirplayMode = false;  // iOS外部出力: ネイティブHLS(src直指定)で再生中か (この間 recordingPlayer は null, recordingBaseTime=0)
 
 // Safari (Mac) の MSE が長時間連続再生中に waiting のまま固まる症状の workaround。
 // waiting 検出後 1.5 秒でバッファ末尾へ微小シーク、5 秒経っても復帰しなければ ffmpeg ストリーム再接続。
@@ -1559,6 +1562,7 @@ const recControls = (() => {
             _showControls();
         }
     }
+    function _onRecSeeking() { if (recAirplayMode) recordingJikkyo.onSeek(); }
 
     return {
         init() {
@@ -1583,7 +1587,11 @@ const recControls = (() => {
                 });
                 const slider = document.getElementById('rc-volume');
                 if (slider) slider.value = video.volume;
+                // 外部出力(HLS)中の native シーク(AirPlayリモコン等)に実況同期を追従させる
+                video.addEventListener('seeking', _onRecSeeking);
             }
+
+            _setupAirplayButton(video, 'rc-airplay');
 
             if (!eventsAttached) {
                 const wrapper = document.querySelector('.rec-video-wrapper');
@@ -1603,6 +1611,9 @@ const recControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
+            _teardownAirplayButton(_getVideo(), 'rc-airplay');
+            const v = _getVideo();
+            if (v) v.removeEventListener('seeking', _onRecSeeking);
             const wrapper = document.querySelector('.rec-video-wrapper');
             if (_isFakeLandscape(wrapper)) _exitFakeLandscape(wrapper);
             if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -1678,6 +1689,7 @@ const recControls = (() => {
         switchProgram(pid) {
             recordingProgramId = pid ? parseInt(pid, 10) : null;
             if (!recordingPath) return;
+            if (recAirplayMode) { _reloadRecHls(); return; }
             const video = _getVideo();
             const currentTime = recordingBaseTime + ((video && video.currentTime) || 0);
             startRecordingStream(currentTime);
@@ -1686,9 +1698,32 @@ const recControls = (() => {
 
         switchAudio(_mode) {
             if (!recordingPath) return;
+            if (recAirplayMode) { _reloadRecHls(); return; }
             const video = _getVideo();
             const currentTime = recordingBaseTime + ((video && video.currentTime) || 0);
             startRecordingStream(currentTime);
+            _showControls();
+        },
+
+        // iOS外部出力: mpegts を破棄しネイティブHLS(VOD)に差し替え、位置を保持して
+        // iOS純正の全画面プレイヤーを開く(AirPlay/有線とも映像のみ・ネイティブシーク可)。
+        airplay() {
+            if (!_isIOS || !recordingPath) return;
+            const video = _getVideo();
+            if (!video) return;
+            const pos = recordingBaseTime + (video.currentTime || 0);  // 絶対位置を退避
+            cleanupRecordingStallHandlers(video);  // mpegts由来 stall ハンドラ解除
+            if (recordingPlayer) { try { recordingPlayer.destroy(); } catch (e) {} recordingPlayer = null; }
+            recAirplayMode = true;
+            recordingBaseTime = 0;  // HLS VOD: 絶対位置 = native currentTime
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.src = _recHlsUrl();
+            video.addEventListener('loadedmetadata', () => { try { video.currentTime = pos; } catch (e) {} }, { once: true });
+            video.load();
+            recordingJikkyo.onSeek();
+            _enterNativeExternal(video);
             _showControls();
         },
 
@@ -1786,6 +1821,11 @@ function playRecording(path, name, hasNicojk) {
 function seekSkip(seconds) {
     if (!recordingPath || !recordingDuration) return;
     const videoEl = document.getElementById('video-player');
+    if (recAirplayMode) {  // HLS(VOD): ネイティブシークで位置移動 (mpegtsに戻さない)
+        videoEl.currentTime = Math.max(0, Math.min((videoEl.currentTime || 0) + seconds, recordingDuration));
+        recordingJikkyo.onSeek();
+        return;
+    }
     const currentTime = recordingBaseTime + (videoEl.currentTime || 0);
     const newTime = Math.max(0, Math.min(currentTime + seconds, recordingDuration));
     startRecordingStream(newTime);
@@ -1794,6 +1834,7 @@ function seekSkip(seconds) {
 function startRecordingStream(seekTime) {
     const videoEl = document.getElementById('video-player');
 
+    recAirplayMode = false;  // mpegts へ戻る全経路で確実にフラグを落とす
     cleanupRecordingStallHandlers(videoEl);
     if (recordingPlayer) {
         recordingPlayer.destroy();
@@ -1961,6 +2002,7 @@ function closeRecordingPlayer() {
     recordingProgramId = null;
     recordingPrograms = [];
     seekBarDragging = false;
+    recAirplayMode = false;
     const progSel = document.getElementById('rc-program');
     if (progSel) {
         progSel.innerHTML = '';
@@ -2454,6 +2496,27 @@ function _reloadLiveHls() {
     v.src = _liveHlsUrl();
     v.load();
     v.play().catch(() => {});
+}
+
+// 録画: mpegts URL と同一規約でネイティブHLS VOD の m3u8 URL を組む。
+function _recHlsUrl() {
+    let u = `/hls/recording?path=${encodeURIComponent(recordingPath)}&quality=${streamQuality}`;
+    if (recordingProgramId) u += `&program=${recordingProgramId}`;
+    const a = document.getElementById('rc-audio');
+    if (a && a.value && a.value !== 'stereo') u += `&audio=${a.value}`;
+    return u;
+}
+
+// HLSモード中の設定変更は mpegts に戻さず HLS URL を組み直し、位置を保持して外部出力を継続。
+function _reloadRecHls() {
+    if (!recAirplayMode || !recordingPath) return;
+    const v = document.getElementById('video-player');
+    if (!v) return;
+    const pos = v.currentTime || 0;  // recAirplayMode 中は recordingBaseTime=0 なので絶対位置
+    v.src = _recHlsUrl();
+    v.addEventListener('loadedmetadata', () => { try { v.currentTime = pos; } catch (e) {} v.play().catch(() => {}); }, { once: true });
+    v.load();
+    recordingJikkyo.onSeek();
 }
 
 // iOS のネイティブ全画面プレイヤーで外部出力を開始する。iPhone は webkitEnterFullscreen
@@ -3984,7 +4047,11 @@ async function init() {
         seekBar.addEventListener('change', () => {
             seekBarDragging = false;
             _hideSeekTooltip();
-            if (recordingPath && recordingDuration) {
+            if (recAirplayMode) {  // HLS(VOD): ネイティブシーク (外部出力/AirPlay を維持)
+                const v = document.getElementById('video-player');
+                if (v) v.currentTime = parseFloat(seekBar.value);
+                recordingJikkyo.onSeek();
+            } else if (recordingPath && recordingDuration) {
                 startRecordingStream(parseFloat(seekBar.value));
             }
         });
