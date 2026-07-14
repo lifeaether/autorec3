@@ -331,6 +331,36 @@ nav .logo i[class*="ph"] {
 #player-stage[data-playing="recording"] #stage-live {
     display: none;
 }
+/* 折りたたみ (ミニバー化): 本体は height:0 で残し、PiP の合成元 video を生かす */
+#stage-minibar {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+#stage-minibar-icon {
+    color: var(--accent);
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+#stage-minibar-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+#player-stage.collapsed #stage-live,
+#player-stage.collapsed #stage-rec {
+    height: 0;
+    overflow: hidden;
+}
+#player-stage.collapsed #stage-minibar {
+    display: flex;
+}
 /* ステージ内の動画は縦を食いすぎないよう高さを制限 */
 #stage-live #live-video,
 #stage-live #live-canvas {
@@ -2168,6 +2198,7 @@ body.fs-landscape-active {
     #player-stage {
         top: env(safe-area-inset-top, 0px);
         padding: 0.5rem 1rem calc(0.5rem);
+        --player-height: 38vh;   /* モバイルは縦圧迫を抑える */
     }
 
     /* --- Section header: not sticky on mobile --- */

@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=38">
+    <link rel="stylesheet" href="/style.css?v=39">
 </head>
 <body>
     <nav>
@@ -92,6 +92,7 @@
                                 <div class="live-player-bar-right">
                                     <span id="live-status"></span>
                                     <button class="live-close-btn stage-theater-btn" onclick="toggleTheater()" title="拡大表示"><i class="ph ph-arrows-out-simple"></i></button>
+                                    <button class="live-close-btn" onclick="stageCollapse()" title="縮小"><i class="ph ph-caret-up"></i></button>
                                     <button class="live-close-btn" onclick="stopLive()" title="視聴を終了"><i class="ph ph-x"></i></button>
                                 </div>
                             </div>
@@ -147,6 +148,7 @@
                 <span id="rec-player-title" class="live-player-bar-title"></span>
                 <div class="live-player-bar-right">
                     <button class="live-close-btn stage-theater-btn" onclick="toggleTheater()" title="拡大表示"><i class="ph ph-arrows-out-simple"></i></button>
+                    <button class="live-close-btn" onclick="stageCollapse()" title="縮小"><i class="ph ph-caret-up"></i></button>
                     <button class="live-close-btn" onclick="closeRecordingPlayer()" title="再生を終了"><i class="ph ph-x"></i></button>
                 </div>
             </div>
@@ -196,6 +198,13 @@
                     <button class="btn btn-secondary btn-sm btn-icon" id="rec-jikkyo-settings-btn" style="display:none" onclick="jikkyoSettings.toggle('rec-jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
                 </div>
             </div>
+      </div>
+      <!-- 折りたたみ時のスリムな「再生中」ミニバー -->
+      <div id="stage-minibar">
+        <i class="ph ph-play-circle" id="stage-minibar-icon"></i>
+        <span id="stage-minibar-title" onclick="stageExpand()"></span>
+        <button class="live-close-btn" onclick="stageExpand()" title="展開"><i class="ph ph-caret-down"></i></button>
+        <button class="live-close-btn" onclick="stageStop()" title="閉じる"><i class="ph ph-x"></i></button>
       </div>
     </div>
 
@@ -539,7 +548,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=34"></script>
+    <script src="/app.js?v=35"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {

@@ -130,6 +130,36 @@ function setStagePlaying(mode) {
     if (!stage) return;
     stage.classList.remove('collapsed');
     stage.dataset.playing = mode;
+    updateMinibar(mode);
+}
+
+// 折りたたみミニバーのタイトル/アイコンを現在の再生対象に合わせる。
+function updateMinibar(mode) {
+    const titleSrc = mode === 'recording'
+        ? document.getElementById('rec-player-title')
+        : document.getElementById('live-player-title');
+    const mb = document.getElementById('stage-minibar-title');
+    if (mb && titleSrc) mb.textContent = titleSrc.textContent;
+    const icon = document.getElementById('stage-minibar-icon');
+    if (icon) icon.className = (mode === 'recording' ? 'ph ph-play-circle' : 'ph ph-television');
+}
+
+// プレイヤーを縮小 (ミニバー化)。height:0 で DOM は生かすため PiP は継続する。
+function stageCollapse() {
+    const stage = document.getElementById('player-stage');
+    if (stage) stage.classList.add('collapsed');
+}
+
+// ミニバーから元のサイズへ展開。
+function stageExpand() {
+    const stage = document.getElementById('player-stage');
+    if (stage) stage.classList.remove('collapsed');
+}
+
+// ミニバーの閉じる: 再生対象に応じて停止。
+function stageStop() {
+    if (stagePlaying === 'recording') closeRecordingPlayer();
+    else stopLive();
 }
 
 // 拡大 (シアター) 表示のトグル。視聴に集中したいとき映像を大きくする。
