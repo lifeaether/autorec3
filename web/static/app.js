@@ -105,6 +105,8 @@ function setStreamQuality(quality) {
         const title = document.getElementById('live-player-title').textContent;
         stopLive(true);
         startLive(ch, title, sid);
+    } else if (liveAirplayMode && liveCurrentCh) {
+        _reloadLiveHls();  // 外部出力(HLS)中は HLS のまま画質を組み直す
     }
     // 録画再生中なら現在位置から再起動
     if (recordingPlayer && recordingPath) {
@@ -2376,6 +2378,7 @@ let liveCurrentCh = null;  // 現在視聴中のチャンネル番号
 let liveCurrentSid = null;  // 現在のサービスID (サブチャンネル)
 let liveRecScheduleId = null;  // 録画ライブ視聴時のスケジュールID
 let liveRecording = false;  // ライブ録画中かどうか
+let liveAirplayMode = false;  // iOS外部出力: ネイティブHLS(src直指定)で再生中か (この間 livePlayer は null)
 
 // NHK ニュース系などで PMT 変化により A/V がずれる症状の対策:
 // MEDIA_INFO 2回目以降を検出したら player を作り直して SourceBuffer をクリーンに戻す。
@@ -2432,6 +2435,66 @@ function showPlayerError(id, msg) {
 function hidePlayerError(id) {
     const el = document.getElementById(id);
     if (el) el.hidden = true;
+}
+
+// iOS外部出力(AirPlay/有線HDMI)用: mpegts URL と同一規約でネイティブHLSの m3u8 URL を組む。
+function _liveHlsUrl() {
+    let u = `/hls/live?ch=${liveCurrentCh}&quality=${streamQuality}`;
+    if (liveCurrentSid) u += `&sid=${liveCurrentSid}`;
+    const a = document.getElementById('lc-audio');
+    if (a && a.value && a.value !== 'stereo') u += `&audio=${a.value}`;
+    return u;
+}
+
+// HLSモード中の設定変更は mpegts に戻さず HLS URL を組み直して外部出力を継続。
+function _reloadLiveHls() {
+    if (!liveAirplayMode || !liveCurrentCh) return;
+    const v = document.getElementById('live-video');
+    if (!v) return;
+    v.src = _liveHlsUrl();
+    v.load();
+    v.play().catch(() => {});
+}
+
+// iOS のネイティブ全画面プレイヤーで外部出力を開始する。iPhone は webkitEnterFullscreen
+// (AVPlayer: AirPlay/有線とも映像のみ出力)、無い環境(iPad等)は AirPlay picker にフォールバック。
+function _enterNativeExternal(video) {
+    const go = () => {
+        video.play().catch(() => {});
+        if (typeof video.webkitEnterFullscreen === 'function') {
+            try { video.webkitEnterFullscreen(); return; } catch (e) {}
+        }
+        if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
+            try { video.webkitShowPlaybackTargetPicker(); } catch (e) {}
+        }
+    };
+    if (video.readyState >= 1) go();
+    else video.addEventListener('loadedmetadata', go, { once: true });
+}
+
+// AirPlay/外部出力ボタンの表示ゲート。iOS かつ picker API がある時に表示する。
+// 有線HDMI は AirPlay ターゲットを作らないため availability では隠さない (iOS では常に表示)。
+// wireless 状態変化でボタンを active 表示にするだけに使う。
+function _setupAirplayButton(video, btnId) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    if (!_isIOS || !video || typeof video.webkitShowPlaybackTargetPicker !== 'function') {
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = '';  // iOS 再生中は常に表示 (AirPlay/有線 両対応)
+    const wireless = () => { btn.classList.toggle('active', !!video.webkitCurrentPlaybackTargetIsWireless); };
+    video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', wireless);
+    video._airplayHandlers = { wireless };
+}
+
+function _teardownAirplayButton(video, btnId) {
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.style.display = 'none'; btn.classList.remove('active'); }
+    if (video && video._airplayHandlers) {
+        video.removeEventListener('webkitcurrentplaybacktargetiswirelesschanged', video._airplayHandlers.wireless);
+        video._airplayHandlers = null;
+    }
 }
 
 function _buildLivePlayer(chNum, sid) {
@@ -3426,6 +3489,10 @@ const liveControls = (() => {
                 if (slider) slider.value = video.volume;
             }
 
+            // AirPlay/外部出力ボタン: 通常ライブのみ (録画中ファイル追っかけは /hls/live 相当が無いので非表示)
+            if (!liveRecScheduleId) _setupAirplayButton(video, 'lc-airplay');
+            else _teardownAirplayButton(video, 'lc-airplay');
+
             if (!eventsAttached) {
                 const wrapper = document.getElementById('live-video-wrapper');
                 if (wrapper) {
@@ -3444,6 +3511,7 @@ const liveControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
+            _teardownAirplayButton(_getLiveVideo(), 'lc-airplay');
             const container = document.getElementById('live-player-container');
             if (_isFakeLandscape(container)) _exitFakeLandscape(container);
             liveRecording = false;
@@ -3505,6 +3573,7 @@ const liveControls = (() => {
         },
 
         reload() {
+            if (liveAirplayMode) { _reloadLiveHls(); return; }
             if (!livePlayer) return;
             const title = document.getElementById('live-player-title').textContent;
             if (liveRecScheduleId) {
@@ -3521,6 +3590,7 @@ const liveControls = (() => {
 
         switchService(sid) {
             if (!liveCurrentCh) return;
+            if (liveAirplayMode) { liveCurrentSid = sid; _reloadLiveHls(); return; }
             const chInfo = channels.find(c => c.number === liveCurrentCh);
             const svc = chInfo && chInfo.services ? chInfo.services.find(s => s.sid === sid) : null;
             const name = svc ? svc.name : document.getElementById('live-player-title').textContent;
@@ -3530,8 +3600,28 @@ const liveControls = (() => {
         },
 
         switchAudio(_mode) {
+            if (liveAirplayMode) { _reloadLiveHls(); return; }
             if (!livePlayer) return;
             restartLivePlayer(true);
+            _showControls();
+        },
+
+        // iOS外部出力: mpegts を破棄しネイティブHLS src に差し替え、iOS の
+        // ネイティブ全画面プレイヤー(AVPlayer)を開く。この純正プレイヤーが AirPlay/
+        // 有線HDMI とも「映像のみ」で外部出力する(インライン AirPlay はミラーに落ちるため使わない)。
+        airplay() {
+            if (!_isIOS || !liveCurrentCh) return;  // 録画中ファイル追っかけ(liveRecScheduleId のみ)は /hls/live 相当が無く不可
+            const video = _getLiveVideo();
+            if (!video) return;
+            if (livePlayer) { try { livePlayer.destroy(); } catch (e) {} livePlayer = null; }
+            cleanupLiveVideoHandlers(video);  // mpegts由来の waiting/timeupdate/playing ハンドラを解除
+            liveAirplayMode = true;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();  // MSE を切り離してから src 差し替え (黒画面回避)
+            video.src = _liveHlsUrl();
+            video.load();
+            _enterNativeExternal(video);
             _showControls();
         },
 
@@ -3661,7 +3751,7 @@ function startLiveFromRecording(scheduleId, chName) {
     if (liveRecScheduleId === scheduleId && livePlayer) return;
 
     // 既に再生中なら停止
-    if (livePlayer) stopLive(true);
+    if (livePlayer || liveAirplayMode) stopLive(true);
 
     liveRecScheduleId = scheduleId;
     liveCurrentCh = null;
@@ -3747,7 +3837,7 @@ function startLive(chNum, chName, sid) {
     if (liveCurrentCh === chNum && liveCurrentSid === (sid || null) && livePlayer) return;
 
     // 既に別チャンネル再生中なら停止
-    if (livePlayer) stopLive(true);
+    if (livePlayer || liveAirplayMode) stopLive(true);
 
     liveCurrentCh = chNum;
     liveCurrentSid = sid || null;
@@ -3826,6 +3916,12 @@ function stopLive(keepGrid) {
         livePlayer = null;
     }
     cleanupLiveVideoHandlers(document.getElementById('live-video'));
+    // 外部出力(HLS)モードだった場合は native src をクリアしてフラグを落とす
+    if (liveAirplayMode) {
+        const v = document.getElementById('live-video');
+        if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
+        liveAirplayMode = false;
+    }
     hideLiveSwitchingBanner();
     if (liveNowTimer) {
         clearInterval(liveNowTimer);

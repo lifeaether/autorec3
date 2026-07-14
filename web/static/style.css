@@ -1451,6 +1451,7 @@ button i[class*="ph"],
     right: 0;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;            /* ボタンが多い時は溢れず折り返す */
     gap: var(--space-2);
     padding: var(--space-6) var(--space-3) var(--space-2);
     background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.78));
@@ -2473,6 +2474,11 @@ body.fs-landscape-active #player-stage {
 
     /* --- Video controls: mobile adjustments --- */
     .lc-volume {
+        display: none;
+    }
+
+    /* スペーサを畳んでボタンを左詰めで折り返し、溢れを防ぐ */
+    .lc-spacer {
         display: none;
     }
 

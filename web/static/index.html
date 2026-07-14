@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=44">
+    <link rel="stylesheet" href="/style.css?v=47">
 </head>
 <body>
     <nav>
@@ -97,7 +97,7 @@
                                 </div>
                             </div>
                             <div class="live-video-wrapper" id="live-video-wrapper">
-                                <video id="live-video" autoplay playsinline></video>
+                                <video id="live-video" autoplay playsinline x-webkit-airplay="allow"></video>
                                 <div id="live-switching-banner" hidden>番組切替中…</div>
                                 <div id="live-loading" class="player-loading">
                                     <div class="player-spinner"></div>
@@ -129,6 +129,7 @@
                                     </select>
                                     <button class="lc-btn" id="jikkyo-settings-btn" onclick="jikkyoSettings.toggle('jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
                                     <button class="lc-btn" id="pip-btn" onclick="jikkyoPip.toggle()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
+                                    <button class="lc-btn" id="lc-airplay" onclick="liveControls.airplay()" style="display:none" title="外部出力 / AirPlay"><i class="ph ph-airplay"></i></button>
                                     <button class="lc-btn" id="lc-fullscreen" onclick="liveControls.toggleFullscreen()" title="フルスクリーン"></button>
                                 </div>
                             </div>
@@ -155,7 +156,7 @@
             <div class="rec-player-with-sidebar">
                 <div class="rec-player-main">
                     <div class="rec-video-wrapper">
-                        <video id="video-player" autoplay playsinline></video>
+                        <video id="video-player" autoplay playsinline x-webkit-airplay="allow"></video>
                         <div id="rec-loading" class="player-loading">
                             <div class="player-spinner"></div>
                             <span class="player-loading-label">読み込み中…</span>
@@ -548,7 +549,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=38"></script>
+    <script src="/app.js?v=40"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
