@@ -254,8 +254,13 @@ async function loadEPG() {
     if (category) url += `&category=${encodeURIComponent(category)}`;
 
     try {
-        const data = await API.get(url);
-        renderEPGTable(data.programmes);
+        // 番組と録画予定を並行取得し、(channel|start_time) で突合できる Set を作ってから描画
+        const [progData, schedData] = await Promise.all([
+            API.get(url),
+            API.get('/api/schedules?limit=100000').catch(() => ({ schedules: [] })),
+        ]);
+        _epgScheduledSet = new Set((schedData.schedules || []).map(s => s.channel + '|' + s.start_time));
+        renderEPGTable(progData.programmes);
     } catch (err) {
         document.getElementById('epg-table').innerHTML =
             `<p style="color:var(--error)">番組表の読み込みに失敗しました: ${escapeHtml(err.message)}</p>`;
@@ -264,6 +269,9 @@ async function loadEPG() {
 
 /* 現在時刻線の更新タイマー */
 let _epgNowTimer = null;
+
+/* 録画予定の突合セット: "channel|start_time" の集合 (loadEPG で構築) */
+let _epgScheduledSet = new Set();
 
 // 番組表のチャンネル見出しから、その局をライブ視聴開始する。
 // 番組表は名前しか持たないため channels を名前で引いて番号/sid に解決する。
@@ -439,7 +447,9 @@ function renderEPGGrid(programmes, container, options) {
             if (height <= 0) return;
 
             const catCls = categoryClass(p.category);
-            html += `<div class="epg-programme epg-cell ${catCls}" style="top:${top}px;height:${height}px" onclick="showProgrammeDetail(this, ${p.idx})">`;
+            const schedKey = p.channel + '|' + p.start_time;
+            const isScheduled = _epgScheduledSet.has(schedKey);
+            html += `<div class="epg-programme epg-cell ${catCls}${isScheduled ? ' scheduled' : ''}" data-schedkey="${escapeHtml(schedKey)}" style="top:${top}px;height:${height}px" onclick="showProgrammeDetail(this, ${p.idx})"${isScheduled ? ' title="録画予定"' : ''}>`;
             html += `<div class="epg-prog-time">${formatTime(p.start_time)}</div>`;
             html += `<div class="epg-prog-title">${escapeHtml(p.title)}</div>`;
             html += '</div>';
@@ -1050,6 +1060,13 @@ async function directSchedule(idx) {
         });
         toast('録画予約しました', { type: 'success' });
         document.getElementById('programme-detail').classList.remove('active');
+        // 番組表の該当セルを即座に録画予定色にする (再描画せずスクロール維持)
+        const key = p.channel + '|' + p.start_time;
+        _epgScheduledSet.add(key);
+        document.querySelectorAll(`.epg-cell[data-schedkey="${CSS.escape(key)}"]`).forEach(el => {
+            el.classList.add('scheduled');
+            el.title = '録画予定';
+        });
     } catch (err) {
         toast(err.message, { type: 'error' });
     }

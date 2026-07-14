@@ -838,6 +838,25 @@ table tr:last-child td {
     word-break: break-all;
 }
 
+/* 録画予定の番組: 薄赤背景 + 右上に赤 REC ドット (カテゴリ左帯とは共存) */
+.epg-programme.scheduled {
+    background: var(--status-err-bg);
+}
+.epg-programme.scheduled::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--error);
+    z-index: 3;
+}
+.epg-programme.scheduled:hover {
+    background: var(--accent-light);
+}
+
 .epg-now-line {
     position: absolute;
     left: 0;
