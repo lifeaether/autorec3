@@ -50,6 +50,7 @@
     /* Z-index scale */
     --z-base: 0;
     --z-raised: 10;
+    --z-stage: 90;      /* 常設プレイヤーステージ (nav の下・コンテンツの上) */
     --z-sticky: 100;
     --z-dropdown: 150;
     --z-overlay: 200;
@@ -84,6 +85,7 @@
     --nav-height: 56px;
     --bottom-nav-height: 60px;
     --content-max-width: 1440px;
+    --player-height: 42vh;   /* 常設プレイヤーステージ内の動画高さ上限 */
 
     /* Typography — Apple system fonts */
     --font-sans: -apple-system, "Helvetica Neue", "Noto Sans JP",
@@ -307,6 +309,37 @@ nav .logo i[class*="ph"] {
 
 .more-drawer-backdrop {
     display: none;
+}
+
+/* ===== 常設プレイヤーステージ ===== */
+#player-stage {
+    position: sticky;
+    top: var(--nav-height);
+    z-index: var(--z-stage);
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    padding: 0.75rem 2.5rem 0.5rem;
+    background: var(--bg);
+    box-shadow: 0 0.5px 0 var(--border);
+}
+/* 何も再生していないときはステージ自体を隠す */
+#player-stage[data-playing="none"] {
+    display: none;
+}
+/* ステージ内の動画は縦を食いすぎないよう高さを制限 */
+#stage-live #live-video,
+#stage-live #live-canvas {
+    max-height: var(--player-height);
+    object-fit: contain;
+}
+/* 拡大 (シアター) 表示: 視聴領域を大きく取る。普段はコンパクト、集中視聴時に切替 */
+#player-stage.theater {
+    --player-height: 78vh;
+}
+#player-stage.theater #stage-live #live-video,
+#player-stage.theater #stage-live #live-canvas {
+    margin: 0 auto;
+    display: block;
 }
 
 /* ===== Main content ===== */
@@ -2124,6 +2157,12 @@ body.fs-landscape-active {
     /* --- Main content --- */
     main {
         padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1rem calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+    }
+
+    /* --- 常設プレイヤーステージ: モバイルは nav が下部固定なので上端に貼り付け --- */
+    #player-stage {
+        top: env(safe-area-inset-top, 0px);
+        padding: 0.5rem 1rem calc(0.5rem);
     }
 
     /* --- Section header: not sticky on mobile --- */

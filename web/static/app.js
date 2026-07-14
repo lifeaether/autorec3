@@ -118,11 +118,35 @@ function setStreamQuality(quality) {
 let channels = [];
 let categories = [];
 
-// セクションの DOM 適用のみを行う (履歴操作なし)。hashchange/popstate からも呼ぶ。
-function applySection(name) {
-    // セクション切替時、ライブ視聴中なら停止
-    if (name !== 'live' && livePlayer) stopLive();
+// 常設プレイヤーステージの再生状態。'none' | 'live' | 'recording'
+let stagePlaying = 'none';
 
+// ステージの再生対象を切り替える。ライブ↔録画は排他 (同一ステージ・チューナー資源競合を防ぐ)。
+function setStagePlaying(mode) {
+    if (mode === 'recording' && livePlayer) stopLive();
+    if (mode === 'live' && recordingPath) closeRecordingPlayer();
+    stagePlaying = mode;
+    const stage = document.getElementById('player-stage');
+    if (!stage) return;
+    stage.classList.remove('collapsed');
+    stage.dataset.playing = mode;
+}
+
+// 拡大 (シアター) 表示のトグル。視聴に集中したいとき映像を大きくする。
+function toggleTheater() {
+    const stage = document.getElementById('player-stage');
+    if (!stage) return;
+    const on = stage.classList.toggle('theater');
+    const btn = document.getElementById('stage-theater-btn');
+    if (btn) {
+        btn.querySelector('i').className = on ? 'ph ph-arrows-in-simple' : 'ph ph-arrows-out-simple';
+        btn.title = on ? '標準表示' : '拡大表示';
+    }
+}
+
+// セクションの DOM 適用のみを行う (履歴操作なし)。hashchange/popstate からも呼ぶ。
+// 注: プレイヤーは #player-stage で常設化したため、セクション切替では停止しない。
+function applySection(name) {
     // Close more drawer if open
     closeMoreDrawer();
 
@@ -3585,6 +3609,7 @@ function startLiveFromRecording(scheduleId, chName) {
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-player-title').textContent = chName + ' (録画中)';
     document.getElementById('live-player-area').style.display = '';
+    setStagePlaying('live');
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
     setPlayerLoading('live-loading', true, '接続中…');
@@ -3688,6 +3713,7 @@ function startLive(chNum, chName, sid) {
     document.getElementById('live-stream-info').textContent = '';
     document.getElementById('live-player-title').textContent = chName;
     document.getElementById('live-player-area').style.display = '';
+    setStagePlaying('live');
     document.getElementById('live-status').innerHTML =
         '<span class="live-indicator"></span> 接続中...';
     setPlayerLoading('live-loading', true, '接続中…');
@@ -3750,6 +3776,7 @@ function stopLive(keepGrid) {
     liveLastPlayerRestart = 0;
 
     // UI リセット
+    if (stagePlaying === 'live') setStagePlaying('none');
     document.getElementById('lc-subchannel').style.display = 'none';
     document.getElementById('live-player-area').style.display = 'none';
     document.getElementById('live-status').textContent = '';

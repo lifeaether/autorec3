@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=35">
+    <link rel="stylesheet" href="/style.css?v=37">
 </head>
 <body>
     <nav>
@@ -79,6 +79,70 @@
         <a href="#" data-section="help" onclick="switchFromDrawer('help',event)"><i class="ph ph-question"></i>ヘルプ</a>
     </div>
     <div id="more-drawer-backdrop" class="more-drawer-backdrop" onclick="closeMoreDrawer()"></div>
+
+    <!-- 常設プレイヤーステージ (ライブ/録画共通・全セクション横断で生存) -->
+    <div id="player-stage" data-playing="none">
+      <div id="stage-live">
+            <div id="live-player-area" style="display:none">
+                <div class="live-player-with-sidebar">
+                    <div class="live-player-main">
+                        <div class="live-player-container" id="live-player-container">
+                            <div class="live-player-bar">
+                                <span id="live-player-title" class="live-player-bar-title"></span>
+                                <div class="live-player-bar-right">
+                                    <span id="live-status"></span>
+                                    <button class="live-close-btn" id="stage-theater-btn" onclick="toggleTheater()" title="拡大表示"><i class="ph ph-arrows-out-simple"></i></button>
+                                    <button class="live-close-btn" onclick="stopLive()" title="視聴を終了"><i class="ph ph-x"></i></button>
+                                </div>
+                            </div>
+                            <div class="live-video-wrapper" id="live-video-wrapper">
+                                <video id="live-video" autoplay playsinline></video>
+                                <div id="live-switching-banner" hidden>番組切替中…</div>
+                                <div id="live-loading" class="player-loading">
+                                    <div class="player-spinner"></div>
+                                    <span class="player-loading-label">接続中…</span>
+                                </div>
+                                <div id="live-error-card" class="player-error" hidden>
+                                    <i class="ph ph-warning-circle"></i>
+                                    <span class="player-error-msg"></span>
+                                    <button class="btn btn-primary btn-sm" onclick="liveControls.reload()">再試行</button>
+                                </div>
+                                <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
+                                <div id="live-controls" class="live-controls">
+                                    <button class="lc-btn" id="lc-play" onclick="liveControls.togglePlay()" title="再生/一時停止"></button>
+                                    <button class="lc-btn" id="lc-reload" onclick="liveControls.reload()" title="リロード"><i class="ph ph-arrow-clockwise"></i></button>
+                                    <button class="lc-btn" id="lc-mute" onclick="liveControls.toggleMute()" title="ミュート"></button>
+                                    <input type="range" id="lc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="liveControls.setVolume(this.value)">
+                                    <div class="lc-spacer"></div>
+                                    <select id="lc-subchannel" class="jikkyo-mode-select" onchange="liveControls.switchService(this.value)" style="display:none"></select>
+                                    <select id="lc-audio" class="jikkyo-mode-select" onchange="liveControls.switchAudio(this.value)">
+                                        <option value="stereo">音声: ステレオ</option>
+                                        <option value="main">音声: 主音声</option>
+                                        <option value="sub">音声: 副音声</option>
+                                    </select>
+                                    <button class="lc-btn" id="lc-record" onclick="liveControls.toggleRecord()" title="録画" style="display:none"></button>
+                                    <select id="jikkyo-mode-select" class="jikkyo-mode-select" onchange="jikkyo.setMode(this.value)">
+                                        <option value="overlay">実況: オーバーレイ</option>
+                                        <option value="sidebar">実況: サイドバー</option>
+                                        <option value="off">実況: OFF</option>
+                                    </select>
+                                    <button class="lc-btn" id="jikkyo-settings-btn" onclick="jikkyoSettings.toggle('jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
+                                    <button class="lc-btn" id="pip-btn" onclick="jikkyoPip.toggle()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
+                                    <button class="lc-btn" id="lc-fullscreen" onclick="liveControls.toggleFullscreen()" title="フルスクリーン"></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
+                        <div class="jikkyo-sidebar-header">実況コメント</div>
+                        <div id="jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
+                    </div>
+                </div>
+                <div id="live-stream-info" class="live-stream-info"></div>
+                <div id="live-error"></div>
+            </div>
+      </div>
+    </div>
 
     <main>
       <div class="content-wrapper">
@@ -178,63 +242,6 @@
 
         <!-- ライブ視聴セクション -->
         <div id="section-live" class="section active">
-            <div id="live-player-area" style="display:none">
-                <div class="live-player-with-sidebar">
-                    <div class="live-player-main">
-                        <div class="live-player-container" id="live-player-container">
-                            <div class="live-player-bar">
-                                <span id="live-player-title" class="live-player-bar-title"></span>
-                                <div class="live-player-bar-right">
-                                    <span id="live-status"></span>
-                                    <button class="live-close-btn" onclick="stopLive()" title="視聴を終了"><i class="ph ph-x"></i></button>
-                                </div>
-                            </div>
-                            <div class="live-video-wrapper" id="live-video-wrapper">
-                                <video id="live-video" autoplay playsinline></video>
-                                <div id="live-switching-banner" hidden>番組切替中…</div>
-                                <div id="live-loading" class="player-loading">
-                                    <div class="player-spinner"></div>
-                                    <span class="player-loading-label">接続中…</span>
-                                </div>
-                                <div id="live-error-card" class="player-error" hidden>
-                                    <i class="ph ph-warning-circle"></i>
-                                    <span class="player-error-msg"></span>
-                                    <button class="btn btn-primary btn-sm" onclick="liveControls.reload()">再試行</button>
-                                </div>
-                                <div id="jikkyo-overlay" class="jikkyo-overlay"></div>
-                                <div id="live-controls" class="live-controls">
-                                    <button class="lc-btn" id="lc-play" onclick="liveControls.togglePlay()" title="再生/一時停止"></button>
-                                    <button class="lc-btn" id="lc-reload" onclick="liveControls.reload()" title="リロード"><i class="ph ph-arrow-clockwise"></i></button>
-                                    <button class="lc-btn" id="lc-mute" onclick="liveControls.toggleMute()" title="ミュート"></button>
-                                    <input type="range" id="lc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="liveControls.setVolume(this.value)">
-                                    <div class="lc-spacer"></div>
-                                    <select id="lc-subchannel" class="jikkyo-mode-select" onchange="liveControls.switchService(this.value)" style="display:none"></select>
-                                    <select id="lc-audio" class="jikkyo-mode-select" onchange="liveControls.switchAudio(this.value)">
-                                        <option value="stereo">音声: ステレオ</option>
-                                        <option value="main">音声: 主音声</option>
-                                        <option value="sub">音声: 副音声</option>
-                                    </select>
-                                    <button class="lc-btn" id="lc-record" onclick="liveControls.toggleRecord()" title="録画" style="display:none"></button>
-                                    <select id="jikkyo-mode-select" class="jikkyo-mode-select" onchange="jikkyo.setMode(this.value)">
-                                        <option value="overlay">実況: オーバーレイ</option>
-                                        <option value="sidebar">実況: サイドバー</option>
-                                        <option value="off">実況: OFF</option>
-                                    </select>
-                                    <button class="lc-btn" id="jikkyo-settings-btn" onclick="jikkyoSettings.toggle('jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
-                                    <button class="lc-btn" id="pip-btn" onclick="jikkyoPip.toggle()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
-                                    <button class="lc-btn" id="lc-fullscreen" onclick="liveControls.toggleFullscreen()" title="フルスクリーン"></button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
-                        <div class="jikkyo-sidebar-header">実況コメント</div>
-                        <div id="jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
-                    </div>
-                </div>
-                <div id="live-stream-info" class="live-stream-info"></div>
-                <div id="live-error"></div>
-            </div>
             <div id="live-channel-grid" class="live-channel-grid">
                 <p style="color:var(--text-muted)">読み込み中...</p>
             </div>
@@ -530,7 +537,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=31"></script>
+    <script src="/app.js?v=33"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {
