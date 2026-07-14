@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/phosphor/regular/style.css">
     <link rel="stylesheet" href="/phosphor/fill/style.css">
-    <link rel="stylesheet" href="/style.css?v=37">
+    <link rel="stylesheet" href="/style.css?v=38">
 </head>
 <body>
     <nav>
@@ -91,7 +91,7 @@
                                 <span id="live-player-title" class="live-player-bar-title"></span>
                                 <div class="live-player-bar-right">
                                     <span id="live-status"></span>
-                                    <button class="live-close-btn" id="stage-theater-btn" onclick="toggleTheater()" title="拡大表示"><i class="ph ph-arrows-out-simple"></i></button>
+                                    <button class="live-close-btn stage-theater-btn" onclick="toggleTheater()" title="拡大表示"><i class="ph ph-arrows-out-simple"></i></button>
                                     <button class="live-close-btn" onclick="stopLive()" title="視聴を終了"><i class="ph ph-x"></i></button>
                                 </div>
                             </div>
@@ -140,6 +140,61 @@
                 </div>
                 <div id="live-stream-info" class="live-stream-info"></div>
                 <div id="live-error"></div>
+            </div>
+      </div>
+      <div id="stage-rec">
+            <div class="live-player-bar">
+                <span id="rec-player-title" class="live-player-bar-title"></span>
+                <div class="live-player-bar-right">
+                    <button class="live-close-btn stage-theater-btn" onclick="toggleTheater()" title="拡大表示"><i class="ph ph-arrows-out-simple"></i></button>
+                    <button class="live-close-btn" onclick="closeRecordingPlayer()" title="再生を終了"><i class="ph ph-x"></i></button>
+                </div>
+            </div>
+            <div class="rec-player-with-sidebar">
+                <div class="rec-player-main">
+                    <div class="rec-video-wrapper">
+                        <video id="video-player" autoplay playsinline></video>
+                        <div id="rec-loading" class="player-loading">
+                            <div class="player-spinner"></div>
+                            <span class="player-loading-label">読み込み中…</span>
+                        </div>
+                        <div id="rec-jikkyo-overlay" class="jikkyo-overlay"></div>
+                        <div id="rec-controls" class="live-controls">
+                            <button class="lc-btn" id="rc-play" onclick="recControls.togglePlay()" title="再生/一時停止"></button>
+                            <button class="lc-btn" id="rc-mute" onclick="recControls.toggleMute()" title="ミュート"></button>
+                            <input type="range" id="rc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="recControls.setVolume(this.value)">
+                            <div class="lc-spacer"></div>
+                            <button class="lc-btn" id="rc-pip" onclick="recControls.togglePip()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
+                            <button class="lc-btn" id="rc-fullscreen" onclick="recControls.toggleFullscreen()" title="フルスクリーン"></button>
+                        </div>
+                    </div>
+                </div>
+                <div id="rec-jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
+                    <div class="jikkyo-sidebar-header">実況コメント</div>
+                    <div id="rec-jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
+                </div>
+            </div>
+            <div id="video-seek-container">
+                <div id="seek-tooltip" class="seek-tooltip" hidden></div>
+                <div>
+                    <span id="video-current-time">0:00</span>
+                    <button class="seek-skip-btn" onclick="seekSkip(-10)" title="10秒戻る"><i class="ph ph-clock-counter-clockwise"></i></button>
+                    <input type="range" id="video-seek-bar" min="0" max="100" value="0" step="1">
+                    <button class="seek-skip-btn" onclick="seekSkip(10)" title="10秒進む"><i class="ph ph-clock-clockwise"></i></button>
+                    <span id="video-total-time">0:00</span>
+                    <select id="rc-program" class="jikkyo-mode-select" style="display:none" onchange="recControls.switchProgram(this.value)"></select>
+                    <select id="rc-audio" class="jikkyo-mode-select" onchange="recControls.switchAudio(this.value)">
+                        <option value="stereo">音声: ステレオ</option>
+                        <option value="main">音声: 主音声</option>
+                        <option value="sub">音声: 副音声</option>
+                    </select>
+                    <select id="rec-jikkyo-mode-select" class="jikkyo-mode-select" style="display:none" onchange="recordingJikkyo.setMode(this.value)">
+                        <option value="overlay">実況: オーバーレイ</option>
+                        <option value="sidebar">実況: サイドバー</option>
+                        <option value="off">実況: OFF</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm btn-icon" id="rec-jikkyo-settings-btn" style="display:none" onclick="jikkyoSettings.toggle('rec-jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
+                </div>
             </div>
       </div>
     </div>
@@ -481,63 +536,10 @@
     </div>
 
     <!-- 動画再生モーダル -->
-    <div id="video-modal" class="modal-overlay">
-        <div class="modal">
-            <button class="modal-close" onclick="closeRecordingPlayer(); document.getElementById('video-modal').classList.remove('active');"><i class="ph ph-x"></i></button>
-            <h3 id="video-modal-title">再生</h3>
-            <div class="rec-player-with-sidebar">
-                <div class="rec-player-main">
-                    <div class="rec-video-wrapper">
-                        <video id="video-player" autoplay playsinline></video>
-                        <div id="rec-loading" class="player-loading">
-                            <div class="player-spinner"></div>
-                            <span class="player-loading-label">読み込み中…</span>
-                        </div>
-                        <div id="rec-jikkyo-overlay" class="jikkyo-overlay"></div>
-                        <div id="rec-controls" class="live-controls">
-                            <button class="lc-btn" id="rc-play" onclick="recControls.togglePlay()" title="再生/一時停止"></button>
-                            <button class="lc-btn" id="rc-mute" onclick="recControls.toggleMute()" title="ミュート"></button>
-                            <input type="range" id="rc-volume" class="lc-volume" min="0" max="1" step="0.05" value="1" oninput="recControls.setVolume(this.value)">
-                            <div class="lc-spacer"></div>
-                            <button class="lc-btn" id="rc-pip" onclick="recControls.togglePip()" style="display:none" title="ピクチャ・イン・ピクチャ"></button>
-                            <button class="lc-btn" id="rc-fullscreen" onclick="recControls.toggleFullscreen()" title="フルスクリーン"></button>
-                        </div>
-                    </div>
-                </div>
-                <div id="rec-jikkyo-sidebar" class="jikkyo-sidebar" style="display:none">
-                    <div class="jikkyo-sidebar-header">実況コメント</div>
-                    <div id="rec-jikkyo-sidebar-messages" class="jikkyo-sidebar-messages"></div>
-                </div>
-            </div>
-            <div id="video-seek-container">
-                <div id="seek-tooltip" class="seek-tooltip" hidden></div>
-                <div>
-                    <span id="video-current-time">0:00</span>
-                    <button class="seek-skip-btn" onclick="seekSkip(-10)" title="10秒戻る"><i class="ph ph-clock-counter-clockwise"></i></button>
-                    <input type="range" id="video-seek-bar" min="0" max="100" value="0" step="1">
-                    <button class="seek-skip-btn" onclick="seekSkip(10)" title="10秒進む"><i class="ph ph-clock-clockwise"></i></button>
-                    <span id="video-total-time">0:00</span>
-                    <select id="rc-program" class="jikkyo-mode-select" style="display:none" onchange="recControls.switchProgram(this.value)"></select>
-                    <select id="rc-audio" class="jikkyo-mode-select" onchange="recControls.switchAudio(this.value)">
-                        <option value="stereo">音声: ステレオ</option>
-                        <option value="main">音声: 主音声</option>
-                        <option value="sub">音声: 副音声</option>
-                    </select>
-                    <select id="rec-jikkyo-mode-select" class="jikkyo-mode-select" style="display:none" onchange="recordingJikkyo.setMode(this.value)">
-                        <option value="overlay">実況: オーバーレイ</option>
-                        <option value="sidebar">実況: サイドバー</option>
-                        <option value="off">実況: OFF</option>
-                    </select>
-                    <button class="btn btn-secondary btn-sm btn-icon" id="rec-jikkyo-settings-btn" style="display:none" onclick="jikkyoSettings.toggle('rec-jikkyo-settings-btn')" title="実況設定"><i class="ph ph-gear-six"></i></button>
-                </div>
-            </div>
-
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1/dist/mpegts.js"></script>
     <script src="/ui.js?v=1"></script>
-    <script src="/app.js?v=33"></script>
+    <script src="/app.js?v=34"></script>
     <script>
     document.addEventListener('click', function(e) {
         document.querySelectorAll('.nav-dropdown.open').forEach(function(dd) {

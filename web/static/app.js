@@ -133,15 +133,16 @@ function setStagePlaying(mode) {
 }
 
 // 拡大 (シアター) 表示のトグル。視聴に集中したいとき映像を大きくする。
+// ライブ/録画どちらのバーからも呼べるよう、対象ボタンはクラスで一括更新。
 function toggleTheater() {
     const stage = document.getElementById('player-stage');
     if (!stage) return;
     const on = stage.classList.toggle('theater');
-    const btn = document.getElementById('stage-theater-btn');
-    if (btn) {
-        btn.querySelector('i').className = on ? 'ph ph-arrows-in-simple' : 'ph ph-arrows-out-simple';
+    document.querySelectorAll('.stage-theater-btn').forEach(btn => {
+        const i = btn.querySelector('i');
+        if (i) i.className = on ? 'ph ph-arrows-in-simple' : 'ph ph-arrows-out-simple';
         btn.title = on ? '標準表示' : '拡大表示';
-    }
+    });
 }
 
 // セクションの DOM 適用のみを行う (履歴操作なし)。hashchange/popstate からも呼ぶ。
@@ -1455,7 +1456,7 @@ const recControls = (() => {
 
     function _isFullscreen() {
         return !!(document.fullscreenElement || document.webkitFullscreenElement)
-            || _isFakeLandscape(document.querySelector('#video-modal .rec-video-wrapper'));
+            || _isFakeLandscape(document.querySelector('.rec-video-wrapper'));
     }
 
     function _updateFullscreenIcon() {
@@ -1539,7 +1540,7 @@ const recControls = (() => {
         cleanup() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             _hideControls();
-            const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
+            const wrapper = document.querySelector('.rec-video-wrapper');
             if (_isFakeLandscape(wrapper)) _exitFakeLandscape(wrapper);
             if (document.fullscreenElement || document.webkitFullscreenElement) {
                 (document.exitFullscreen || document.webkitExitFullscreen).call(document).catch(() => {});
@@ -1629,7 +1630,7 @@ const recControls = (() => {
         },
 
         toggleFullscreen() {
-            const wrapper = document.querySelector('#video-modal .rec-video-wrapper');
+            const wrapper = document.querySelector('.rec-video-wrapper');
             if (!wrapper) return;
             if (_isFakeLandscape(wrapper)) {
                 _exitFakeLandscape(wrapper);
@@ -1651,9 +1652,8 @@ const recControls = (() => {
 })();
 
 function playRecording(path, name, hasNicojk) {
-    const modal = document.getElementById('video-modal');
-    const title = document.getElementById('video-modal-title');
-    title.textContent = name || '再生';
+    const title = document.getElementById('rec-player-title');
+    if (title) title.textContent = name || '再生';
 
     closeRecordingPlayer();
 
@@ -1716,7 +1716,7 @@ function playRecording(path, name, hasNicojk) {
         document.getElementById('video-seek-container').style.display = 'none';
     }
 
-    modal.classList.add('active');
+    setStagePlaying('recording');
     recControls.init();
 }
 
@@ -1906,6 +1906,7 @@ function closeRecordingPlayer() {
     const recAudio = document.getElementById('rc-audio');
     if (recAudio) recAudio.value = 'stereo';
     document.getElementById('video-seek-container').style.display = 'none';
+    if (stagePlaying === 'recording') setStagePlaying('none');
 }
 
 /* --- 録画実況コメント再生 --- */

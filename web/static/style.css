@@ -326,6 +326,11 @@ nav .logo i[class*="ph"] {
 #player-stage[data-playing="none"] {
     display: none;
 }
+/* ライブ/録画は排他表示 (同時には片方だけ) */
+#player-stage[data-playing="live"] #stage-rec,
+#player-stage[data-playing="recording"] #stage-live {
+    display: none;
+}
 /* ステージ内の動画は縦を食いすぎないよう高さを制限 */
 #stage-live #live-video,
 #stage-live #live-canvas {
@@ -2265,75 +2270,40 @@ body.fs-landscape-active {
         padding: 1.5rem;
     }
 
-    /* --- Video modal: fullscreen on mobile --- */
-    #video-modal .modal {
-        width: 100%;
-        max-width: 100%;
-        max-height: 100%;
-        height: 100%;
-        border-radius: 0;
-        padding: 0;
-        display: flex;
+    /* --- 録画プレイヤー: ステージ内モバイル (縦積み) --- */
+    #stage-rec .rec-player-with-sidebar {
         flex-direction: column;
     }
 
-    #video-modal .modal-close {
-        top: 0.35rem;
-        right: 0.5rem;
-        z-index: 10;
-    }
-
-    #video-modal .modal h3 {
-        padding: 0.4rem 2.5rem 0.4rem 0.75rem;
-        margin-bottom: 0 !important;
-        font-size: 0.95rem;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-    }
-
-    #video-modal .rec-player-with-sidebar {
-        display: contents;
-    }
-
-    #video-modal .rec-player-main {
-        flex: none;
-        order: 1;
-    }
-
-    #video-modal #video-player {
-        max-height: none !important;
+    #stage-rec #video-player {
+        max-height: var(--player-height);
         display: block;
     }
 
-    #video-modal #video-seek-container {
-        padding: 0.75rem 0.75rem;
+    #stage-rec #video-seek-container {
+        padding: 0.6rem 0.25rem 0;
         margin-top: 0;
-        flex-shrink: 0;
-        order: 2;
     }
 
-    #video-modal #video-seek-container > div {
+    #stage-rec #video-seek-container > div {
         flex-wrap: wrap;
     }
 
-    #video-modal #video-seek-container #video-seek-bar {
+    #stage-rec #video-seek-container #video-seek-bar {
         flex: none;
         width: 100%;
         order: -1;
         margin-bottom: 0.15rem;
     }
 
-    #video-modal .jikkyo-sidebar {
-        order: 3;
-        flex: 1;
-        min-height: 0;
+    #stage-rec .jikkyo-sidebar {
         width: 100% !important;
         border-left: none;
         border-top: 1px solid var(--border);
     }
 
-    #video-modal .jikkyo-sidebar-messages {
-        max-height: none;
+    #stage-rec .jikkyo-sidebar-messages {
+        max-height: 40vh;
     }
 
     /* --- EPG fullscreen: mobile overrides --- */
@@ -2815,60 +2785,24 @@ body.fs-landscape-active {
     }
 }
 
-/* ===== Video Modal: Fullscreen layout ===== */
+/* ===== 録画プレイヤー: ステージ内レイアウト ===== */
 
-#video-modal .modal {
-    width: 100%;
-    max-width: 100%;
-    max-height: 100%;
-    height: 100%;
-    border-radius: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-#video-modal .modal-close {
-    top: 0.5rem;
-    right: 0.75rem;
-    z-index: 10;
-}
-
-#video-modal .modal h3 {
-    padding: 0.5rem 2.5rem 0.5rem 1rem;
-    margin-bottom: 0 !important;
-    font-size: 1rem;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-#video-modal .rec-player-with-sidebar {
-    flex: 1;
-    min-height: 0;
-}
-
-#video-modal .rec-player-main {
-    display: flex;
-    flex-direction: column;
-}
-
-#video-modal .rec-video-wrapper {
-    flex: 1;
-    min-height: 0;
+#stage-rec .rec-video-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-#video-modal #video-player {
-    max-height: 100%;
+#stage-rec #video-player {
+    max-height: var(--player-height);
     object-fit: contain;
+    margin: 0 auto;
+    display: block;
 }
 
-#video-modal #video-seek-container {
-    padding: 0.5rem 1rem;
+#stage-rec #video-seek-container {
+    padding: 0.5rem 0.25rem 0;
     margin-top: 0;
-    flex-shrink: 0;
 }
 
 /* ===== Recording Player with Jikkyo ===== */
@@ -2894,10 +2828,6 @@ body.fs-landscape-active {
 #video-player {
     width: 100%;
     background: #000;
-}
-
-#video-modal-title {
-    margin-bottom: var(--space-3);
 }
 
 @media (min-width: 769px) {
