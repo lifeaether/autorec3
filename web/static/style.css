@@ -1615,7 +1615,8 @@ button i[class*="ph"],
 .live-player-container:fullscreen #live-canvas,
 .live-player-container:-webkit-full-screen #live-video,
 .live-player-container:-webkit-full-screen #live-canvas {
-    max-height: 100%;
+    /* 常設ステージの高さ上限 (#stage-live #live-video, 詳細度が高い) より優先させる */
+    max-height: 100% !important;
     height: 100%;
 }
 
@@ -1627,7 +1628,8 @@ button i[class*="ph"],
 
 .rec-video-wrapper:fullscreen #video-player,
 .rec-video-wrapper:-webkit-full-screen #video-player {
-    max-height: 100%;
+    /* 常設ステージの高さ上限 (#stage-rec #video-player) より優先させる */
+    max-height: 100% !important;
     height: 100%;
     object-fit: contain;
 }
@@ -1645,6 +1647,7 @@ button i[class*="ph"],
 .fs-landscape canvas {
     width: 100% !important;
     height: 100% !important;
+    max-height: none !important;
     object-fit: contain;
 }
 @media screen and (orientation: portrait) {
@@ -1666,6 +1669,12 @@ button i[class*="ph"],
 }
 body.fs-landscape-active {
     overflow: hidden !important;
+}
+/* iOS 疑似フルスクリーン中は、常設ステージ (#player-stage, z-index:90 で
+   スタッキングコンテキストを作る) をボトムナビ (z-sticky:100) より前面へ上げ、
+   配下の映像 (z-fullscreen) がナビの下に閉じ込められないようにする */
+body.fs-landscape-active #player-stage {
+    z-index: var(--z-fullscreen);
 }
 .live-player-container.fs-landscape .live-player-bar {
     position: absolute;
