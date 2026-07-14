@@ -265,6 +265,14 @@ async function loadEPG() {
 /* 現在時刻線の更新タイマー */
 let _epgNowTimer = null;
 
+// 番組表のチャンネル見出しから、その局をライブ視聴開始する。
+// 番組表は名前しか持たないため channels を名前で引いて番号/sid に解決する。
+function startLiveFromEpg(name) {
+    const ch = channels.find(c => c.name === name);
+    if (!ch) { toast('このチャンネルはライブ視聴できません', { type: 'error' }); return; }
+    startLive(ch.number, ch.name, ch.sid);
+}
+
 function renderEPGGrid(programmes, container, options) {
     const showNowLine = options && options.showNowLine !== undefined ? options.showNowLine : true;
     const autoScroll = options && options.autoScroll !== undefined ? options.autoScroll : true;
@@ -382,7 +390,13 @@ function renderEPGGrid(programmes, container, options) {
     html += '<div class="epg-header">';
     html += `<div class="epg-header-corner">${dateLabelOf(gridStart)}</div>`;
     channelOrder.forEach(ch => {
-        html += `<div class="epg-header-cell">${escapeHtml(ch)}</div>`;
+        // channels.conf に存在する (選局可能な) 局だけ見出しからライブ視聴できるようにする
+        const tunable = channels.some(c => c.name === ch);
+        if (tunable) {
+            html += `<div class="epg-header-cell epg-header-live" onclick="startLiveFromEpg('${escapeHtml(ch)}')" title="${escapeHtml(ch)} をライブ視聴"><i class="ph ph-play-circle"></i><span class="epg-header-name">${escapeHtml(ch)}</span></div>`;
+        } else {
+            html += `<div class="epg-header-cell">${escapeHtml(ch)}</div>`;
+        }
     });
     html += '</div>';
 

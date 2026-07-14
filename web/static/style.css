@@ -702,6 +702,29 @@ table tr:last-child td {
     border-right: none;
 }
 
+/* 見出しからライブ視聴 (選局可能な局のみ) */
+.epg-header-cell.epg-header-live {
+    cursor: pointer;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+}
+.epg-header-cell.epg-header-live .ph {
+    font-size: 0.85rem;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+.epg-header-cell.epg-header-live .epg-header-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.epg-header-cell.epg-header-live:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
 .epg-header-corner {
     min-width: 44px;
     max-width: 44px;
