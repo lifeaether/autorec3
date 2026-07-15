@@ -2421,6 +2421,8 @@ let liveCurrentSid = null;  // 現在のサービスID (サブチャンネル)
 let liveRecScheduleId = null;  // 録画ライブ視聴時のスケジュールID
 let liveRecording = false;  // ライブ録画中かどうか
 let liveAirplayMode = false;  // iOS外部出力: ネイティブHLS(src直指定)で再生中か (この間 livePlayer は null)
+let _handoffInProgress = false;  // 録画開始→追っかけ移行の実行中フラグ (二重起動防止)
+let _handoffCheckTimer = null;   // ライブ視聴中の録画開始ポーリング
 
 // NHK ニュース系などで PMT 変化により A/V がずれる症状の対策:
 // MEDIA_INFO 2回目以降を検出したら player を作り直して SourceBuffer をクリーンに戻す。
@@ -2560,6 +2562,71 @@ function _teardownAirplayButton(video, btnId) {
     }
 }
 
+// 録画開始でライブが停止された(される)際に、その録画の追っかけ再生へ自然に移行する。
+// 追っかけ /recordings/live は録画ファイルが育ってから(active)しか繋がらないため、
+// 対象が active になるまで「切り替え中」表示でポーリングしてから移る。
+// 戻り値: handoff を開始/実行中なら true (通常エラー表示を抑止する)。
+async function _attemptRecordingHandoff() {
+    if (_handoffInProgress) return true;
+    if (liveRecScheduleId) return false;  // 既に追っかけ中なら対象外
+    let data;
+    try { data = await API.get('/api/live/handoff'); } catch (e) { return false; }
+    const recs = (data && data.recordings) || [];
+    if (recs.length === 0) return false;  // 移行対象なし → 通常のライブエラー処理へ
+
+    // 視聴中チャンネル名に一致する録画を優先、無ければ先頭(直近開始)
+    let chName = null;
+    if (liveCurrentCh != null) {
+        const ci = channels.find(c => c.number === liveCurrentCh);
+        chName = ci ? ci.name : null;
+    }
+    const target = (chName && recs.find(r => r.channel === chName)) || recs[0];
+
+    _handoffInProgress = true;
+    _stopHandoffWatch();
+    setPlayerLoading('live-loading', true, '録画が始まったため 録画中の視聴に切り替えています…');
+    hidePlayerError('live-error-card');
+
+    const deadline = Date.now() + 15000;
+    const tryConnect = async () => {
+        if (!_handoffInProgress) return;  // 途中でユーザー操作等によりキャンセル
+        let active = [];
+        try { const a = await API.get('/api/recordings/active'); active = (a && a.recordings) || []; } catch (e) {}
+        if (active.find(r => r.id === target.schedule_id)) {
+            _handoffInProgress = false;
+            stopLive(true);
+            startLiveFromRecording(target.schedule_id, target.channel);
+            toast(`「${target.title}」の録画が始まったため、録画中の視聴に切り替えました`, { type: 'info' });
+            return;
+        }
+        if (Date.now() > deadline) {
+            _handoffInProgress = false;
+            setPlayerLoading('live-loading', false);
+            showPlayerError('live-error-card', '録画開始のため配信が停止されました');
+            return;
+        }
+        setTimeout(tryConnect, 1000);
+    };
+    tryConnect();
+    return true;
+}
+
+// ライブ視聴中、録画開始が近づいたら能動的に検知して移行を先取りする(前面での滑らかな切替)。
+function _startHandoffWatch() {
+    _stopHandoffWatch();
+    _handoffCheckTimer = setInterval(async () => {
+        if (!livePlayer || !liveCurrentCh || liveRecScheduleId || _handoffInProgress) return;
+        try {
+            const data = await API.get('/api/live/handoff');
+            if (data && data.recordings && data.recordings.length > 0) _attemptRecordingHandoff();
+        } catch (e) { /* ignore */ }
+    }, 4000);
+}
+
+function _stopHandoffWatch() {
+    if (_handoffCheckTimer) { clearInterval(_handoffCheckTimer); _handoffCheckTimer = null; }
+}
+
 function _buildLivePlayer(chNum, sid) {
     const videoEl = document.getElementById('live-video');
     cleanupLiveVideoHandlers(videoEl);
@@ -2610,8 +2677,13 @@ function _buildLivePlayer(chNum, sid) {
     });
 
     livePlayer.on(mpegts.Events.ERROR, (type, detail) => {
-        setPlayerLoading('live-loading', false);
-        showPlayerError('live-error-card', `再生エラー: ${detail || type}`);
+        // 録画開始でサーバがストリームを切った場合は、その録画の追っかけへ移行する。
+        // 移行対象が無い(通常のエラー)場合のみエラーカードを表示。
+        _attemptRecordingHandoff().then(handled => {
+            if (handled) return;
+            setPlayerLoading('live-loading', false);
+            showPlayerError('live-error-card', `再生エラー: ${detail || type}`);
+        });
     });
 
     videoEl.addEventListener('playing', () => {
@@ -3943,6 +4015,9 @@ function startLive(chNum, chName, sid) {
     if (liveNowTimer) clearInterval(liveNowTimer);
     liveNowTimer = setInterval(loadLiveChannelGrid, 60000);
 
+    // 録画開始→追っかけ移行の能動監視 (通常ライブのみ)
+    _startHandoffWatch();
+
     // NX-Jikkyo 実況コメント開始
     jikkyo.initUI();
     jikkyo.start(chName);
@@ -3966,6 +4041,10 @@ function stopLive(keepGrid) {
 
     // コントロール停止
     liveControls.cleanup();
+
+    // 録画開始→追っかけ移行の監視を停止 (移行実行中フラグもリセット)
+    _stopHandoffWatch();
+    _handoffInProgress = false;
 
     // Canvas PiP 停止
     jikkyoPip.cleanup();

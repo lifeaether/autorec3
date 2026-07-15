@@ -673,6 +673,75 @@ def stop_all_live_streams(_body=None):
     return _json_response({"stopped": stopped})
 
 
+# 録画開始の何秒前にライブを止めてチューナーを空けるか (小さいほど切替の空白は短いが
+# record.sh のチューナー取得リトライ(3回×2秒)頼みになる。大きいほど確実だが空白が伸びる)。
+PREEMPT_LEAD_SEC = 3
+
+# 追っかけ移行先の候補 (直近で開始した/開始間近の録画)。フロントがポーリングで拾う。
+_pending_handoff = []          # [{schedule_id, channel, title, start_time, _ts}]
+_handoff_lock = threading.Lock()
+
+
+def get_live_handoff(_params=None):
+    """GET /api/live/handoff — 録画開始でライブが停止された際の移行先 (録画中番組) を返す。
+
+    schedule ベースなので、まだファイル (mtime) が育っていない開始直後でも返せる。
+    """
+    cutoff = time.time() - 30
+    with _handoff_lock:
+        recs = [
+            {"schedule_id": r["schedule_id"], "channel": r["channel"], "title": r["title"]}
+            for r in _pending_handoff if r["_ts"] >= cutoff
+        ]
+    return _json_response({"recordings": recs})
+
+
+def _recording_guard():
+    """録画直前にライブ配信を停止してチューナーを確保し、追っかけ移行先を記録する常駐スレッド。
+
+    以前は「録画優先でライブを止めるだけ」だったが、UX 改善のため停止に加えて移行先
+    (録画中番組) を _pending_handoff に記録し、フロントが追っかけ再生へ自然に移動できるようにする。
+    """
+    while True:
+        time.sleep(2)
+        try:
+            conn = _get_db(AUTOREC_DB)
+            now_dt = datetime.now()
+            # 開始 PREEMPT_LEAD_SEC 秒前 〜 開始5秒後 (retry 救済) の録画を対象にする
+            lead = (now_dt + timedelta(seconds=PREEMPT_LEAD_SEC)).strftime("%Y-%m-%d %H:%M:%S")
+            back = (now_dt - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+            rows = conn.execute(
+                "SELECT id, channel, title, start_time FROM schedule "
+                "WHERE start_time > ? AND start_time <= ? ORDER BY start_time",
+                (back, lead),
+            ).fetchall()
+            if not rows:
+                continue
+
+            # 移行先候補を記録 (フロントがポーリングで拾う)。60秒より古いものは掃除。
+            ts = time.time()
+            with _handoff_lock:
+                existing = {r["schedule_id"] for r in _pending_handoff}
+                for row in rows:
+                    if row["id"] not in existing:
+                        _pending_handoff.append({
+                            "schedule_id": row["id"], "channel": row["channel"],
+                            "title": row["title"], "start_time": row["start_time"], "_ts": ts,
+                        })
+                _pending_handoff[:] = [r for r in _pending_handoff if r["_ts"] >= ts - 60]
+
+            # 稼働中ライブがあればチューナーを解放 (録画の recpt1 起動前に空ける)
+            with _live_lock:
+                has_streams = len(_live_streams) > 0
+            if has_streams:
+                stop_all_live_streams()
+        except Exception:
+            pass
+
+
+threading.Thread(target=_recording_guard, daemon=True).start()
+
+
 def get_now_playing(params):
     """GET /api/live/now?channel=NHK総合"""
     channel = params.get("channel", [""])[0]
@@ -1376,6 +1445,8 @@ def handle_request(method, path, params, body=b""):
         return get_now_playing(params)
     if method == "GET" and path == "/api/live/now-all":
         return get_now_playing_all(params)
+    if method == "GET" and path == "/api/live/handoff":
+        return get_live_handoff(params)
 
     # ライブ制御
     if method == "POST" and path == "/api/live/stop-all":
