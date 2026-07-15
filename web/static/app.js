@@ -2657,6 +2657,7 @@ function _buildLivePlayer(chNum, sid) {
     livePlayer.attachMediaElement(videoEl);
 
     let _mediaInfoCount = 0;
+    let _lastMediaSig = null;
     livePlayer.on(mpegts.Events.MEDIA_INFO, (info) => {
         _mediaInfoCount++;
         setPlayerLoading('live-loading', false);
@@ -2669,10 +2670,17 @@ function _buildLivePlayer(chNum, sid) {
         if (info.audioCodec) infoText += ` / 音声: ${info.audioCodec}`;
         document.getElementById('live-stream-info').textContent = infoText;
 
-        // 2回目以降の MEDIA_INFO は PMT 変化 (番組切替・音声構成変更)。
-        // バッファ末尾シークでは A/V ドリフトを直せないため player ごと作り直す。
-        if (_mediaInfoCount > 1) {
-            restartLivePlayer();
+        // MEDIA_INFO は番組切替 (PMT 再送) の度に再発火するが、サーバは一定フォーマットに
+        // トランスコードしているため通常は出力フォーマットが変わらない。フォーマットが実際に
+        // 変化した時だけ player を作り直し、通常の番組切替では作り直さず継続再生する
+        // (作り直すと「接続中」＋数秒待機＋早送りが発生するため)。
+        const sig = [info.videoCodec, info.width, info.height, info.audioCodec,
+                     info.audioSampleRate, info.audioChannelCount].join('|');
+        if (_mediaInfoCount === 1) {
+            _lastMediaSig = sig;
+        } else if (sig !== _lastMediaSig) {
+            _lastMediaSig = sig;
+            restartLivePlayer();  // 解像度/コーデック等が実変化 → MSE の都合で作り直し
         }
     });
 
